@@ -67,8 +67,9 @@ class StatusFilaRequest(BaseModel):
 
 # --- LÓGICA DE DISTRIBUIÇÃO ---
 
-async def get_next_analyst(sit_id: int):
+async def get_next_analyst(sit_id: int, exclude_ids: Optional[List[int]] = None):
     try:
+        exclude_ids = exclude_ids or []
         response = supabase.table("analistas") \
             .select("*") \
             .eq("status", "ativo") \
@@ -81,6 +82,8 @@ async def get_next_analyst(sit_id: int):
             return None
 
         for analista in response.data:
+            if int(analista.get("id")) in [int(x) for x in exclude_ids]:
+                continue
             permissoes = analista.get("permissoes") or []
             if int(sit_id) in [int(p) for p in permissoes]:
                 return analista
@@ -106,13 +109,16 @@ async def perform_sync():
                 if not res_id or res_id == 'None': continue
                 ids_no_crm.append(res_id)
                 
-                ativa = supabase.table("distribuicoes").select("reserva_id").eq("reserva_id", res_id).execute()
+                # Busca se já existe distribuição para esta reserva
+                ativa = supabase.table("distribuicoes").select("*").eq("reserva_id", res_id).execute()
                 
                 if not ativa.data:
+                    # NOVA DISTRIBUIÇÃO
                     analista = await get_next_analyst(sit_id)
                     if analista:
                         now = datetime.datetime.now().isoformat()
                         try:
+                            # Garante que não está no histórico (caso tenha voltado ao CRM)
                             supabase.table("historico").delete().eq("reserva_id", res_id).execute()
                             
                             supabase.table("distribuicoes").insert({
@@ -132,7 +138,54 @@ async def perform_sync():
                             }).eq("id", analista["id"]).execute()
                         except Exception as e:
                             print(f"Erro ao gravar no banco: {e}")
+                else:
+                    # ATUALIZAÇÃO DE STATUS (RESOLVE O PROBLEMA DA PASTA 45815)
+                    # Se a pasta já existe, verificamos se a situação mudou no CRM
+                    dist_db = ativa.data[0]
+                    analista_atual_id = dist_db.get("analista_id")
 
+                    # AUTO-REASSIGN: se está sem analista ou com analista não elegível, tenta atribuir novamente
+                    deve_reatribuir = not analista_atual_id
+                    if analista_atual_id:
+                        analista_atual = supabase.table("analistas").select("*").eq("id", analista_atual_id).execute()
+                        if not analista_atual.data:
+                            deve_reatribuir = True
+                        else:
+                            a = analista_atual.data[0]
+                            permissoes = a.get("permissoes") or []
+                            if a.get("status") != "ativo" or not a.get("is_online") or int(sit_id) not in [int(p) for p in permissoes]:
+                                deve_reatribuir = True
+
+                    if deve_reatribuir:
+                        proximo = await get_next_analyst(sit_id, exclude_ids=[analista_atual_id] if analista_atual_id else None)
+                        if proximo:
+                            now = datetime.datetime.now().isoformat()
+                            supabase.table("distribuicoes").update({
+                                "analista_id": proximo["id"],
+                                "data_atribuicao": now,
+                                "situacao_id": sit_id,
+                                "situacao_nome": SITUACOES_NOMES.get(sit_id, "Geral")
+                            }).eq("reserva_id", res_id).execute()
+
+                            supabase.table("analistas").update({
+                                "ultima_atribuicao": now,
+                                "total_hoje": (proximo.get("total_hoje") or 0) + 1
+                            }).eq("id", proximo["id"]).execute()
+                        else:
+                            supabase.table("distribuicoes").update({
+                                "analista_id": None,
+                                "data_atribuicao": None,
+                                "situacao_id": sit_id,
+                                "situacao_nome": SITUACOES_NOMES.get(sit_id, "Geral")
+                            }).eq("reserva_id", res_id).execute()
+
+                    if int(dist_db.get("situacao_id", 0)) != int(sit_id):
+                        supabase.table("distribuicoes").update({
+                            "situacao_id": sit_id,
+                            "situacao_nome": SITUACOES_NOMES.get(sit_id, "Geral")
+                        }).eq("reserva_id", res_id).execute()
+
+        # REMOÇÃO: Se sumiu do CRM das situações monitoradas, apaga da mesa
         locais = supabase.table("distribuicoes").select("reserva_id").execute()
         if locais.data:
             for l in locais.data:
@@ -153,6 +206,29 @@ async def startup_event():
 
 # --- ENDPOINTS ---
 
+@app.post("/api/gestor/redistribuir")
+async def redistribute_all():
+    """Limpa as mesas e força uma nova distribuição do zero."""
+    try:
+        supabase.table("distribuicoes").delete().neq("reserva_id", "0").execute()
+        await perform_sync()
+        return {"status": "sucesso"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/gestor/zerar-dados")
+async def reset_all_data():
+    """Limpa a mesa atual e reinicia a ordem de distribuição sem excluir histórico."""
+    try:
+        supabase.table("distribuicoes").delete().neq("reserva_id", "0").execute()
+        supabase.table("analistas").update({
+            "total_hoje": 0,
+            "ultima_atribuicao": None
+        }).neq("id", 0).execute()
+        return {"status": "ok", "message": "Mesa limpa e ordem de distribuição reiniciada"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/api/login")
 async def login(req: LoginRequest):
     try:
@@ -167,7 +243,44 @@ async def login(req: LoginRequest):
 async def set_online_status(req: StatusFilaRequest):
     try:
         supabase.table("analistas").update({"is_online": req.online}).eq("id", req.analista_id).execute()
-        return {"status": "ok"}
+
+        redistribuidas = 0
+        sem_destino = 0
+
+        # Regra: ao ficar OFFLINE, redistribui as pastas da mesa dele para analistas ONLINE elegíveis
+        if not req.online:
+            mesa = supabase.table("distribuicoes").select("*").eq("analista_id", req.analista_id).execute()
+            itens_mesa = mesa.data or []
+
+            for item in itens_mesa:
+                sit_id = int(item.get("situacao_id", 0))
+                proximo = await get_next_analyst(sit_id, exclude_ids=[req.analista_id])
+                if not proximo:
+                    supabase.table("distribuicoes").update({
+                        "analista_id": None,
+                        "data_atribuicao": None
+                    }).eq("reserva_id", item["reserva_id"]).execute()
+                    sem_destino += 1
+                    continue
+
+                now = datetime.datetime.now().isoformat()
+                supabase.table("distribuicoes").update({
+                    "analista_id": proximo["id"],
+                    "data_atribuicao": now
+                }).eq("reserva_id", item["reserva_id"]).execute()
+
+                supabase.table("analistas").update({
+                    "ultima_atribuicao": now,
+                    "total_hoje": (proximo.get("total_hoje") or 0) + 1
+                }).eq("id", proximo["id"]).execute()
+
+                redistribuidas += 1
+
+        return {
+            "status": "ok",
+            "redistribuidas": redistribuidas,
+            "sem_destino": sem_destino
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail="Erro ao atualizar status da fila")
 
@@ -187,23 +300,28 @@ async def get_mesa(analista_id: int):
 @app.get("/api/metricas/{analista_id}")
 async def get_metrics(analista_id: int):
     now = datetime.datetime.now()
+    hoje_str = now.strftime("%Y-%m-%d")
     def count_period(since):
         q = supabase.table("historico").select("id", count="exact").eq("analista_id", analista_id).gte("data_fim", since).execute()
         return q.count or 0
     return {
-        "hoje": count_period(now.strftime("%Y-%m-%d")),
+        "hoje": count_period(hoje_str),
         "ano": count_period(now.strftime("%Y-01-01"))
     }
 
 @app.post("/api/concluir")
 async def concluir(reserva_id: str, resultado: str):
-    dist = supabase.table("distribuicoes").select("*, analistas(nome)").eq("reserva_id", reserva_id).execute()
+    dist = supabase.table("distribuicoes").select("*").eq("reserva_id", reserva_id).execute()
     if dist.data:
         d = dist.data[0]
         supabase.table("historico").insert({
-            "reserva_id": d["reserva_id"], "cliente": d["cliente"],
-            "analista_nome": d.get("analistas", {}).get("nome"),
-            "analista_id": d["analista_id"], "resultado": resultado
+            "reserva_id": d["reserva_id"], 
+            "cliente": d["cliente"],
+            "empreendimento": d["empreendimento"],
+            "unidade": d["unidade"],
+            "analista_id": d["analista_id"], 
+            "resultado": resultado,
+            "data_fim": datetime.datetime.now().isoformat()
         }).execute()
         supabase.table("distribuicoes").delete().eq("reserva_id", d["reserva_id"]).execute()
     return {"status": "ok"}
@@ -218,8 +336,19 @@ async def manager_overview():
                 d = r.json()
                 total_crm += len(d) if isinstance(d, list) else len(d.keys())
         except: pass
+    
     equipe = supabase.table("analistas").select("*").order("nome").execute().data or []
-    return {"equipe": equipe, "total_pendente_cvcrm": total_crm}
+    distribuicao_atual = supabase.table("distribuicoes").select("*").execute().data or []
+    historico_recente = supabase.table("historico").select("*").order("data_fim", desc=True).limit(100).execute().data or []
+    pastas_sem_destino = sum(1 for item in distribuicao_atual if not item.get("analista_id"))
+
+    return {
+        "equipe": equipe, 
+        "total_pendente_cvcrm": total_crm,
+        "distribuicao_atual": distribuicao_atual,
+        "historico_recente": historico_recente,
+        "pastas_sem_destino": pastas_sem_destino
+    }
 
 @app.post("/api/gestor/analistas")
 async def create_analyst(req: AnalystCreate):

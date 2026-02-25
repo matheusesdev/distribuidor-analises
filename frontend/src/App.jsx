@@ -23,7 +23,8 @@ const App = () => {
     equipe: [], 
     distribuicao_atual: [],
     historico_recente: [],
-    total_pendente_cvcrm: 0
+    total_pendente_cvcrm: 0,
+    pastas_sem_destino: 0
   });
 
   // --- ESTADOS DE UI E INTERATIVIDADE ---
@@ -49,6 +50,9 @@ const App = () => {
   const [editForm, setEditForm] = useState({ id: null, nome: "", senha: "", permissoes: [] });
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [confirmAction, setConfirmAction] = useState({ open: false, title: "", message: "", confirmLabel: "Confirmar", tone: "warning" });
+  const [togglingQueueIds, setTogglingQueueIds] = useState([]);
+  const confirmResolverRef = useRef(null);
 
   const API_BASE = "http://localhost:8000/api";
 
@@ -62,12 +66,12 @@ const App = () => {
   };
 
   const SIT_COLORS = {
-    62: { text: '#080b01', bg: '#7bb581' },
-    66: { text: '#060606', bg: '#5db144' },
-    30: { text: '#080707', bg: '#94f67b' },
-    84: { text: '#000000', bg: '#46c49e' },
-    16: { text: '#0e0000', bg: '#e5ee78' },
-    31: { text: '#010b04', bg: '#f49f51' }
+    62: { text: '#355e3b', bg: '#e8f3eb' },
+    66: { text: '#2f6b2f', bg: '#e4f2e4' },
+    30: { text: '#3b6b2f', bg: '#edf7e7' },
+    84: { text: '#1f6b5f', bg: '#e2f3ef' },
+    16: { text: '#7a6632', bg: '#faf5e2' },
+    31: { text: '#8a5a2b', bg: '#fbeee3' }
   };
 
   useEffect(() => {
@@ -83,6 +87,21 @@ const App = () => {
   const notify = (message, type = "success") => {
     setToast({ show: true, message, type });
     setTimeout(() => setToast({ show: false, message: "", type: "success" }), 3500);
+  };
+
+  const requestConfirmation = useCallback(({ title, message, confirmLabel = "Confirmar", tone = "warning" }) => {
+    return new Promise((resolve) => {
+      confirmResolverRef.current = resolve;
+      setConfirmAction({ open: true, title, message, confirmLabel, tone });
+    });
+  }, []);
+
+  const closeConfirmation = (confirmed) => {
+    if (confirmResolverRef.current) {
+      confirmResolverRef.current(confirmed);
+      confirmResolverRef.current = null;
+    }
+    setConfirmAction(prev => ({ ...prev, open: false }));
   };
 
   // --- CÁLCULOS ANALÍTICOS (FRONTEND PARA EVITAR ZEROS) ---
@@ -133,7 +152,8 @@ const App = () => {
             equipe: d.equipe || [], 
             distribuicao_atual: d.distribuicao_atual || [],
             historico_recente: d.historico_recente || [],
-            total_pendente_cvcrm: d.total_pendente_cvcrm || 0
+            total_pendente_cvcrm: d.total_pendente_cvcrm || 0,
+            pastas_sem_destino: d.pastas_sem_destino || 0
           });
         }
       }
@@ -205,7 +225,13 @@ const App = () => {
   };
 
   const handleRedistribute = async () => {
-    if (!window.confirm("Redistribuir todo o fluxo do zero?")) return;
+    const confirmed = await requestConfirmation({
+      title: "Confirmar redistribuição",
+      message: "Deseja realmente redistribuir as pastas agora?",
+      confirmLabel: "Redistribuir",
+      tone: "warning"
+    });
+    if (!confirmed) return;
     setIsGlobalLoading(true);
     try {
       const res = await fetch(`${API_BASE}/gestor/redistribuir`, { method: 'POST' });
@@ -215,6 +241,71 @@ const App = () => {
       }
     } catch (e) { notify("Erro ao redistribuir."); }
     finally { setIsGlobalLoading(false); }
+  };
+
+  const handleResetData = async () => {
+    const confirmed = await requestConfirmation({
+      title: "Confirmar limpeza da mesa",
+      message: "Deseja realmente zerar os dados da mesa atual e reiniciar a ordem da fila (sem excluir histórico)?",
+      confirmLabel: "Zerar Dados",
+      tone: "danger"
+    });
+    if (!confirmed) return;
+    setIsGlobalLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/gestor/zerar-dados`, { method: 'POST' });
+      if (res.ok) {
+        notify("Mesas limpas e ordem reiniciada!");
+        fetchData();
+      } else {
+        notify("Erro ao zerar dados.", "error");
+      }
+    } catch (e) { notify("Erro ao zerar dados.", "error"); }
+    finally { setIsGlobalLoading(false); }
+  };
+
+  const handleAdminQueueToggle = async (analyst) => {
+    if (togglingQueueIds.includes(analyst.id)) return;
+    const nextStatus = !analyst.is_online;
+    setTogglingQueueIds(prev => [...prev, analyst.id]);
+    setDashData(prev => ({
+      ...prev,
+      equipe: (prev.equipe || []).map(a => a.id === analyst.id ? { ...a, is_online: nextStatus } : a)
+    }));
+    setAnalysts(prev => (prev || []).map(a => a.id === analyst.id ? { ...a, is_online: nextStatus } : a));
+
+    try {
+      const res = await fetch(`${API_BASE}/analista/status-fila`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ analista_id: analyst.id, online: nextStatus })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (!nextStatus) {
+          notify(`${data.redistribuidas || 0} pastas redistribuídas, ${data.sem_destino || 0} sem destino.`);
+        } else {
+          notify(`${analyst.nome} ficou online.`);
+        }
+        fetchData(true);
+      } else {
+        setDashData(prev => ({
+          ...prev,
+          equipe: (prev.equipe || []).map(a => a.id === analyst.id ? { ...a, is_online: analyst.is_online } : a)
+        }));
+        setAnalysts(prev => (prev || []).map(a => a.id === analyst.id ? { ...a, is_online: analyst.is_online } : a));
+        notify("Erro ao atualizar fila do analista.", "error");
+      }
+    } catch (e) {
+      setDashData(prev => ({
+        ...prev,
+        equipe: (prev.equipe || []).map(a => a.id === analyst.id ? { ...a, is_online: analyst.is_online } : a)
+      }));
+      setAnalysts(prev => (prev || []).map(a => a.id === analyst.id ? { ...a, is_online: analyst.is_online } : a));
+      notify("Erro ao atualizar fila do analista.", "error");
+    } finally {
+      setTogglingQueueIds(prev => prev.filter(id => id !== analyst.id));
+    }
   };
 
   const handleSaveAnalyst = async () => {
@@ -298,10 +389,35 @@ const App = () => {
     </div>
   );
 
+  const ConfirmActionModal = () => {
+    if (!confirmAction.open) return null;
+    const isDanger = confirmAction.tone === "danger";
+    return (
+      <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[450] flex items-center justify-center p-4" onClick={() => closeConfirmation(false)}>
+        <div className="bg-white border border-slate-100 rounded-2xl shadow-2xl w-full max-w-md p-6 animate-in zoom-in-95" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-start gap-3 mb-4">
+            <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${isDanger ? 'bg-red-50 text-red-600' : 'bg-amber-50 text-amber-600'}`}>
+              <AlertTriangle size={16} />
+            </div>
+            <div>
+              <h3 className="text-sm font-black uppercase tracking-wide text-slate-800">{confirmAction.title}</h3>
+              <p className="text-[11px] font-bold text-slate-500 mt-1 leading-relaxed">{confirmAction.message}</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3 mt-5">
+            <button onClick={() => closeConfirmation(false)} className="py-2.5 bg-slate-50 text-slate-500 rounded-xl text-[10px] font-black uppercase border border-slate-100">Cancelar</button>
+            <button onClick={() => closeConfirmation(true)} className={`py-2.5 rounded-xl text-[10px] font-black uppercase text-white ${isDanger ? 'bg-red-600' : 'bg-amber-600'}`}>{confirmAction.confirmLabel}</button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   // --- TELA DE LOGIN ---
   if (view === 'login') return (
     <div className="min-h-screen flex items-center justify-center p-4 font-sans bg-[#f8fafc]">
       <StatusToast />
+      <ConfirmActionModal />
       {isGlobalLoading && <LoadingOverlay />}
       <div className="max-w-[340px] w-full bg-white rounded-[2rem] p-8 shadow-[0_20px_50px_rgba(0,0,0,0.04)] border border-slate-100 relative">
         <div className="text-center mb-8">
@@ -374,6 +490,7 @@ const App = () => {
   if (view === 'manager') return (
     <div className="min-h-screen font-sans bg-[#f8fafc] text-slate-800 flex flex-col overflow-x-hidden">
       <StatusToast />
+      <ConfirmActionModal />
       {isGlobalLoading && <LoadingOverlay />}
       <nav className="bg-white border-b border-slate-100 p-2.5 px-4 md:px-8 flex justify-between items-center sticky top-0 z-[100] shadow-sm">
         <div className="flex items-center gap-3 truncate">
@@ -382,6 +499,7 @@ const App = () => {
         </div>
         <div className="flex items-center gap-3">
           <button onClick={handleRedistribute} className="bg-amber-50 text-amber-600 px-4 py-1.5 rounded-lg text-[9px] font-black uppercase border border-amber-100 active:scale-95 flex items-center gap-2 shadow-sm"><RotateCcw size={12}/> Redistribuir</button>
+          <button onClick={handleResetData} className="bg-red-50 text-red-600 px-4 py-1.5 rounded-lg text-[9px] font-black uppercase border border-red-100 active:scale-95 flex items-center gap-2 shadow-sm"><Trash2 size={12}/> Zerar Dados</button>
           <button onClick={() => setView('login')} className="bg-white text-slate-400 px-4 py-1.5 rounded-lg text-[9px] font-black uppercase border border-slate-100 active:scale-95 shadow-sm">Sair</button>
         </div>
       </nav>
@@ -393,20 +511,27 @@ const App = () => {
                 <div className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase border transition-all ${isSyncing ? 'bg-blue-50 text-blue-600 border-blue-100 animate-pulse' : 'bg-green-50 text-green-600 border-green-100'}`}><RefreshCw size={10} className={isSyncing ? 'animate-spin' : ''}/> {isSyncing ? 'Sincronizando' : 'Sincronizado'}</div>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-                {Object.entries(SITUACOES_MAP).map(([id, nome]) => (
-                    <div key={id} className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-center group hover:border-blue-400 transition-all">
-                        <p className="text-[7px] font-bold text-slate-400 uppercase leading-tight mb-1 h-5 overflow-hidden line-clamp-2">{nome}</p>
-                        <div className="text-lg md:text-xl font-black text-slate-800 group-hover:text-blue-600 leading-none">{calculatedBreakdown[id] || 0}</div>
-                    </div>
-                ))}
+              {Object.entries(SITUACOES_MAP).map(([id, nome]) => {
+                const sitStyle = SIT_COLORS[id] || { text: '#0f172a', bg: '#f8fafc' };
+                return (
+                  <div key={id} className="p-3 rounded-xl border text-center transition-all" style={{ backgroundColor: sitStyle.bg, borderColor: sitStyle.bg }}>
+                    <p className="text-[7px] font-bold uppercase leading-tight mb-1 h-5 overflow-hidden line-clamp-2" style={{ color: sitStyle.text, opacity: 0.8 }}>{nome}</p>
+                    <div className="text-lg md:text-xl font-black leading-none" style={{ color: sitStyle.text }}>{calculatedBreakdown[id] || 0}</div>
+                  </div>
+                );
+              })}
             </div>
         </section>
 
-        <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
            <div className="bg-white p-5 md:p-6 rounded-2xl border border-slate-100 flex items-center justify-between group hover:border-blue-200 transition-all shadow-sm">
               <div><p className="text-[9px] font-black text-slate-400 uppercase mb-1 tracking-widest">Pendente CRM</p><div className="text-4xl md:text-5xl font-black text-blue-600 leading-none">{dashData.total_pendente_cvcrm}</div></div>
               <Hash className="text-blue-50 opacity-20 flex-shrink-0" size={48}/>
            </div>
+            <div className="bg-red-50 p-5 md:p-6 rounded-2xl border border-red-100 flex items-center justify-between group">
+              <div><p className="text-[9px] font-black text-red-400 uppercase mb-1 tracking-widest">Sem Destino</p><div className="text-4xl md:text-5xl font-black text-red-600 leading-none">{dashData.pastas_sem_destino || 0}</div></div>
+              <AlertTriangle className="text-red-200 opacity-70 flex-shrink-0" size={48}/>
+            </div>
            <div className="bg-blue-600 p-5 md:p-6 rounded-2xl shadow-xl shadow-blue-500/10 flex items-center justify-between text-white group">
               <div><p className="text-[9px] font-black text-blue-100 uppercase mb-1 tracking-widest">Equipa Online</p><div className="text-4xl md:text-5xl font-black leading-none">{dashData.equipe?.filter(a => a.is_online).length || 0}</div></div>
               <Users className="text-white opacity-20 flex-shrink-0" size={48}/>
@@ -433,7 +558,11 @@ const App = () => {
                         <td className="p-4 font-black text-slate-900 text-sm">{a.total_hoje || 0}</td>
                         <td className="p-4 font-black text-green-600 text-sm">{stats.feitosHoje}</td>
                         <td className="p-4 font-black text-blue-600 text-sm">{stats.naMesa}</td>
-                        <td className="p-4 text-right space-x-1 whitespace-nowrap"><button onClick={() => { setEditForm({id: a.id, nome: a.nome, senha: a.senha, permissoes: a.permissoes || []}); setShowEditModal(true); }} className="text-slate-300 hover:text-blue-500 p-2 transition-all inline-block"><Edit3 size={14}/></button><button onClick={() => handleDeleteAnalyst(a.id)} className="text-slate-300 hover:text-red-500 p-2 transition-all inline-block"><Trash2 size={14}/></button></td>
+                        <td className="p-4 text-right space-x-1 whitespace-nowrap">
+                          <button disabled={togglingQueueIds.includes(a.id)} onClick={() => handleAdminQueueToggle(a)} className={`p-2 rounded-lg border transition-all inline-flex items-center justify-center ${togglingQueueIds.includes(a.id) ? 'animate-pulse opacity-80 cursor-wait' : ''} ${a.is_online ? 'bg-red-50 text-red-600 border-red-100 hover:bg-red-100' : 'bg-green-600 text-white border-green-600 hover:bg-green-500'}`} title={a.is_online ? 'Desligar fila' : 'Ligar fila'}>{togglingQueueIds.includes(a.id) ? <RefreshCw size={14} className="animate-spin" /> : <Power size={14}/>}</button>
+                          <button onClick={() => { setEditForm({id: a.id, nome: a.nome, senha: a.senha, permissoes: a.permissoes || []}); setShowEditModal(true); }} className="text-slate-300 hover:text-blue-500 p-2 transition-all inline-block"><Edit3 size={14}/></button>
+                          <button onClick={() => handleDeleteAnalyst(a.id)} className="text-slate-300 hover:text-red-500 p-2 transition-all inline-block"><Trash2 size={14}/></button>
+                        </td>
                     </tr>
                 )})}
               </tbody>
@@ -483,6 +612,7 @@ const App = () => {
   return (
     <div className="min-h-screen font-sans bg-[#f8fafc] text-slate-800 flex flex-col overflow-x-hidden">
       <StatusToast />
+      <ConfirmActionModal />
       {isGlobalLoading && <LoadingOverlay />}
       <nav className="bg-white border-b border-slate-100 p-2 md:p-2.5 px-4 md:px-8 flex justify-between items-center sticky top-0 z-[100] shadow-sm h-14 md:h-16">
         <div className="flex items-center gap-3 md:gap-4 truncate">
