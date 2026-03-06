@@ -55,6 +55,7 @@ const App = () => {
   const confirmResolverRef = useRef(null);
 
   const API_BASE = "http://localhost:8000/api";
+  const CRM_BASE = "https://vca.cvcrm.com.br/gestor/comercial/reservas";
 
   const SITUACOES_MAP = {
     62: "ANÁLISE VENDA LOTEAMENTO",
@@ -222,6 +223,12 @@ const App = () => {
       }
     } catch (e) { notify("Erro ao processar."); }
     finally { setIsGlobalLoading(false); }
+  };
+
+  const openReservaInCRM = (reservaId) => {
+    if (!reservaId) return;
+    const crmUrl = `${CRM_BASE}/${reservaId}/administrar`;
+    window.open(crmUrl, '_blank', 'noopener,noreferrer');
   };
 
   const handleRedistribute = async () => {
@@ -683,7 +690,19 @@ const App = () => {
                      {filteredTasks.length > 0 ? filteredTasks.map(task => {
                        const sitStyle = SIT_COLORS[task.situacao_id] || { text: '#2563eb', bg: '#eff6ff' };
                        return (
-                       <div key={task.reserva_id} className="bg-white p-3 md:p-3.5 rounded-2xl border border-slate-100 shadow-sm hover:border-blue-400 transition-all flex group relative items-center">
+                       <div
+                         key={task.reserva_id}
+                         className="bg-white p-3 md:p-3.5 rounded-2xl border border-slate-100 shadow-sm hover:border-blue-400 transition-all flex group relative items-center cursor-pointer"
+                         onClick={() => openReservaInCRM(task.reserva_id)}
+                         role="button"
+                         tabIndex={0}
+                         onKeyDown={(e) => {
+                           if (e.key === 'Enter' || e.key === ' ') {
+                             e.preventDefault();
+                             openReservaInCRM(task.reserva_id);
+                           }
+                         }}
+                       >
                           <div className="grid grid-cols-12 items-center w-full gap-4">
                             <div className="col-span-12 md:col-span-5 flex items-center gap-3 min-w-0">
                                <div className="w-8 h-8 md:w-9 md:h-9 bg-slate-50 rounded-lg flex items-center justify-center text-[10px] font-black text-slate-400 border border-slate-100 flex-shrink-0 group-hover:text-blue-500 transition-all">{task.reserva_id.toString().slice(-2)}</div>
@@ -693,7 +712,7 @@ const App = () => {
                                <div className="flex items-center gap-1.5 text-[9px] md:text-[10px] font-bold text-slate-400 uppercase truncate"><Building2 size={12} className="text-blue-300 shrink-0"/><span className="truncate">{task.empreendimento}</span></div>
                                <div className="flex items-center gap-2 text-[8px] font-black uppercase px-2 py-0.5 rounded-md w-fit transition-colors shadow-sm" style={{ backgroundColor: sitStyle.bg, color: sitStyle.text }}><Tag size={9} className="shrink-0"/><span className="truncate">{task.situacao_nome || "Geral"}</span></div>
                             </div>
-                            <div className="col-span-12 md:col-span-3 flex items-center justify-end gap-2 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-slate-50"><button onClick={() => handleFinish(task.reserva_id, 'Concluído')} className="bg-green-600 text-white px-5 py-2 rounded-xl text-[9px] font-black uppercase shadow-md active:scale-95 flex-1 md:flex-initial">Concluir</button><button onClick={() => handleFinish(task.reserva_id, 'Discussão')} className="bg-slate-50 text-slate-400 px-5 py-2 rounded-xl text-[9px] font-black uppercase active:scale-95 border border-slate-100 flex-1 md:flex-initial">Pendente</button></div>
+                            <div className="col-span-12 md:col-span-3 flex items-center justify-end gap-2 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-slate-50"><button onClick={(e) => { e.stopPropagation(); handleFinish(task.reserva_id, 'Concluído'); }} className="bg-green-600 text-white px-5 py-2 rounded-xl text-[9px] font-black uppercase shadow-md active:scale-95 flex-1 md:flex-initial">Concluir</button><button onClick={(e) => { e.stopPropagation(); handleFinish(task.reserva_id, 'Discussão'); }} className="bg-slate-50 text-slate-400 px-5 py-2 rounded-xl text-[9px] font-black uppercase active:scale-95 border border-slate-100 flex-1 md:flex-initial">Pendente</button></div>
                           </div>
                        </div>
                      )}) : (
