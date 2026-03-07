@@ -6,14 +6,20 @@ import {
   UserPlus, Trash2, Power, Settings, CheckSquare, Square, 
   Edit3, UserCheck, Users, ShieldCheck, CheckCircle, Save,
   Layout, ChevronDown, Search, User as UserIcon,
-  Tag, BarChart3, PieChart, RotateCcw, ListOrdered
+  Tag, BarChart3, PieChart, RotateCcw, ListOrdered, ArrowRightLeft
 } from 'lucide-react';
+
+const AUTO_REFRESH_SECONDS = 15;
 
 const App = () => {
   // --- ESTADOS DE NAVEGAÇÃO ---
   const [view, setView] = useState('login'); 
   const [currentUser, setCurrentUser] = useState(null);
   const [analystTab, setAnalystTab] = useState('mesa'); 
+  const [managerTab, setManagerTab] = useState('dashboard');
+  const [transferMonthFilter, setTransferMonthFilter] = useState('all');
+  const [transferOriginFilter, setTransferOriginFilter] = useState('all');
+  const [transferDestinationFilter, setTransferDestinationFilter] = useState('all');
 
   // --- ESTADOS DE DADOS ---
   const [analysts, setAnalysts] = useState([]);
@@ -23,6 +29,7 @@ const App = () => {
     equipe: [], 
     distribuicao_atual: [],
     historico_recente: [],
+    logs_transferencias: [],
     total_pendente_cvcrm: 0,
     pastas_sem_destino: 0
   });
@@ -30,6 +37,8 @@ const App = () => {
   // --- ESTADOS DE UI E INTERATIVIDADE ---
   const [isGlobalLoading, setIsGlobalLoading] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [refreshCountdown, setRefreshCountdown] = useState(AUTO_REFRESH_SECONDS);
+  const [nextRefreshAt, setNextRefreshAt] = useState(Date.now() + (AUTO_REFRESH_SECONDS * 1000));
   const [toast, setToast] = useState({ show: false, message: "", type: "success" });
   const [apiError, setApiError] = useState(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -52,6 +61,10 @@ const App = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [confirmAction, setConfirmAction] = useState({ open: false, title: "", message: "", confirmLabel: "Confirmar", tone: "warning" });
   const [togglingQueueIds, setTogglingQueueIds] = useState([]);
+  const [showTransferModal, setShowTransferModal] = useState(false);
+  const [transferTask, setTransferTask] = useState(null);
+  const [transferToId, setTransferToId] = useState("");
+  const [transferReason, setTransferReason] = useState("");
   const confirmResolverRef = useRef(null);
 
   const API_BASE = "http://localhost:8000/api";
@@ -88,6 +101,18 @@ const App = () => {
   const notify = (message, type = "success") => {
     setToast({ show: true, message, type });
     setTimeout(() => setToast({ show: false, message: "", type: "success" }), 3500);
+  };
+
+  const getApiErrorMessage = async (response, fallbackMessage) => {
+    try {
+      const data = await response.json();
+      if (typeof data === 'string' && data.trim()) return data;
+      if (data?.detail) return data.detail;
+      if (data?.message) return data.message;
+    } catch {
+      // ignora erro de parse para usar fallback
+    }
+    return `${fallbackMessage} (${response.status})`;
   };
 
   const requestConfirmation = useCallback(({ title, message, confirmLabel = "Confirmar", tone = "warning" }) => {
@@ -153,6 +178,7 @@ const App = () => {
             equipe: d.equipe || [], 
             distribuicao_atual: d.distribuicao_atual || [],
             historico_recente: d.historico_recente || [],
+            logs_transferencias: d.logs_transferencias || [],
             total_pendente_cvcrm: d.total_pendente_cvcrm || 0,
             pastas_sem_destino: d.pastas_sem_destino || 0
           });
@@ -164,17 +190,31 @@ const App = () => {
     } finally {
       setIsSyncing(false);
       if (!silent) setIsGlobalLoading(false);
+      setNextRefreshAt(Date.now() + (AUTO_REFRESH_SECONDS * 1000));
     }
   }, [currentUser, view]);
 
   useEffect(() => {
     fetchData();
-    const interval = setInterval(() => fetchData(true), 15000); 
+    const interval = setInterval(() => fetchData(true), AUTO_REFRESH_SECONDS * 1000);
     return () => clearInterval(interval);
   }, [fetchData]);
 
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const secondsLeft = Math.max(0, Math.ceil((nextRefreshAt - Date.now()) / 1000));
+      setRefreshCountdown(secondsLeft);
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [nextRefreshAt]);
+
   // --- ACÇÕES OPERACIONAIS ---
   const handleLogin = async () => {
+    if (!selectedAnalyst) {
+      notify("Selecione um usuário.", "error");
+      return;
+    }
     if (!password) return;
     setIsGlobalLoading(true);
     try {
@@ -190,9 +230,9 @@ const App = () => {
         setView('analyst');
         notify(`Olá, ${selectedAnalyst.nome}!`);
       } else {
-        notify("Senha incorreta.", "error");
+        notify(await getApiErrorMessage(res, "Falha no login"), "error");
       }
-    } catch (e) { notify("Erro de conexão."); }
+    } catch (e) { notify("Erro de conexão com o servidor.", "error"); }
     finally { setIsGlobalLoading(false); }
   };
 
@@ -229,6 +269,48 @@ const App = () => {
     if (!reservaId) return;
     const crmUrl = `${CRM_BASE}/${reservaId}/administrar`;
     window.open(crmUrl, '_blank', 'noopener,noreferrer');
+  };
+
+  const openTransferModal = (task) => {
+    setTransferTask(task);
+    setTransferToId("");
+    setTransferReason("");
+    setShowTransferModal(true);
+  };
+
+  const handleTransferTask = async () => {
+    if (!transferTask || !transferToId || !currentUser) return;
+    const trimmedReason = transferReason.trim();
+    if (!trimmedReason) {
+      notify("Informe o motivo da transferência.", "error");
+      return;
+    }
+    setIsGlobalLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/analista/transferir`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          reserva_id: transferTask.reserva_id,
+          analista_origem_id: currentUser.id,
+          analista_destino_id: parseInt(transferToId),
+          motivo: trimmedReason
+        })
+      });
+
+      if (res.ok) {
+        notify("Pasta transferida com sucesso.");
+        setShowTransferModal(false);
+        setTransferTask(null);
+        fetchData();
+      } else {
+        notify(await getApiErrorMessage(res, "Erro ao transferir pasta"), "error");
+      }
+    } catch (e) {
+      notify("Erro ao transferir pasta.", "error");
+    } finally {
+      setIsGlobalLoading(false);
+    }
   };
 
   const handleRedistribute = async () => {
@@ -379,6 +461,137 @@ const App = () => {
     return (analysts || []).filter(a => a.nome.toLowerCase().includes(profileSearch.toLowerCase()));
   }, [analysts, profileSearch]);
 
+  const transferTargetOptions = useMemo(() => {
+    if (!transferTask || !currentUser) return [];
+    const sitId = parseInt(transferTask.situacao_id);
+    return (analysts || []).filter(a => {
+      if (a.id === currentUser.id) return false;
+      if (a.status !== 'ativo' || !a.is_online) return false;
+      const perms = a.permissoes || [];
+      return perms.includes(sitId);
+    });
+  }, [analysts, transferTask, currentUser]);
+
+  const selectedTransferTarget = useMemo(() => {
+    if (!transferToId) return null;
+    return transferTargetOptions.find(a => String(a.id) === String(transferToId)) || null;
+  }, [transferTargetOptions, transferToId]);
+
+  const groupedTransferLogs = useMemo(() => {
+    const logs = dashData.logs_transferencias || [];
+
+    const filtered = logs.filter(log => {
+      if (transferMonthFilter === 'all') return true;
+      const dateRef = log.data_transferencia || log.created_at;
+      if (!dateRef) return false;
+      const d = new Date(dateRef);
+      const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      return monthKey === transferMonthFilter;
+    }).filter(log => {
+      if (transferOriginFilter === 'all') return true;
+      return String(log.analista_origem_id) === String(transferOriginFilter);
+    }).filter(log => {
+      if (transferDestinationFilter === 'all') return true;
+      return String(log.analista_destino_id) === String(transferDestinationFilter);
+    });
+
+    const grouped = {};
+
+    filtered.forEach(log => {
+      const dateRef = log.data_transferencia || log.created_at;
+      if (!dateRef) return;
+      const dayKey = new Date(dateRef).toLocaleDateString('pt-BR');
+      if (!grouped[dayKey]) grouped[dayKey] = [];
+      grouped[dayKey].push(log);
+    });
+
+    return Object.entries(grouped).sort((a, b) => {
+      const [da, ma, aa] = a[0].split('/').map(Number);
+      const [db, mb, ab] = b[0].split('/').map(Number);
+      return new Date(ab, mb - 1, db) - new Date(aa, ma - 1, da);
+    });
+  }, [dashData.logs_transferencias, transferMonthFilter, transferOriginFilter, transferDestinationFilter]);
+
+  const transferMonthOptions = useMemo(() => {
+    const options = [];
+    const seen = new Set();
+    (dashData.logs_transferencias || []).forEach(log => {
+      const dateRef = log.data_transferencia || log.created_at;
+      if (!dateRef) return;
+      const d = new Date(dateRef);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        const label = d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+        options.push({ value: key, label: label.charAt(0).toUpperCase() + label.slice(1) });
+      }
+    });
+    return options.sort((a, b) => b.value.localeCompare(a.value));
+  }, [dashData.logs_transferencias]);
+
+  const transferOriginOptions = useMemo(() => {
+    const map = new Map();
+    (dashData.logs_transferencias || []).forEach(log => {
+      if (!log.analista_origem_id) return;
+      const key = String(log.analista_origem_id);
+      if (!map.has(key)) {
+        map.set(key, {
+          value: key,
+          label: log.analista_origem_nome || `Analista ${log.analista_origem_id}`
+        });
+      }
+    });
+    return Array.from(map.values()).sort((a, b) => a.label.localeCompare(b.label));
+  }, [dashData.logs_transferencias]);
+
+  const transferDestinationOptions = useMemo(() => {
+    const map = new Map();
+    (dashData.logs_transferencias || []).forEach(log => {
+      if (!log.analista_destino_id) return;
+      const key = String(log.analista_destino_id);
+      if (!map.has(key)) {
+        map.set(key, {
+          value: key,
+          label: log.analista_destino_nome || `Analista ${log.analista_destino_id}`
+        });
+      }
+    });
+    return Array.from(map.values()).sort((a, b) => a.label.localeCompare(b.label));
+  }, [dashData.logs_transferencias]);
+
+  const transferInsights = useMemo(() => {
+    const logs = groupedTransferLogs.flatMap(([, dayLogs]) => dayLogs);
+    const senderCount = {};
+    const receiverCount = {};
+    const pairCount = {};
+
+    logs.forEach(log => {
+      const sender = log.analista_origem_nome || `Analista ${log.analista_origem_id}`;
+      const receiver = log.analista_destino_nome || `Analista ${log.analista_destino_id}`;
+      senderCount[sender] = (senderCount[sender] || 0) + 1;
+      receiverCount[receiver] = (receiverCount[receiver] || 0) + 1;
+      const pairKey = `${receiver}|||${sender}`;
+      pairCount[pairKey] = (pairCount[pairKey] || 0) + 1;
+    });
+
+    const topSender = Object.entries(senderCount).sort((a, b) => b[1] - a[1])[0] || null;
+    const topReceiver = Object.entries(receiverCount).sort((a, b) => b[1] - a[1])[0] || null;
+    const topPair = Object.entries(pairCount).sort((a, b) => b[1] - a[1])[0] || null;
+
+    return {
+      total: logs.length,
+      topSender,
+      topReceiver,
+      topPair
+    };
+  }, [groupedTransferLogs]);
+
+  const resetTransferFilters = () => {
+    setTransferMonthFilter('all');
+    setTransferOriginFilter('all');
+    setTransferDestinationFilter('all');
+  };
+
   // --- UI COMPONENTS ---
   const LoadingOverlay = () => (
     <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-white/60 backdrop-blur-[2px]">
@@ -512,6 +725,13 @@ const App = () => {
       </nav>
 
       <main className="max-w-7xl mx-auto p-4 md:p-6 space-y-6 flex-1">
+        <section className="bg-white border border-slate-100 rounded-2xl p-2 shadow-sm flex gap-2 w-fit">
+          <button onClick={() => setManagerTab('dashboard')} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wide transition-all ${managerTab === 'dashboard' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-500 bg-slate-50 hover:bg-slate-100'}`}>Dashboard</button>
+          <button onClick={() => setManagerTab('transferencias')} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wide transition-all flex items-center gap-2 ${managerTab === 'transferencias' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-500 bg-slate-50 hover:bg-slate-100'}`}><ArrowRightLeft size={12} /> Transferências</button>
+        </section>
+
+        {managerTab === 'dashboard' && (
+        <>
         <section className="bg-white p-5 md:p-6 rounded-2xl border border-slate-100 shadow-sm">
             <div className="flex items-center justify-between mb-8 px-1">
                 <div className="flex items-center gap-2.5"><BarChart3 size={16} className="text-blue-600" /><h3 className="text-[10px] font-black uppercase tracking-widest text-slate-700">Fluxo por Situação</h3></div>
@@ -576,6 +796,96 @@ const App = () => {
             </table>
           </div>
         </section>
+
+        </>
+        )}
+
+        {managerTab === 'transferencias' && (
+        <section className="bg-white rounded-[1.5rem] md:rounded-[2rem] border border-slate-100 overflow-hidden shadow-sm">
+          <div className="p-5 md:p-6 border-b border-slate-50 flex items-center gap-2 bg-slate-50/20">
+            <ArrowRightLeft size={18} className="text-blue-600" />
+            <h2 className="text-[10px] font-black uppercase tracking-widest text-slate-800">Log de Transferências (por dia)</h2>
+          </div>
+
+          <div className="p-4 md:p-6 border-b border-slate-100 bg-white/60 space-y-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+              <div className="text-[10px] font-black uppercase tracking-widest text-slate-500">Filtros</div>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-2 w-full md:w-auto">
+                <select value={transferMonthFilter} onChange={(e) => setTransferMonthFilter(e.target.value)} className="bg-slate-50 border border-slate-100 rounded-xl px-3 py-2 text-[10px] font-black uppercase text-slate-600 outline-none">
+                  <option value="all">Todos os meses</option>
+                  {transferMonthOptions.map(opt => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+
+                <select value={transferOriginFilter} onChange={(e) => setTransferOriginFilter(e.target.value)} className="bg-slate-50 border border-slate-100 rounded-xl px-3 py-2 text-[10px] font-black uppercase text-slate-600 outline-none">
+                  <option value="all">Origem: todos</option>
+                  {transferOriginOptions.map(opt => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+
+                <select value={transferDestinationFilter} onChange={(e) => setTransferDestinationFilter(e.target.value)} className="bg-slate-50 border border-slate-100 rounded-xl px-3 py-2 text-[10px] font-black uppercase text-slate-600 outline-none">
+                  <option value="all">Destino: todos</option>
+                  {transferDestinationOptions.map(opt => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+
+                <button
+                  onClick={resetTransferFilters}
+                  className="bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 text-[10px] font-black uppercase text-amber-700 hover:bg-amber-100 transition-all inline-flex items-center justify-center gap-1.5"
+                >
+                  <RotateCcw size={12} />
+                  Limpar filtros
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="bg-slate-50 border border-slate-100 rounded-xl p-3">
+                <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 mb-1">Quem mais enviou</p>
+                <p className="text-[11px] font-black text-slate-700 uppercase truncate">{transferInsights.topSender ? transferInsights.topSender[0] : '—'}</p>
+                <p className="text-[9px] font-black text-blue-600 mt-1">{transferInsights.topSender ? `${transferInsights.topSender[1]} transferências` : 'Sem dados'}</p>
+              </div>
+              <div className="bg-slate-50 border border-slate-100 rounded-xl p-3">
+                <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 mb-1">Quem mais recebeu</p>
+                <p className="text-[11px] font-black text-slate-700 uppercase truncate">{transferInsights.topReceiver ? transferInsights.topReceiver[0] : '—'}</p>
+                <p className="text-[9px] font-black text-green-600 mt-1">{transferInsights.topReceiver ? `${transferInsights.topReceiver[1]} recebidas` : 'Sem dados'}</p>
+              </div>
+              <div className="bg-slate-50 border border-slate-100 rounded-xl p-3">
+                <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 mb-1">Recebeu mais de quem</p>
+                <p className="text-[11px] font-black text-slate-700 uppercase truncate">{transferInsights.topPair ? transferInsights.topPair[0].split('|||')[0] : '—'}</p>
+                <p className="text-[9px] font-black text-amber-600 mt-1 truncate">{transferInsights.topPair ? `${transferInsights.topPair[1]} de ${transferInsights.topPair[0].split('|||')[1]}` : 'Sem dados'}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-4 md:p-6 space-y-4 max-h-[420px] overflow-y-auto custom-scrollbar">
+            {groupedTransferLogs.length > 0 ? groupedTransferLogs.map(([dia, logs]) => (
+              <div key={dia} className="border border-slate-100 rounded-xl overflow-hidden">
+                <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-100 text-[10px] font-black uppercase tracking-widest text-slate-600">{dia}</div>
+                <div className="divide-y divide-slate-50">
+                  {logs.map((log, idx) => {
+                    const hora = new Date(log.data_transferencia || log.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                    return (
+                      <div key={`${log.id || log.reserva_id}-${idx}`} className="px-4 py-2.5 flex flex-col md:flex-row md:items-center md:justify-between gap-1.5">
+                        <div className="text-[10px] font-bold text-slate-600 uppercase tracking-wide">
+                          Pasta {log.reserva_id} • {log.analista_origem_nome} <span className="text-slate-300">→</span> {log.analista_destino_nome}
+                          {log.motivo ? <span className="text-slate-400 normal-case font-bold"> • Motivo: {log.motivo}</span> : null}
+                        </div>
+                        <div className="text-[9px] text-slate-400 font-black uppercase tracking-wider">{hora}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )) : (
+              <div className="py-8 text-center text-slate-300 font-black uppercase text-[10px] tracking-[0.2em]">Sem transferências registradas.</div>
+            )}
+          </div>
+        </section>
+        )}
       </main>
 
       {showEditModal && (
@@ -620,19 +930,90 @@ const App = () => {
     <div className="min-h-screen font-sans bg-[#f8fafc] text-slate-800 flex flex-col overflow-x-hidden">
       <StatusToast />
       <ConfirmActionModal />
+      {showTransferModal && transferTask && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[450] flex items-center justify-center p-4" onClick={() => setShowTransferModal(false)}>
+          <div className="bg-white border border-slate-100 rounded-2xl shadow-2xl w-full max-w-md p-6 animate-in zoom-in-95" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start gap-3 mb-4">
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-blue-50 text-blue-600">
+                <ArrowRightLeft size={16} />
+              </div>
+              <div>
+                <h3 className="text-sm font-black uppercase tracking-wide text-slate-800">Transferir Pasta</h3>
+                <p className="text-[11px] font-bold text-slate-500 mt-1 leading-relaxed">Reserva {transferTask.reserva_id} • {transferTask.cliente}</p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Analista Destino</label>
+              <div className="bg-slate-50 border border-slate-100 rounded-xl p-2 max-h-44 overflow-y-auto custom-scrollbar space-y-1.5">
+                {transferTargetOptions.length > 0 ? transferTargetOptions.map(a => {
+                  const isSelected = String(transferToId) === String(a.id);
+                  return (
+                    <button
+                      key={a.id}
+                      type="button"
+                      onClick={() => setTransferToId(String(a.id))}
+                      className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left transition-all border ${isSelected ? 'bg-blue-600 text-white border-blue-600 shadow-sm' : 'bg-white text-slate-700 border-slate-100 hover:border-blue-200'}`}
+                    >
+                      <div className={`w-6 h-6 rounded-md flex items-center justify-center text-[9px] font-black uppercase ${isSelected ? 'bg-white/20 text-white' : 'bg-slate-50 text-slate-400'}`}>
+                        {a.nome?.charAt(0) || 'A'}
+                      </div>
+                      <span className="text-[10px] font-black uppercase tracking-wide truncate">{a.nome}</span>
+                    </button>
+                  );
+                }) : (
+                  <div className="px-2 py-3 text-center text-[10px] font-black uppercase tracking-wide text-slate-400">
+                    Nenhum analista elegível para esta pasta
+                  </div>
+                )}
+              </div>
+
+              <div className="bg-slate-50 border border-slate-100 rounded-xl px-3 py-2.5 text-[10px] font-black uppercase tracking-wide text-slate-500">
+                {selectedTransferTarget ? (
+                  <span>Destino selecionado: <span className="text-blue-600">{selectedTransferTarget.nome}</span></span>
+                ) : (
+                  <span>Nenhum destino selecionado</span>
+                )}
+              </div>
+
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Motivo da transferência *</label>
+              <input
+                type="text"
+                value={transferReason}
+                onChange={(e) => setTransferReason(e.target.value)}
+                placeholder="Informe o motivo"
+                className="w-full bg-slate-50 border border-slate-100 rounded-xl py-3 px-4 text-[11px] text-slate-700 font-bold outline-none focus:ring-2 focus:ring-blue-500"
+                required
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 mt-5">
+              <button onClick={() => setShowTransferModal(false)} className="py-2.5 bg-slate-50 text-slate-500 rounded-xl text-[10px] font-black uppercase border border-slate-100">Cancelar</button>
+              <button
+                disabled={!transferToId || !transferReason.trim()}
+                onClick={handleTransferTask}
+                className="py-2.5 rounded-xl text-[10px] font-black uppercase text-white bg-blue-600 disabled:bg-blue-300"
+              >
+                Transferir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {isGlobalLoading && <LoadingOverlay />}
       <nav className="bg-white border-b border-slate-100 p-2 md:p-2.5 px-4 md:px-8 flex justify-between items-center sticky top-0 z-[100] shadow-sm h-14 md:h-16">
         <div className="flex items-center gap-3 md:gap-4 truncate">
           <div className="w-9 h-9 md:w-10 md:h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white font-black text-lg shadow-lg shadow-blue-500/20 flex-shrink-0">{currentUser?.nome?.charAt(0)}</div>
           <div className="hidden sm:block truncate">
             <h3 className="font-bold text-slate-700 leading-none text-xs md:text-sm uppercase truncate">{currentUser?.nome}</h3>
-            <span className={`text-[8px] md:text-[9px] font-black uppercase tracking-widest mt-1 flex items-center gap-1 ${currentUser?.is_online ? 'text-green-600' : 'text-slate-400'}`}>{currentUser?.is_online ? 'ATIVO NA FILA' : 'PAUSADO'}</span>
+            <span className={`text-[8px] md:text-[9px] font-black uppercase tracking-widest mt-1 flex items-center gap-1 ${currentUser?.is_online ? 'text-green-600' : 'text-slate-400'}`}>{currentUser?.is_online ? `ATIVO NA FILA • ${refreshCountdown}s` : 'PAUSADO'}</span>
           </div>
         </div>
         <div className="flex items-center gap-2 md:gap-3">
            <div className={`hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full border ${currentUser?.is_online ? 'bg-green-50 border-green-100 text-green-600' : 'bg-slate-50 border-slate-200 text-slate-300'}`}>
               <div className={`w-1.5 h-1.5 rounded-full ${currentUser?.is_online ? 'bg-green-500 animate-pulse' : 'bg-slate-300'}`} />
-              <span className="text-[9px] font-black uppercase tracking-widest">{currentUser?.is_online ? 'DISPONÍVEL' : 'OFFLINE'}</span>
+              <Clock size={12} className="opacity-70" />
+              <span className="text-[9px] font-black uppercase tracking-widest">{currentUser?.is_online ? `DISPONÍVEL • ${refreshCountdown}s` : 'OFFLINE'}</span>
            </div>
            <div className="flex bg-slate-50 p-1 rounded-xl gap-1 md:gap-1.5 items-center border border-slate-100 flex-shrink-0">
                 <button onClick={() => toggleQueueStatus(!currentUser?.is_online)} className={`flex items-center gap-1.5 px-3 md:px-4 py-1.5 md:py-2 rounded-lg text-[8px] md:text-[9px] font-black uppercase transition-all shadow-sm ${currentUser?.is_online ? 'bg-red-50 text-red-600 border border-red-100 active:scale-95' : 'bg-green-600 text-white shadow-md active:scale-95'}`}>
@@ -704,15 +1085,25 @@ const App = () => {
                          }}
                        >
                           <div className="grid grid-cols-12 items-center w-full gap-4">
-                            <div className="col-span-12 md:col-span-5 flex items-center gap-3 min-w-0">
+                             <div className="col-span-12 lg:col-span-5 flex items-center gap-3 min-w-0">
                                <div className="w-8 h-8 md:w-9 md:h-9 bg-slate-50 rounded-lg flex items-center justify-center text-[10px] font-black text-slate-400 border border-slate-100 flex-shrink-0 group-hover:text-blue-500 transition-all">{task.reserva_id.toString().slice(-2)}</div>
                                <div className="min-w-0 flex flex-col"><span className="text-[7px] font-black text-slate-400 uppercase tracking-widest leading-none block">ID: {task.reserva_id}</span><h4 className="text-[12px] md:text-[13px] font-black text-slate-800 uppercase tracking-tight truncate pr-2" title={task.cliente}>{task.cliente}</h4></div>
                             </div>
-                            <div className="col-span-12 md:col-span-4 space-y-1 min-w-0 border-l border-slate-100 md:pl-4">
+                             <div className="col-span-12 lg:col-span-4 space-y-1 min-w-0 lg:border-l border-slate-100 lg:pl-4">
                                <div className="flex items-center gap-1.5 text-[9px] md:text-[10px] font-bold text-slate-400 uppercase truncate"><Building2 size={12} className="text-blue-300 shrink-0"/><span className="truncate">{task.empreendimento}</span></div>
                                <div className="flex items-center gap-2 text-[8px] font-black uppercase px-2 py-0.5 rounded-md w-fit transition-colors shadow-sm" style={{ backgroundColor: sitStyle.bg, color: sitStyle.text }}><Tag size={9} className="shrink-0"/><span className="truncate">{task.situacao_nome || "Geral"}</span></div>
                             </div>
-                            <div className="col-span-12 md:col-span-3 flex items-center justify-end gap-2 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-slate-50"><button onClick={(e) => { e.stopPropagation(); handleFinish(task.reserva_id, 'Concluído'); }} className="bg-green-600 text-white px-5 py-2 rounded-xl text-[9px] font-black uppercase shadow-md active:scale-95 flex-1 md:flex-initial">Concluir</button><button onClick={(e) => { e.stopPropagation(); handleFinish(task.reserva_id, 'Discussão'); }} className="bg-slate-50 text-slate-400 px-5 py-2 rounded-xl text-[9px] font-black uppercase active:scale-95 border border-slate-100 flex-1 md:flex-initial">Pendente</button></div>
+                            <div className="col-span-12 lg:col-span-3 flex items-center justify-end gap-2 pt-2 lg:pt-0 border-t lg:border-t-0 border-slate-50">
+                              <button
+                                onClick={(e) => { e.stopPropagation(); openTransferModal(task); }}
+                                className="bg-blue-50 text-blue-600 p-2 rounded-xl text-[9px] font-black uppercase active:scale-95 border border-blue-100 flex items-center justify-center"
+                                title="Transferir pasta"
+                              >
+                                <ArrowRightLeft size={14} />
+                              </button>
+                              <button onClick={(e) => { e.stopPropagation(); handleFinish(task.reserva_id, 'Concluído'); }} className="bg-green-600 text-white px-5 py-2 rounded-xl text-[9px] font-black uppercase shadow-md active:scale-95 flex-1 lg:flex-initial">Concluir</button>
+                              <button onClick={(e) => { e.stopPropagation(); handleFinish(task.reserva_id, 'Discussão'); }} className="bg-slate-50 text-slate-400 px-5 py-2 rounded-xl text-[9px] font-black uppercase active:scale-95 border border-slate-100 flex-1 lg:flex-initial">Pendente</button>
+                            </div>
                           </div>
                        </div>
                      )}) : (
