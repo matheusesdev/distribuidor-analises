@@ -65,6 +65,12 @@ class StatusFilaRequest(BaseModel):
     analista_id: int
     online: bool
 
+class TransferirPastaRequest(BaseModel):
+    reserva_id: str
+    analista_origem_id: int
+    analista_destino_id: int
+    motivo: str
+
 # --- LÓGICA DE DISTRIBUIÇÃO ---
 
 async def get_next_analyst(sit_id: int, exclude_ids: Optional[List[int]] = None):
@@ -232,10 +238,19 @@ async def reset_all_data():
 @app.post("/api/login")
 async def login(req: LoginRequest):
     try:
-        res = supabase.table("analistas").select("*").eq("id", req.analista_id).eq("senha", req.senha).execute()
+        res = supabase.table("analistas").select("*").eq("id", req.analista_id).execute()
         if not res.data:
+            raise HTTPException(status_code=404, detail="Usuário não encontrado")
+
+        analista = res.data[0]
+        senha_recebida = (req.senha or "").strip()
+        senha_cadastrada = str(analista.get("senha") or "").strip()
+
+        if senha_recebida != senha_cadastrada:
             raise HTTPException(status_code=401, detail="Senha incorreta")
-        return res.data[0]
+        return analista
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -326,6 +341,105 @@ async def concluir(reserva_id: str, resultado: str):
         supabase.table("distribuicoes").delete().eq("reserva_id", d["reserva_id"]).execute()
     return {"status": "ok"}
 
+@app.post("/api/analista/transferir")
+async def transferir_pasta(req: TransferirPastaRequest):
+    try:
+        if int(req.analista_origem_id) == int(req.analista_destino_id):
+            raise HTTPException(status_code=400, detail="Escolha outro analista para transferir")
+
+        motivo_limpo = (req.motivo or "").strip()
+        if not motivo_limpo:
+            raise HTTPException(status_code=400, detail="Motivo da transferência é obrigatório")
+
+        dist = supabase.table("distribuicoes") \
+            .select("*") \
+            .eq("reserva_id", req.reserva_id) \
+            .eq("analista_id", req.analista_origem_id) \
+            .execute()
+
+        if not dist.data:
+            raise HTTPException(status_code=404, detail="Pasta não encontrada na sua mesa")
+
+        pasta = dist.data[0]
+        situacao_id = int(pasta.get("situacao_id", 0))
+
+        origem_res = supabase.table("analistas").select("id,nome").eq("id", req.analista_origem_id).execute()
+        destino_res = supabase.table("analistas").select("*").eq("id", req.analista_destino_id).execute()
+
+        if not destino_res.data:
+            raise HTTPException(status_code=404, detail="Analista de destino não encontrado")
+
+        origem = origem_res.data[0] if origem_res.data else {"id": req.analista_origem_id, "nome": f"Analista {req.analista_origem_id}"}
+        destino = destino_res.data[0]
+
+        permissoes_destino = destino.get("permissoes") or []
+        destino_elegivel = (
+            destino.get("status") == "ativo"
+            and bool(destino.get("is_online"))
+            and situacao_id in [int(p) for p in permissoes_destino]
+        )
+
+        if not destino_elegivel:
+            raise HTTPException(status_code=400, detail="Analista de destino não está elegível para esta pasta")
+
+        now = datetime.datetime.now().isoformat()
+
+        supabase.table("distribuicoes").update({
+            "analista_id": int(destino["id"]),
+            "data_atribuicao": now
+        }).eq("reserva_id", req.reserva_id).execute()
+
+        supabase.table("analistas").update({
+            "ultima_atribuicao": now,
+            "total_hoje": (destino.get("total_hoje") or 0) + 1
+        }).eq("id", destino["id"]).execute()
+
+        try:
+            supabase.table("logs_transferencias").insert({
+                "reserva_id": str(req.reserva_id),
+                "analista_origem_id": int(origem.get("id")),
+                "analista_origem_nome": origem.get("nome"),
+                "analista_destino_id": int(destino.get("id")),
+                "analista_destino_nome": destino.get("nome"),
+                "situacao_id": situacao_id,
+                "situacao_nome": pasta.get("situacao_nome") or SITUACOES_NOMES.get(situacao_id, "Geral"),
+                "cliente": pasta.get("cliente"),
+                "empreendimento": pasta.get("empreendimento"),
+                "unidade": pasta.get("unidade"),
+                "motivo": motivo_limpo,
+                "data_transferencia": now
+            }).execute()
+        except Exception as log_error:
+            supabase.table("distribuicoes").update({
+                "analista_id": int(req.analista_origem_id)
+            }).eq("reserva_id", req.reserva_id).execute()
+
+            log_error_message = str(log_error)
+            if (
+                "logs_transferencias" in log_error_message
+                and (
+                    "does not exist" in log_error_message
+                    or "42P01" in log_error_message
+                    or "PGRST205" in log_error_message
+                    or "schema cache" in log_error_message
+                )
+            ):
+                raise HTTPException(
+                    status_code=500,
+                    detail="Tabela de log não encontrada na API do Supabase. Execute o SQL em backend/logs_transferencias_schema.sql e tente novamente."
+                )
+
+            raise HTTPException(
+                status_code=500,
+                detail=f"Falha ao registrar log da transferência: {log_error_message}"
+            )
+
+        return {"status": "ok", "message": "Pasta transferida com sucesso"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/api/gestor/overview")
 async def manager_overview():
     total_crm = 0
@@ -340,6 +454,10 @@ async def manager_overview():
     equipe = supabase.table("analistas").select("*").order("nome").execute().data or []
     distribuicao_atual = supabase.table("distribuicoes").select("*").execute().data or []
     historico_recente = supabase.table("historico").select("*").order("data_fim", desc=True).limit(100).execute().data or []
+    try:
+        logs_transferencias = supabase.table("logs_transferencias").select("*").order("data_transferencia", desc=True).limit(1000).execute().data or []
+    except Exception:
+        logs_transferencias = []
     pastas_sem_destino = sum(1 for item in distribuicao_atual if not item.get("analista_id"))
 
     return {
@@ -347,6 +465,7 @@ async def manager_overview():
         "total_pendente_cvcrm": total_crm,
         "distribuicao_atual": distribuicao_atual,
         "historico_recente": historico_recente,
+        "logs_transferencias": logs_transferencias,
         "pastas_sem_destino": pastas_sem_destino
     }
 
