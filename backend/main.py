@@ -3,24 +3,94 @@ from fastapi.middleware.cors import CORSMiddleware
 import requests
 import datetime
 import asyncio
+import os
+import base64
+import binascii
+import hashlib
+import hmac
 from typing import List, Optional
 from supabase import create_client, Client
 from pydantic import BaseModel
+
+
+def load_dotenv(dotenv_path: str = ".env") -> None:
+    """Carrega variaveis de um .env sem sobrescrever as ja definidas no ambiente."""
+    if not os.path.exists(dotenv_path):
+        return
+
+    with open(dotenv_path, "r", encoding="utf-8") as env_file:
+        for raw_line in env_file:
+            line = raw_line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            key = key.strip()
+            value = value.strip().strip('"').strip("'")
+            if key and key not in os.environ:
+                os.environ[key] = value
+
+
+def get_required_env(name: str) -> str:
+    value = (os.getenv(name) or "").strip()
+    if not value:
+        raise RuntimeError(f"Variavel de ambiente obrigatoria ausente: {name}")
+    return value
+
+
+def parse_allowed_origins(raw: str) -> List[str]:
+    origins = [origin.strip() for origin in raw.split(",") if origin.strip()]
+    return origins or ["http://localhost:5173"]
+
+
+def hash_password(plain_password: str, iterations: int = 310000) -> str:
+    salt = os.urandom(16)
+    password_hash = hashlib.pbkdf2_hmac("sha256", plain_password.encode("utf-8"), salt, iterations)
+    salt_b64 = base64.b64encode(salt).decode("ascii")
+    hash_b64 = base64.b64encode(password_hash).decode("ascii")
+    return f"pbkdf2_sha256${iterations}${salt_b64}${hash_b64}"
+
+
+def verify_password(plain_password: str, stored_password: str) -> bool:
+    if not stored_password or not stored_password.startswith("pbkdf2_sha256$"):
+        return False
+
+    try:
+        _, iterations, salt_b64, hash_b64 = stored_password.split("$", 3)
+        salt = base64.b64decode(salt_b64.encode("ascii"))
+        expected_hash = base64.b64decode(hash_b64.encode("ascii"))
+        calculated_hash = hashlib.pbkdf2_hmac(
+            "sha256",
+            plain_password.encode("utf-8"),
+            salt,
+            int(iterations),
+        )
+        return hmac.compare_digest(calculated_hash, expected_hash)
+    except (ValueError, binascii.Error):
+        return False
+
+
+load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
+
+ALLOWED_ORIGINS = parse_allowed_origins(os.getenv("ALLOWED_ORIGINS", "http://localhost:5173"))
+SYNC_INTERVAL_SECONDS = int(os.getenv("SYNC_INTERVAL_SECONDS", "25"))
+PORT = int(os.getenv("PORT", "8000"))
+
+SUPABASE_URL = get_required_env("SUPABASE_URL")
+SUPABASE_KEY = get_required_env("SUPABASE_KEY")
+CVCRM_EMAIL = get_required_env("CVCRM_EMAIL")
+CVCRM_TOKEN = get_required_env("CVCRM_TOKEN")
 
 app = FastAPI(title="VCA Distribuidor - Backend Oficial")
 
 # Configuração de CORS para o Frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], 
+    allow_origins=ALLOWED_ORIGINS,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # --- CONFIGURAÇÃO SUPABASE ---
-SUPABASE_URL = "https://owomaqpsyikqxlzspqif.supabase.co"
-SUPABASE_KEY = "sb_secret_pEcTuWzLbtOXMRRAMpWhtw_aXMFuNGl"
-
 try:
     supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
     print("✓ Conexão com Supabase estabelecida.")
@@ -39,8 +109,8 @@ SITUACOES_NOMES = {
 SITUACOES_IDS = list(SITUACOES_NOMES.keys())
 
 HEADERS = {
-    "email": "matheus.espiritosanto@vcaconstrutora.com.br",
-    "token": "005d066ae51acbb8e8ba5af5ee7ba5753d2319b5",
+    "email": CVCRM_EMAIL,
+    "token": CVCRM_TOKEN,
     "accept": "application/json"
 }
 
@@ -204,7 +274,7 @@ async def perform_sync():
 async def background_task():
     while True:
         await perform_sync()
-        await asyncio.sleep(25)
+        await asyncio.sleep(SYNC_INTERVAL_SECONDS)
 
 @app.on_event("startup")
 async def startup_event():
@@ -246,7 +316,15 @@ async def login(req: LoginRequest):
         senha_recebida = (req.senha or "").strip()
         senha_cadastrada = str(analista.get("senha") or "").strip()
 
-        if senha_recebida != senha_cadastrada:
+        senha_valida = verify_password(senha_recebida, senha_cadastrada)
+        # Compatibilidade para migrar senhas legadas em texto puro no primeiro login valido.
+        if not senha_valida and senha_recebida == senha_cadastrada:
+            nova_senha_hash = hash_password(senha_recebida)
+            supabase.table("analistas").update({"senha": nova_senha_hash}).eq("id", req.analista_id).execute()
+            analista["senha"] = nova_senha_hash
+            senha_valida = True
+
+        if not senha_valida:
             raise HTTPException(status_code=401, detail="Senha incorreta")
         return analista
     except HTTPException:
@@ -473,7 +551,9 @@ async def manager_overview():
 async def create_analyst(req: AnalystCreate):
     try:
         res = supabase.table("analistas").insert({
-            "nome": req.nome, "senha": req.senha, "permissoes": req.permissoes, 
+            "nome": req.nome,
+            "senha": hash_password(req.senha),
+            "permissoes": req.permissoes,
             "status": "ativo", "is_online": False, "total_hoje": 0
         }).execute()
         return res.data[0]
@@ -484,6 +564,8 @@ async def create_analyst(req: AnalystCreate):
 async def update_analyst(id: int, req: AnalystUpdate):
     try:
         data = {k: v for k, v in req.dict().items() if v is not None}
+        if "senha" in data:
+            data["senha"] = hash_password(str(data["senha"]))
         res = supabase.table("analistas").update(data).eq("id", id).execute()
         return res.data[0]
     except Exception as e:
@@ -499,4 +581,4 @@ async def delete_analyst(id: int):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=PORT)
