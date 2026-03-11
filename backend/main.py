@@ -231,7 +231,9 @@ async def perform_sync():
                     dist_db = ativa.data[0]
                     analista_atual_id = dist_db.get("analista_id")
 
-                    # AUTO-REASSIGN: se está sem analista ou com analista não elegível, tenta atribuir novamente
+                    # AUTO-REASSIGN: se está sem analista ou com analista inativo/offline, tenta atribuir novamente.
+                    # Permissões NÃO são verificadas aqui para preservar transferências manuais —
+                    # um analista pode receber uma pasta por transferência mesmo sem a situação configurada.
                     deve_reatribuir = not analista_atual_id
                     if analista_atual_id:
                         analista_atual = supabase.table("analistas").select("*").eq("id", analista_atual_id).execute()
@@ -239,8 +241,7 @@ async def perform_sync():
                             deve_reatribuir = True
                         else:
                             a = analista_atual.data[0]
-                            permissoes = a.get("permissoes") or []
-                            if a.get("status") != "ativo" or not a.get("is_online") or int(sit_id) not in [int(p) for p in permissoes]:
+                            if a.get("status") != "ativo" or not a.get("is_online"):
                                 deve_reatribuir = True
 
                     if deve_reatribuir:
