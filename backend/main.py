@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 import requests
 import datetime
@@ -114,6 +114,12 @@ HEADERS = {
     "accept": "application/json"
 }
 
+
+async def fetch_cvcrm_reservas(sit_id: int, timeout_seconds: int):
+    """Executa request ao CRM fora do event loop para evitar bloqueio."""
+    url = f"https://vca.cvcrm.com.br/api/v1/comercial/reservas?situacao={sit_id}"
+    return await asyncio.to_thread(requests.get, url, headers=HEADERS, timeout=timeout_seconds)
+
 # --- MODELOS DE DADOS ---
 
 class LoginRequest(BaseModel):
@@ -137,6 +143,12 @@ class StatusFilaRequest(BaseModel):
 
 class TransferirPastaRequest(BaseModel):
     reserva_id: str
+    analista_origem_id: int
+    analista_destino_id: int
+    motivo: str
+
+class TransferirMassaRequest(BaseModel):
+    reserva_ids: List[str]
     analista_origem_id: int
     analista_destino_id: int
     motivo: str
@@ -171,8 +183,7 @@ async def perform_sync():
     ids_no_crm = []
     try:
         for sit_id in SITUACOES_IDS:
-            url = f"https://vca.cvcrm.com.br/api/v1/comercial/reservas?situacao={sit_id}"
-            response = requests.get(url, headers=HEADERS, timeout=15)
+            response = await fetch_cvcrm_reservas(sit_id, timeout_seconds=15)
             
             if response.status_code == 204: continue
             if response.status_code != 200: continue
@@ -450,15 +461,8 @@ async def transferir_pasta(req: TransferirPastaRequest):
         origem = origem_res.data[0] if origem_res.data else {"id": req.analista_origem_id, "nome": f"Analista {req.analista_origem_id}"}
         destino = destino_res.data[0]
 
-        permissoes_destino = destino.get("permissoes") or []
-        destino_elegivel = (
-            destino.get("status") == "ativo"
-            and bool(destino.get("is_online"))
-            and situacao_id in [int(p) for p in permissoes_destino]
-        )
-
-        if not destino_elegivel:
-            raise HTTPException(status_code=400, detail="Analista de destino não está elegível para esta pasta")
+        if destino.get("status") != "ativo":
+            raise HTTPException(status_code=400, detail="Analista de destino não está ativo")
 
         now = datetime.datetime.now().isoformat()
 
@@ -518,12 +522,109 @@ async def transferir_pasta(req: TransferirPastaRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/api/analista/transferir-massa")
+async def transferir_pasta_massa(req: TransferirMassaRequest):
+    """Transfere múltiplas pastas de uma vez para o analista destino."""
+    try:
+        if int(req.analista_origem_id) == int(req.analista_destino_id):
+            raise HTTPException(status_code=400, detail="Escolha outro analista para transferir")
+
+        motivo_limpo = (req.motivo or "").strip()
+        if not motivo_limpo:
+            raise HTTPException(status_code=400, detail="Motivo da transferência é obrigatório")
+
+        if not req.reserva_ids:
+            raise HTTPException(status_code=400, detail="Nenhuma pasta selecionada")
+
+        origem_res = supabase.table("analistas").select("id,nome").eq("id", req.analista_origem_id).execute()
+        destino_res = supabase.table("analistas").select("*").eq("id", req.analista_destino_id).execute()
+
+        if not destino_res.data:
+            raise HTTPException(status_code=404, detail="Analista de destino não encontrado")
+
+        destino = destino_res.data[0]
+        if destino.get("status") != "ativo":
+            raise HTTPException(status_code=400, detail="Analista de destino não está ativo")
+
+        origem = origem_res.data[0] if origem_res.data else {"id": req.analista_origem_id, "nome": f"Analista {req.analista_origem_id}"}
+
+        sucesso = []
+        erros = []
+        now = datetime.datetime.now().isoformat()
+
+        for reserva_id in req.reserva_ids:
+            try:
+                dist = supabase.table("distribuicoes") \
+                    .select("*") \
+                    .eq("reserva_id", reserva_id) \
+                    .eq("analista_id", req.analista_origem_id) \
+                    .execute()
+
+                if not dist.data:
+                    erros.append({"reserva_id": reserva_id, "motivo": "Pasta não encontrada na mesa de origem"})
+                    continue
+
+                pasta = dist.data[0]
+                situacao_id = int(pasta.get("situacao_id", 0))
+
+                supabase.table("distribuicoes").update({
+                    "analista_id": int(destino["id"]),
+                    "data_atribuicao": now
+                }).eq("reserva_id", reserva_id).execute()
+
+                try:
+                    supabase.table("logs_transferencias").insert({
+                        "reserva_id": str(reserva_id),
+                        "analista_origem_id": int(origem.get("id")),
+                        "analista_origem_nome": origem.get("nome"),
+                        "analista_destino_id": int(destino.get("id")),
+                        "analista_destino_nome": destino.get("nome"),
+                        "situacao_id": situacao_id,
+                        "situacao_nome": pasta.get("situacao_nome") or SITUACOES_NOMES.get(situacao_id, "Geral"),
+                        "cliente": pasta.get("cliente"),
+                        "empreendimento": pasta.get("empreendimento"),
+                        "unidade": pasta.get("unidade"),
+                        "motivo": motivo_limpo,
+                        "data_transferencia": now
+                    }).execute()
+                except Exception:
+                    # Reverte a transferência desta pasta se o log falhar
+                    supabase.table("distribuicoes").update({
+                        "analista_id": int(req.analista_origem_id)
+                    }).eq("reserva_id", reserva_id).execute()
+                    erros.append({"reserva_id": reserva_id, "motivo": "Falha ao registrar log"})
+                    continue
+
+                sucesso.append(reserva_id)
+            except Exception as e:
+                erros.append({"reserva_id": reserva_id, "motivo": str(e)})
+
+        if sucesso:
+            supabase.table("analistas").update({
+                "ultima_atribuicao": now,
+                "total_hoje": (destino.get("total_hoje") or 0) + len(sucesso)
+            }).eq("id", destino["id"]).execute()
+
+        return {
+            "status": "ok",
+            "transferidas": len(sucesso),
+            "erros": len(erros),
+            "detalhes_erros": erros
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/api/gestor/overview")
-async def manager_overview():
+async def manager_overview(
+    logs_limit: int = Query(default=200, ge=1, le=1000),
+    logs_offset: int = Query(default=0, ge=0),
+):
     total_crm = 0
     for sit_id in SITUACOES_IDS:
         try:
-            r = requests.get(f"https://vca.cvcrm.com.br/api/v1/comercial/reservas?situacao={sit_id}", headers=HEADERS, timeout=4)
+            r = await fetch_cvcrm_reservas(sit_id, timeout_seconds=4)
             if r.status_code == 200:
                 d = r.json()
                 total_crm += len(d) if isinstance(d, list) else len(d.keys())
@@ -533,9 +634,18 @@ async def manager_overview():
     distribuicao_atual = supabase.table("distribuicoes").select("*").execute().data or []
     historico_recente = supabase.table("historico").select("*").order("data_fim", desc=True).limit(100).execute().data or []
     try:
-        logs_transferencias = supabase.table("logs_transferencias").select("*").order("data_transferencia", desc=True).limit(1000).execute().data or []
+        logs_query = (
+            supabase.table("logs_transferencias")
+            .select("*", count="exact")
+            .order("data_transferencia", desc=True)
+            .range(logs_offset, logs_offset + logs_limit - 1)
+            .execute()
+        )
+        logs_transferencias = logs_query.data or []
+        logs_total = logs_query.count or 0
     except Exception:
         logs_transferencias = []
+        logs_total = 0
     pastas_sem_destino = sum(1 for item in distribuicao_atual if not item.get("analista_id"))
 
     return {
@@ -544,6 +654,9 @@ async def manager_overview():
         "distribuicao_atual": distribuicao_atual,
         "historico_recente": historico_recente,
         "logs_transferencias": logs_transferencias,
+        "logs_transferencias_total": logs_total,
+        "logs_limit": logs_limit,
+        "logs_offset": logs_offset,
         "pastas_sem_destino": pastas_sem_destino
     }
 

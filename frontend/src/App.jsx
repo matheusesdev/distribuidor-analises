@@ -65,6 +65,10 @@ const App = () => {
   const [transferTask, setTransferTask] = useState(null);
   const [transferToId, setTransferToId] = useState("");
   const [transferReason, setTransferReason] = useState("");
+  const [selectedTaskIds, setSelectedTaskIds] = useState(new Set());
+  const [showBulkTransferModal, setShowBulkTransferModal] = useState(false);
+  const [bulkTransferToId, setBulkTransferToId] = useState("");
+  const [bulkTransferReason, setBulkTransferReason] = useState("");
   const confirmResolverRef = useRef(null);
 
   const API_BASE = "http://localhost:8000/api";
@@ -313,6 +317,64 @@ const App = () => {
     }
   };
 
+  const toggleTaskSelection = (reservaId) => {
+    setSelectedTaskIds(prev => {
+      const next = new Set(prev);
+      if (next.has(reservaId)) next.delete(reservaId);
+      else next.add(reservaId);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedTaskIds.size === filteredTasks.length && filteredTasks.length > 0) {
+      setSelectedTaskIds(new Set());
+    } else {
+      setSelectedTaskIds(new Set(filteredTasks.map(t => t.reserva_id)));
+    }
+  };
+
+  const openBulkTransferModal = () => {
+    setBulkTransferToId("");
+    setBulkTransferReason("");
+    setShowBulkTransferModal(true);
+  };
+
+  const handleBulkTransfer = async () => {
+    if (!bulkTransferToId || !currentUser || selectedTaskIds.size === 0) return;
+    const trimmedReason = bulkTransferReason.trim();
+    if (!trimmedReason) {
+      notify("Informe o motivo da transferência.", "error");
+      return;
+    }
+    setIsGlobalLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/analista/transferir-massa`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          reserva_ids: Array.from(selectedTaskIds),
+          analista_origem_id: currentUser.id,
+          analista_destino_id: parseInt(bulkTransferToId),
+          motivo: trimmedReason
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        notify(`${data.transferidas} pasta(s) transferida(s) com sucesso.${data.erros > 0 ? ` ${data.erros} com erro.` : ''}`);
+        setShowBulkTransferModal(false);
+        setSelectedTaskIds(new Set());
+        fetchData();
+      } else {
+        notify(await getApiErrorMessage(res, "Erro ao transferir pastas"), "error");
+      }
+    } catch (e) {
+      notify("Erro ao transferir pastas.", "error");
+    } finally {
+      setIsGlobalLoading(false);
+    }
+  };
+
   const handleRedistribute = async () => {
     const confirmed = await requestConfirmation({
       title: "Confirmar redistribuição",
@@ -462,15 +524,12 @@ const App = () => {
   }, [analysts, profileSearch]);
 
   const transferTargetOptions = useMemo(() => {
-    if (!transferTask || !currentUser) return [];
-    const sitId = parseInt(transferTask.situacao_id);
+    if (!currentUser) return [];
     return (analysts || []).filter(a => {
       if (a.id === currentUser.id) return false;
-      if (a.status !== 'ativo' || !a.is_online) return false;
-      const perms = a.permissoes || [];
-      return perms.includes(sitId);
+      return a.status === 'ativo';
     });
-  }, [analysts, transferTask, currentUser]);
+  }, [analysts, currentUser]);
 
   const selectedTransferTarget = useMemo(() => {
     if (!transferToId) return null;
@@ -958,12 +1017,13 @@ const App = () => {
                       <div className={`w-6 h-6 rounded-md flex items-center justify-center text-[9px] font-black uppercase ${isSelected ? 'bg-white/20 text-white' : 'bg-slate-50 text-slate-400'}`}>
                         {a.nome?.charAt(0) || 'A'}
                       </div>
-                      <span className="text-[10px] font-black uppercase tracking-wide truncate">{a.nome}</span>
+                      <span className="text-[10px] font-black uppercase tracking-wide truncate flex-1">{a.nome}</span>
+                      {a.is_online && <span className="text-[8px] font-black uppercase text-green-500 flex-shrink-0">Online</span>}
                     </button>
                   );
                 }) : (
                   <div className="px-2 py-3 text-center text-[10px] font-black uppercase tracking-wide text-slate-400">
-                    Nenhum analista elegível para esta pasta
+                    Nenhum analista ativo disponível
                   </div>
                 )}
               </div>
@@ -1000,6 +1060,71 @@ const App = () => {
           </div>
         </div>
       )}
+
+      {showBulkTransferModal && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[450] flex items-center justify-center p-4" onClick={() => setShowBulkTransferModal(false)}>
+          <div className="bg-white border border-slate-100 rounded-2xl shadow-2xl w-full max-w-md p-6 animate-in zoom-in-95" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start gap-3 mb-4">
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-blue-50 text-blue-600 flex-shrink-0">
+                <ArrowRightLeft size={16} />
+              </div>
+              <div>
+                <h3 className="text-sm font-black uppercase tracking-wide text-slate-800">Transferência em Massa</h3>
+                <p className="text-[11px] font-bold text-slate-500 mt-1 leading-relaxed">{selectedTaskIds.size} pasta{selectedTaskIds.size !== 1 ? 's' : ''} selecionada{selectedTaskIds.size !== 1 ? 's' : ''}</p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Analista Destino</label>
+              <div className="bg-slate-50 border border-slate-100 rounded-xl p-2 max-h-44 overflow-y-auto custom-scrollbar space-y-1.5">
+                {transferTargetOptions.length > 0 ? transferTargetOptions.map(a => {
+                  const isSelected = String(bulkTransferToId) === String(a.id);
+                  return (
+                    <button
+                      key={a.id}
+                      type="button"
+                      onClick={() => setBulkTransferToId(String(a.id))}
+                      className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left transition-all border ${isSelected ? 'bg-blue-600 text-white border-blue-600 shadow-sm' : 'bg-white text-slate-700 border-slate-100 hover:border-blue-200'}`}
+                    >
+                      <div className={`w-6 h-6 rounded-md flex items-center justify-center text-[9px] font-black uppercase ${isSelected ? 'bg-white/20 text-white' : 'bg-slate-50 text-slate-400'}`}>
+                        {a.nome?.charAt(0) || 'A'}
+                      </div>
+                      <span className="text-[10px] font-black uppercase tracking-wide truncate flex-1">{a.nome}</span>
+                      {a.is_online && <span className="text-[8px] font-black uppercase text-green-500 flex-shrink-0">Online</span>}
+                    </button>
+                  );
+                }) : (
+                  <div className="px-2 py-3 text-center text-[10px] font-black uppercase tracking-wide text-slate-400">
+                    Nenhum analista ativo disponível
+                  </div>
+                )}
+              </div>
+
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Motivo da transferência *</label>
+              <input
+                type="text"
+                value={bulkTransferReason}
+                onChange={(e) => setBulkTransferReason(e.target.value)}
+                placeholder="Informe o motivo"
+                className="w-full bg-slate-50 border border-slate-100 rounded-xl py-3 px-4 text-[11px] text-slate-700 font-bold outline-none focus:ring-2 focus:ring-blue-500"
+                required
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 mt-5">
+              <button onClick={() => setShowBulkTransferModal(false)} className="py-2.5 bg-slate-50 text-slate-500 rounded-xl text-[10px] font-black uppercase border border-slate-100">Cancelar</button>
+              <button
+                disabled={!bulkTransferToId || !bulkTransferReason.trim()}
+                onClick={handleBulkTransfer}
+                className="py-2.5 rounded-xl text-[10px] font-black uppercase text-white bg-blue-600 disabled:bg-blue-300"
+              >
+                Transferir {selectedTaskIds.size} Pasta{selectedTaskIds.size !== 1 ? 's' : ''}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {isGlobalLoading && <LoadingOverlay />}
       <nav className="bg-white border-b border-slate-100 p-2 md:p-2.5 px-4 md:px-8 flex justify-between items-center sticky top-0 z-[100] shadow-sm h-14 md:h-16">
         <div className="flex items-center gap-3 md:gap-4 truncate">
@@ -1056,10 +1181,28 @@ const App = () => {
                   </div>
 
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between px-2 gap-3">
-                     <div className="flex items-center gap-2.5">
+                     <div className="flex items-center gap-2.5 flex-wrap">
                         <UserCheck className="text-blue-600" size={18} />
                         <h2 className="text-[11px] font-black text-slate-700 uppercase tracking-widest">Minha Mesa</h2>
                         <span className="bg-blue-600 text-white px-2 py-0.5 rounded-full text-[9px] font-black uppercase shadow-lg shadow-blue-500/10">{filteredTasks.length} Ativas</span>
+                        {filteredTasks.length > 0 && (
+                          <button
+                            onClick={toggleSelectAll}
+                            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-200 text-[9px] font-black uppercase text-slate-500 hover:border-blue-300 hover:text-blue-600 transition-all bg-white"
+                          >
+                            {selectedTaskIds.size === filteredTasks.length ? <CheckSquare size={12} className="text-blue-600"/> : <Square size={12}/>}
+                            {selectedTaskIds.size === filteredTasks.length ? 'Desmarcar Tudo' : 'Selecionar Tudo'}
+                          </button>
+                        )}
+                        {selectedTaskIds.size > 0 && (
+                          <button
+                            onClick={openBulkTransferModal}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-600 text-white text-[9px] font-black uppercase shadow-md hover:bg-blue-700 active:scale-95 transition-all"
+                          >
+                            <ArrowRightLeft size={12}/>
+                            Transferir {selectedTaskIds.size} pasta{selectedTaskIds.size !== 1 ? 's' : ''}
+                          </button>
+                        )}
                      </div>
                      <div className="flex items-center gap-2 bg-white p-1 rounded-xl border border-slate-200 shadow-sm w-full sm:w-auto">
                         <div className="flex items-center gap-2 px-3 flex-1 sm:w-44 border-r border-slate-100"><Search size={14} className="text-slate-300 shrink-0" /><input type="text" placeholder="Filtrar..." className="bg-transparent border-none outline-none text-[10px] font-bold text-slate-600 w-full" value={taskSearch} onChange={(e) => setTaskSearch(e.target.value)}/></div>
@@ -1070,10 +1213,11 @@ const App = () => {
                   <div className="space-y-2.5">
                      {filteredTasks.length > 0 ? filteredTasks.map(task => {
                        const sitStyle = SIT_COLORS[task.situacao_id] || { text: '#2563eb', bg: '#eff6ff' };
+                       const isSelected = selectedTaskIds.has(task.reserva_id);
                        return (
                        <div
                          key={task.reserva_id}
-                         className="bg-white p-3 md:p-3.5 rounded-2xl border border-slate-100 shadow-sm hover:border-blue-400 transition-all flex group relative items-center cursor-pointer"
+                         className={`bg-white p-3 md:p-3.5 rounded-2xl border shadow-sm hover:border-blue-400 transition-all flex group relative items-center cursor-pointer ${isSelected ? 'border-blue-400 ring-1 ring-blue-200' : 'border-slate-100'}`}
                          onClick={() => openReservaInCRM(task.reserva_id)}
                          role="button"
                          tabIndex={0}
@@ -1086,6 +1230,13 @@ const App = () => {
                        >
                           <div className="grid grid-cols-12 items-center w-full gap-4">
                              <div className="col-span-12 lg:col-span-5 flex items-center gap-3 min-w-0">
+                               <button
+                                 onClick={(e) => { e.stopPropagation(); toggleTaskSelection(task.reserva_id); }}
+                                 className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 hover:border-blue-400 transition-all bg-white"
+                                 title={isSelected ? "Desmarcar" : "Selecionar para transferência em massa"}
+                               >
+                                 {isSelected ? <CheckSquare size={16} className="text-blue-600"/> : <Square size={16} className="text-slate-300"/>}
+                               </button>
                                <div className="w-8 h-8 md:w-9 md:h-9 bg-slate-50 rounded-lg flex items-center justify-center text-[10px] font-black text-slate-400 border border-slate-100 flex-shrink-0 group-hover:text-blue-500 transition-all">{task.reserva_id.toString().slice(-2)}</div>
                                <div className="min-w-0 flex flex-col"><span className="text-[7px] font-black text-slate-400 uppercase tracking-widest leading-none block">ID: {task.reserva_id}</span><h4 className="text-[12px] md:text-[13px] font-black text-slate-800 uppercase tracking-tight truncate pr-2" title={task.cliente}>{task.cliente}</h4></div>
                             </div>
