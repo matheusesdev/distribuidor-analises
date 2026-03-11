@@ -8,7 +8,7 @@ import base64
 import binascii
 import hashlib
 import hmac
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from supabase import create_client, Client
 from pydantic import BaseModel
 
@@ -67,6 +67,44 @@ def verify_password(plain_password: str, stored_password: str) -> bool:
         return hmac.compare_digest(calculated_hash, expected_hash)
     except (ValueError, binascii.Error):
         return False
+
+
+def is_missing_transfer_logs_table_error(error_message: str) -> bool:
+    return (
+        "logs_transferencias" in error_message
+        and (
+            "does not exist" in error_message
+            or "42P01" in error_message
+            or "PGRST205" in error_message
+            or "schema cache" in error_message
+        )
+    )
+
+
+def build_transfer_log_payload(
+    *,
+    reserva_id: Any,
+    origem: Dict[str, Any],
+    destino: Dict[str, Any],
+    pasta: Dict[str, Any],
+    situacao_id: int,
+    motivo: str,
+    data_transferencia: str,
+) -> Dict[str, Any]:
+    return {
+        "reserva_id": str(reserva_id),
+        "analista_origem_id": int(origem.get("id")),
+        "analista_origem_nome": origem.get("nome"),
+        "analista_destino_id": int(destino.get("id")),
+        "analista_destino_nome": destino.get("nome"),
+        "situacao_id": situacao_id,
+        "situacao_nome": pasta.get("situacao_nome") or SITUACOES_NOMES.get(situacao_id, "Geral"),
+        "cliente": pasta.get("cliente"),
+        "empreendimento": pasta.get("empreendimento"),
+        "unidade": pasta.get("unidade"),
+        "motivo": motivo,
+        "data_transferencia": data_transferencia,
+    }
 
 
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
@@ -478,35 +516,24 @@ async def transferir_pasta(req: TransferirPastaRequest):
         }).eq("id", destino["id"]).execute()
 
         try:
-            supabase.table("logs_transferencias").insert({
-                "reserva_id": str(req.reserva_id),
-                "analista_origem_id": int(origem.get("id")),
-                "analista_origem_nome": origem.get("nome"),
-                "analista_destino_id": int(destino.get("id")),
-                "analista_destino_nome": destino.get("nome"),
-                "situacao_id": situacao_id,
-                "situacao_nome": pasta.get("situacao_nome") or SITUACOES_NOMES.get(situacao_id, "Geral"),
-                "cliente": pasta.get("cliente"),
-                "empreendimento": pasta.get("empreendimento"),
-                "unidade": pasta.get("unidade"),
-                "motivo": motivo_limpo,
-                "data_transferencia": now
-            }).execute()
+            supabase.table("logs_transferencias").insert(
+                build_transfer_log_payload(
+                    reserva_id=req.reserva_id,
+                    origem=origem,
+                    destino=destino,
+                    pasta=pasta,
+                    situacao_id=situacao_id,
+                    motivo=motivo_limpo,
+                    data_transferencia=now,
+                )
+            ).execute()
         except Exception as log_error:
             supabase.table("distribuicoes").update({
                 "analista_id": int(req.analista_origem_id)
             }).eq("reserva_id", req.reserva_id).execute()
 
             log_error_message = str(log_error)
-            if (
-                "logs_transferencias" in log_error_message
-                and (
-                    "does not exist" in log_error_message
-                    or "42P01" in log_error_message
-                    or "PGRST205" in log_error_message
-                    or "schema cache" in log_error_message
-                )
-            ):
+            if is_missing_transfer_logs_table_error(log_error_message):
                 raise HTTPException(
                     status_code=500,
                     detail="Tabela de log não encontrada na API do Supabase. Execute o SQL em backend/logs_transferencias_schema.sql e tente novamente."
@@ -574,20 +601,17 @@ async def transferir_pasta_massa(req: TransferirMassaRequest):
                 }).eq("reserva_id", reserva_id).execute()
 
                 try:
-                    supabase.table("logs_transferencias").insert({
-                        "reserva_id": str(reserva_id),
-                        "analista_origem_id": int(origem.get("id")),
-                        "analista_origem_nome": origem.get("nome"),
-                        "analista_destino_id": int(destino.get("id")),
-                        "analista_destino_nome": destino.get("nome"),
-                        "situacao_id": situacao_id,
-                        "situacao_nome": pasta.get("situacao_nome") or SITUACOES_NOMES.get(situacao_id, "Geral"),
-                        "cliente": pasta.get("cliente"),
-                        "empreendimento": pasta.get("empreendimento"),
-                        "unidade": pasta.get("unidade"),
-                        "motivo": motivo_limpo,
-                        "data_transferencia": now
-                    }).execute()
+                    supabase.table("logs_transferencias").insert(
+                        build_transfer_log_payload(
+                            reserva_id=reserva_id,
+                            origem=origem,
+                            destino=destino,
+                            pasta=pasta,
+                            situacao_id=situacao_id,
+                            motivo=motivo_limpo,
+                            data_transferencia=now,
+                        )
+                    ).execute()
                 except Exception:
                     # Reverte a transferência desta pasta se o log falhar
                     supabase.table("distribuicoes").update({
