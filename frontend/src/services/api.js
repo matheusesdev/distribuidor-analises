@@ -1,4 +1,4 @@
-const API_BASE = `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api`;
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 const request = (path, { method = "GET", body, headers } = {}) => {
   const config = {
@@ -17,48 +17,48 @@ const request = (path, { method = "GET", body, headers } = {}) => {
 };
 
 export const api = {
-  listAnalysts: () => request("/analistas"),
-  getMesa: (analystId) => request(`/mesa/${analystId}`),
-  getMetrics: (analystId) => request(`/metricas/${analystId}`),
-  getManagerOverview: () => request("/gestor/overview"),
+  listAnalysts: () => request("/api/analistas"),
+  getMesa: (analystId) => request(`/api/mesa/${analystId}`),
+  getMetrics: (analystId) => request(`/api/metricas/${analystId}`),
+  getManagerOverview: () => request("/api/gestor/overview"),
 
   login: (analystId, password) =>
-    request("/login", {
+    request("/api/login", {
       method: "POST",
       body: { analista_id: analystId, senha: password },
     }),
 
   setQueueStatus: (analystId, online) =>
-    request("/analista/status-fila", {
+    request("/api/analista/status-fila", {
       method: "POST",
       body: { analista_id: analystId, online },
     }),
 
   finishTask: (reservaId, resultado) =>
-    request(`/concluir?reserva_id=${encodeURIComponent(reservaId)}&resultado=${encodeURIComponent(resultado)}`, {
+    request(`/api/concluir?reserva_id=${encodeURIComponent(reservaId)}&resultado=${encodeURIComponent(resultado)}`, {
       method: "POST",
     }),
 
   transferTask: ({ reserva_id, analista_origem_id, analista_destino_id, motivo }) =>
-    request("/analista/transferir", {
+    request("/api/analista/transferir", {
       method: "POST",
       body: { reserva_id, analista_origem_id, analista_destino_id, motivo },
     }),
 
   transferTaskBulk: ({ reserva_ids, analista_origem_id, analista_destino_id, motivo }) =>
-    request("/analista/transferir-massa", {
+    request("/api/analista/transferir-massa", {
       method: "POST",
       body: { reserva_ids, analista_origem_id, analista_destino_id, motivo },
     }),
 
-  redistribute: () => request("/gestor/redistribuir", { method: "POST" }),
-  resetData: () => request("/gestor/zerar-dados", { method: "POST" }),
+  redistribute: () => request("/api/gestor/redistribuir", { method: "POST" }),
+  resetData: () => request("/api/gestor/zerar-dados", { method: "POST" }),
 
   saveAnalyst: ({ id, payload }) =>
-    request(id ? `/gestor/analistas/${id}` : "/gestor/analistas", {
+    request(id ? `/api/gestor/analistas/${id}` : "/api/gestor/analistas", {
       method: id ? "PATCH" : "POST",
       body: payload,
     }),
 
-  deleteAnalyst: (id) => request(`/gestor/analistas/${id}`, { method: "DELETE" }),
+  deleteAnalyst: (id) => request(`/api/gestor/analistas/${id}`, { method: "DELETE" }),
 };
