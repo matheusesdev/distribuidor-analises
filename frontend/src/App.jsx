@@ -706,8 +706,8 @@ const App = () => {
           <img src="/logo.png" alt="VCA Logo" className="h-10 w-auto object-contain brightness-0 invert" />
         </div>
         <div className="relative z-10 space-y-5">
-          <h1 className="text-4xl font-black text-white leading-tight tracking-tight">Plataforma de<br/>Distribuição</h1>
-          <p className="text-blue-200 text-sm font-bold leading-relaxed max-w-xs">Gerencie e distribua pastas para sua equipe de analistas em tempo real.</p>
+          <h1 className="text-4xl font-black text-white leading-tight tracking-tight">Um sistema de distribuição de pastas que organiza e direciona demandas para a equipe de analistas em tempo real.</h1>
+          <p className="text-blue-200 text-sm font-bold leading-relaxed max-w-xs">VCA Cloud</p>
         </div>
         <div className="relative z-10 flex items-center gap-2.5">
           <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
