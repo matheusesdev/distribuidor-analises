@@ -36,25 +36,25 @@ const ManagerDashboardTab = ({
     <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
       <div className="bg-white p-5 md:p-6 rounded-2xl border border-slate-100 flex items-center justify-between group hover:border-blue-200 transition-all shadow-sm">
         <div><p className="text-[9px] font-black text-slate-400 uppercase mb-1 tracking-widest">Pendente CRM</p><div className="text-4xl md:text-5xl font-black text-blue-600 leading-none">{dashData.total_pendente_cvcrm}</div></div>
-        <Hash className="text-blue-50 opacity-20 flex-shrink-0" size={48}/>
+        <Hash className="text-blue-50 opacity-20 shrink-0" size={48}/>
       </div>
       <div className="bg-red-50 p-5 md:p-6 rounded-2xl border border-red-100 flex items-center justify-between group">
         <div><p className="text-[9px] font-black text-red-400 uppercase mb-1 tracking-widest">Sem Destino</p><div className="text-4xl md:text-5xl font-black text-red-600 leading-none">{dashData.pastas_sem_destino || 0}</div></div>
-        <AlertTriangle className="text-red-200 opacity-70 flex-shrink-0" size={48}/>
+        <AlertTriangle className="text-red-200 opacity-70 shrink-0" size={48}/>
       </div>
       <div className="bg-blue-600 p-5 md:p-6 rounded-2xl shadow-xl shadow-blue-500/10 flex items-center justify-between text-white group">
         <div><p className="text-[9px] font-black text-blue-100 uppercase mb-1 tracking-widest">Equipa Online</p><div className="text-4xl md:text-5xl font-black leading-none">{dashData.equipe?.filter(a => a.is_online).length || 0}</div></div>
-        <Users className="text-white opacity-20 flex-shrink-0" size={48}/>
+        <Users className="text-white opacity-20 shrink-0" size={48}/>
       </div>
     </section>
 
-    <section className="bg-white rounded-[1.5rem] md:rounded-[2rem] border border-slate-100 overflow-hidden shadow-sm">
+    <section className="bg-white rounded-3xl md:rounded-4xl border border-slate-100 overflow-hidden shadow-sm">
       <div className="p-5 md:p-6 border-b border-slate-50 flex justify-between items-center bg-slate-50/20">
         <div className="flex items-center gap-2"><PieChart size={18} className="text-blue-600" /><h2 className="text-[10px] font-black uppercase tracking-widest text-slate-800">Processo Analitico da Equipa</h2></div>
         <button onClick={() => { setEditForm({id: null, nome: '', senha: '', permissoes: [62, 66, 30]}); setShowEditModal(true); }} className="bg-blue-600 text-white px-5 py-2 rounded-xl text-[9px] font-black uppercase hover:bg-blue-500 shadow-lg active:scale-95 flex items-center gap-2"><UserPlus size={14}/> Novo Analista</button>
       </div>
       <div className="overflow-x-auto w-full">
-        <table className="w-full text-left text-[11px] min-w-[850px]">
+        <table className="w-full text-left text-[11px] min-w-212.5">
           <thead className="text-[9px] text-slate-400 uppercase font-black border-b border-slate-50 bg-slate-50/30 text-center">
             <tr><th className="p-4 text-left">Analista</th><th className="p-4">Situacoes</th><th className="p-4">Recebidas (Hoje)</th><th className="p-4">Feitas (Hoje)</th><th className="p-4">Na Mesa (Atual)</th><th className="p-4 text-right">Acoes</th></tr>
           </thead>
@@ -63,8 +63,8 @@ const ManagerDashboardTab = ({
               const stats = analistasMapa[a.id] || { naMesa: 0, feitosHoje: 0 };
               return (
                 <tr key={a.id} className="hover:bg-slate-50/50 transition-colors group text-[11px] text-center">
-                  <td className="p-4 text-left"><div className="flex flex-col"><span className="font-bold text-slate-700 uppercase truncate max-w-[150px]">{a.nome}</span><span className={`text-[7px] font-black uppercase ${a.is_online ? 'text-green-500' : 'text-slate-300'}`}>{a.is_online ? 'FILA ATIVA' : 'OFFLINE'}</span></div></td>
-                  <td className="p-4"><div className="flex flex-wrap gap-1 justify-center max-w-[150px] mx-auto">{(a.permissoes || []).slice(0, 3).map(p => <span key={p} className="bg-slate-50 text-slate-400 px-1.5 py-0.5 rounded text-[7px] border border-slate-200 font-bold">{p}</span>)}</div></td>
+                  <td className="p-4 text-left"><div className="flex flex-col"><span className="font-bold text-slate-700 uppercase truncate max-w-37.5">{a.nome}</span><span className={`text-[7px] font-black uppercase ${a.is_online ? 'text-green-500' : 'text-slate-300'}`}>{a.is_online ? 'FILA ATIVA' : 'OFFLINE'}</span></div></td>
+                  <td className="p-4"><div className="flex flex-wrap gap-1 justify-center max-w-37.5 mx-auto">{(a.permissoes || []).slice(0, 3).map(p => <span key={p} className="bg-slate-50 text-slate-400 px-1.5 py-0.5 rounded text-[7px] border border-slate-200 font-bold">{p}</span>)}</div></td>
                   <td className="p-4 font-black text-slate-900 text-sm">{a.total_hoje || 0}</td>
                   <td className="p-4 font-black text-green-600 text-sm">{stats.feitosHoje}</td>
                   <td className="p-4 font-black text-blue-600 text-sm">{stats.naMesa}</td>

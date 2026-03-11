@@ -732,7 +732,7 @@ const App = () => {
       <StatusToast toast={toast} />
       <ConfirmActionModal confirmAction={confirmAction} onClose={closeConfirmation} />
       {showTransferModal && transferTask && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[450] flex items-center justify-center p-4" onClick={() => setShowTransferModal(false)}>
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-450 flex items-center justify-center p-4" onClick={() => setShowTransferModal(false)}>
           <div className="bg-white border border-slate-100 rounded-2xl shadow-2xl w-full max-w-md p-6 animate-in zoom-in-95" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-start gap-3 mb-4">
               <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-blue-50 text-blue-600">
@@ -760,7 +760,7 @@ const App = () => {
                         {a.nome?.charAt(0) || 'A'}
                       </div>
                       <span className="text-[10px] font-black uppercase tracking-wide truncate flex-1">{a.nome}</span>
-                      {a.is_online && <span className="text-[8px] font-black uppercase text-green-500 flex-shrink-0">Online</span>}
+                      {a.is_online && <span className="text-[8px] font-black uppercase text-green-500 shrink-0">Online</span>}
                     </button>
                   );
                 }) : (
@@ -804,10 +804,10 @@ const App = () => {
       )}
 
       {showBulkTransferModal && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[450] flex items-center justify-center p-4" onClick={() => setShowBulkTransferModal(false)}>
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-450 flex items-center justify-center p-4" onClick={() => setShowBulkTransferModal(false)}>
           <div className="bg-white border border-slate-100 rounded-2xl shadow-2xl w-full max-w-md p-6 animate-in zoom-in-95" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-start gap-3 mb-4">
-              <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-blue-50 text-blue-600 flex-shrink-0">
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-blue-50 text-blue-600 shrink-0">
                 <ArrowRightLeft size={16} />
               </div>
               <div>
@@ -832,7 +832,7 @@ const App = () => {
                         {a.nome?.charAt(0) || 'A'}
                       </div>
                       <span className="text-[10px] font-black uppercase tracking-wide truncate flex-1">{a.nome}</span>
-                      {a.is_online && <span className="text-[8px] font-black uppercase text-green-500 flex-shrink-0">Online</span>}
+                      {a.is_online && <span className="text-[8px] font-black uppercase text-green-500 shrink-0">Online</span>}
                     </button>
                   );
                 }) : (
@@ -868,9 +868,9 @@ const App = () => {
       )}
 
       {isGlobalLoading && <LoadingOverlay />}
-      <nav className="bg-white border-b border-slate-100 p-2 md:p-2.5 px-4 md:px-8 flex justify-between items-center sticky top-0 z-[100] shadow-sm h-14 md:h-16">
+      <nav className="bg-white border-b border-slate-100 p-2 md:p-2.5 px-4 md:px-8 flex justify-between items-center sticky top-0 z-100 shadow-sm h-14 md:h-16">
         <div className="flex items-center gap-3 md:gap-4 truncate">
-          <div className="w-9 h-9 md:w-10 md:h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white font-black text-lg shadow-lg shadow-blue-500/20 flex-shrink-0">{currentUser?.nome?.charAt(0)}</div>
+          <div className="w-9 h-9 md:w-10 md:h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white font-black text-lg shadow-lg shadow-blue-500/20 shrink-0">{currentUser?.nome?.charAt(0)}</div>
           <div className="hidden sm:block truncate">
             <h3 className="font-bold text-slate-700 leading-none text-xs md:text-sm uppercase truncate">{currentUser?.nome}</h3>
             <span className={`text-[8px] md:text-[9px] font-black uppercase tracking-widest mt-1 flex items-center gap-1 ${currentUser?.is_online ? 'text-green-600' : 'text-slate-400'}`}>{currentUser?.is_online ? `ATIVO NA FILA • ${refreshCountdown}s` : 'PAUSADO'}</span>
@@ -882,7 +882,7 @@ const App = () => {
               <Clock size={12} className="opacity-70" />
               <span className="text-[9px] font-black uppercase tracking-widest">{currentUser?.is_online ? `DISPONÍVEL • ${refreshCountdown}s` : 'OFFLINE'}</span>
            </div>
-           <div className="flex bg-slate-50 p-1 rounded-xl gap-1 md:gap-1.5 items-center border border-slate-100 flex-shrink-0">
+           <div className="flex bg-slate-50 p-1 rounded-xl gap-1 md:gap-1.5 items-center border border-slate-100 shrink-0">
                 <button onClick={() => toggleQueueStatus(!currentUser?.is_online)} className={`flex items-center gap-1.5 px-3 md:px-4 py-1.5 md:py-2 rounded-lg text-[8px] md:text-[9px] font-black uppercase transition-all shadow-sm ${currentUser?.is_online ? 'bg-red-50 text-red-600 border border-red-100 active:scale-95' : 'bg-green-600 text-white shadow-md active:scale-95'}`}>
                 <Power size={14} /> <span className="hidden xs:inline">{currentUser?.is_online ? "Pausar" : "Ligar"}</span>
                 </button>
@@ -890,14 +890,14 @@ const App = () => {
                 <button onClick={() => setAnalystTab('mesa')} className={`p-1.5 md:p-2 rounded-lg transition-all ${analystTab === 'mesa' ? 'bg-white text-blue-600 shadow-sm border border-slate-100' : 'text-slate-300 hover:text-slate-400'}`}><LayoutDashboard size={18}/></button>
                 <button onClick={() => setAnalystTab('historico')} className={`p-1.5 md:p-2 rounded-lg transition-all ${analystTab === 'historico' ? 'bg-white text-blue-600 shadow-sm border border-slate-100' : 'text-slate-300 hover:text-slate-400'}`}><History size={18}/></button>
             </div>
-            <button onClick={() => { setView('login'); setCurrentUser(null); }} className="bg-white text-slate-300 p-1.5 md:p-2 rounded-lg hover:text-red-500 transition-all border border-slate-100 active:scale-95 shadow-sm ml-1 flex-shrink-0"><LogOut size={18}/></button>
+            <button onClick={() => { setView('login'); setCurrentUser(null); }} className="bg-white text-slate-300 p-1.5 md:p-2 rounded-lg hover:text-red-500 transition-all border border-slate-100 active:scale-95 shadow-sm ml-1 shrink-0"><LogOut size={18}/></button>
         </div>
       </nav>
 
       <main className="max-w-7xl mx-auto p-4 md:p-8 animate-in fade-in duration-700 w-full flex-1">
         {currentUser && !currentUser.is_online && analystTab === 'mesa' ? (
            <div className="py-20 md:py-24 text-center bg-white border border-slate-100 rounded-[2.5rem] md:rounded-[3.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.02)] max-w-md mx-auto flex flex-col items-center animate-in zoom-in-95 px-6">
-              <div className="w-14 h-14 bg-slate-50 rounded-full flex items-center justify-center text-slate-300 mb-6 border border-slate-100 flex-shrink-0"><AlertTriangle size={32}/></div>
+              <div className="w-14 h-14 bg-slate-50 rounded-full flex items-center justify-center text-slate-300 mb-6 border border-slate-100 shrink-0"><AlertTriangle size={32}/></div>
               <h2 className="text-xl font-black text-slate-700 mb-2 uppercase tracking-tighter text-center leading-none">Você está Pausado</h2>
               <p className="text-slate-400 font-bold text-[10px] max-w-xs mx-auto mb-8 text-center uppercase tracking-widest leading-relaxed px-4">Ative sua fila no menu superior para voltar a receber pastas do CRM.</p>
               <button onClick={() => toggleQueueStatus(true)} className="bg-blue-600 text-white px-10 py-4 rounded-xl font-black uppercase text-[10px] shadow-xl active:scale-95 flex items-center gap-3"><Power size={18}/> Ligar Fila</button>

@@ -29,7 +29,7 @@ const LoginView = ({
     <ConfirmActionModal confirmAction={confirmAction} onClose={closeConfirmation} />
     {isGlobalLoading && <LoadingOverlay />}
 
-    <div className="hidden lg:flex flex-col justify-between w-[45%] bg-blue-600 p-12 relative overflow-hidden flex-shrink-0">
+    <div className="hidden lg:flex flex-col justify-between w-[45%] bg-blue-600 p-12 relative overflow-hidden shrink-0">
       <div className="absolute inset-0 opacity-[0.07]" style={{ backgroundImage: 'radial-gradient(circle, white 1.5px, transparent 1.5px)', backgroundSize: '32px 32px' }} />
       <div className="relative z-10">
         <img src="/logo.png" alt="VCA Logo" className="h-10 w-auto object-contain brightness-0 invert" />
@@ -65,23 +65,23 @@ const LoginView = ({
               <div className="flex items-center gap-3 truncate">
                 {selectedAnalyst ? (
                   <>
-                    <div className="w-8 h-8 rounded-xl bg-blue-600 flex items-center justify-center text-white text-[11px] font-black flex-shrink-0 uppercase">
+                    <div className="w-8 h-8 rounded-xl bg-blue-600 flex items-center justify-center text-white text-[11px] font-black shrink-0 uppercase">
                       {selectedAnalyst.nome?.charAt(0)}
                     </div>
                     <span className="text-sm font-black text-slate-700 uppercase tracking-tight truncate">{selectedAnalyst.nome}</span>
                   </>
                 ) : (
                   <>
-                    <UserIcon size={16} className="text-slate-300 flex-shrink-0" />
+                    <UserIcon size={16} className="text-slate-300 shrink-0" />
                     <span className="text-sm font-bold text-slate-400">Selecionar perfil...</span>
                   </>
                 )}
               </div>
-              <ChevronDown size={16} className={`text-slate-300 transition-transform flex-shrink-0 ${isProfileDropdownOpen ? 'rotate-180 text-blue-500' : ''}`} />
+              <ChevronDown size={16} className={`text-slate-300 transition-transform shrink-0 ${isProfileDropdownOpen ? 'rotate-180 text-blue-500' : ''}`} />
             </button>
 
             {isProfileDropdownOpen && (
-              <div className="absolute top-full mt-2 left-0 right-0 bg-white border border-slate-100 rounded-2xl shadow-2xl z-[500] overflow-hidden animate-in slide-in-from-top-1">
+              <div className="absolute top-full mt-2 left-0 right-0 bg-white border border-slate-100 rounded-2xl shadow-2xl z-500 overflow-hidden animate-in slide-in-from-top-1">
                 <div className="p-3 border-b border-slate-50 flex items-center gap-2">
                   <Search size={13} className="text-slate-300" />
                   <input autoFocus type="text" placeholder="Filtrar analista..." className="bg-transparent border-none outline-none text-xs font-bold w-full text-slate-600" value={profileSearch} onChange={(e) => setProfileSearch(e.target.value)} />
@@ -93,7 +93,7 @@ const LoginView = ({
                         <div className="w-7 h-7 bg-slate-50 border border-slate-100 rounded-lg flex items-center justify-center text-[9px] font-black text-slate-400 group-hover:bg-blue-500 group-hover:text-white group-hover:border-blue-500 uppercase transition-all">{a.nome?.charAt(0)}</div>
                         <span className="text-xs font-black text-slate-600 uppercase group-hover:text-white transition-colors">{a.nome}</span>
                       </div>
-                      {a.is_online && <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse flex-shrink-0" />}
+                      {a.is_online && <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse shrink-0" />}
                     </button>
                   ))}
                 </div>
@@ -114,7 +114,7 @@ const LoginView = ({
     </div>
 
     {showLoginModal && (
-      <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[250] flex items-center justify-center p-4" onClick={() => setShowLoginModal(false)}>
+      <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-250 flex items-center justify-center p-4" onClick={() => setShowLoginModal(false)}>
         <div className="bg-white rounded-3xl w-full max-w-xs shadow-2xl border border-slate-100 overflow-hidden animate-in zoom-in-95" onClick={(e) => e.stopPropagation()}>
           <div className="bg-blue-600 px-8 pt-8 pb-6 flex flex-col items-center gap-3">
             <div className="w-14 h-14 rounded-2xl bg-white/20 flex items-center justify-center text-white text-2xl font-black uppercase">

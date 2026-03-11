@@ -15,7 +15,7 @@ const ManagerTransfersTab = ({
   transferInsights,
   groupedTransferLogs,
 }) => (
-  <section className="bg-white rounded-[1.5rem] md:rounded-[2rem] border border-slate-100 overflow-hidden shadow-sm">
+  <section className="bg-white rounded-3xl md:rounded-4xl border border-slate-100 overflow-hidden shadow-sm">
     <div className="p-5 md:p-6 border-b border-slate-50 flex items-center gap-2 bg-slate-50/20">
       <ArrowRightLeft size={18} className="text-blue-600" />
       <h2 className="text-[10px] font-black uppercase tracking-widest text-slate-800">Log de Transferencias (por dia)</h2>
@@ -75,7 +75,7 @@ const ManagerTransfersTab = ({
       </div>
     </div>
 
-    <div className="p-4 md:p-6 space-y-4 max-h-[420px] overflow-y-auto custom-scrollbar">
+    <div className="p-4 md:p-6 space-y-4 max-h-105 overflow-y-auto custom-scrollbar">
       {groupedTransferLogs.length > 0 ? groupedTransferLogs.map(([dia, logs]) => (
         <div key={dia} className="border border-slate-100 rounded-xl overflow-hidden">
           <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-100 text-[10px] font-black uppercase tracking-widest text-slate-600">{dia}</div>

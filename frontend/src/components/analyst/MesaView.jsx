@@ -94,12 +94,12 @@ const MesaView = ({
                 <div className="col-span-12 lg:col-span-5 flex items-center gap-3 min-w-0">
                   <button
                     onClick={(e) => { e.stopPropagation(); toggleTaskSelection(task.reserva_id); }}
-                    className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 hover:border-blue-400 transition-all bg-white"
+                    className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 hover:border-blue-400 transition-all bg-white"
                     title={isSelected ? 'Desmarcar' : 'Selecionar para transferencia em massa'}
                   >
                     {isSelected ? <CheckSquare size={16} className="text-blue-600"/> : <Square size={16} className="text-slate-300"/>}
                   </button>
-                  <div className="w-8 h-8 md:w-9 md:h-9 bg-slate-50 rounded-lg flex items-center justify-center text-[10px] font-black text-slate-400 border border-slate-100 flex-shrink-0 group-hover:text-blue-500 transition-all">{task.reserva_id.toString().slice(-2)}</div>
+                  <div className="w-8 h-8 md:w-9 md:h-9 bg-slate-50 rounded-lg flex items-center justify-center text-[10px] font-black text-slate-400 border border-slate-100 shrink-0 group-hover:text-blue-500 transition-all">{task.reserva_id.toString().slice(-2)}</div>
                   <div className="min-w-0 flex flex-col"><span className="text-[7px] font-black text-slate-400 uppercase tracking-widest leading-none block">ID: {task.reserva_id}</span><h4 className="text-[12px] md:text-[13px] font-black text-slate-800 uppercase tracking-tight truncate pr-2" title={task.cliente}>{task.cliente}</h4></div>
                 </div>
                 <div className="col-span-12 lg:col-span-4 space-y-1 min-w-0 lg:border-l border-slate-100 lg:pl-4">
@@ -121,18 +121,18 @@ const MesaView = ({
             </div>
           );
         }) : (
-          <div className="py-20 text-center bg-white border-2 border-dashed border-slate-50 rounded-[2rem] shadow-sm px-6"><CheckCircle2 size={40} className="mx-auto mb-4 text-slate-100"/><p className="text-slate-300 font-black uppercase text-[10px] tracking-[0.3em] italic">Mesa livre.</p></div>
+          <div className="py-20 text-center bg-white border-2 border-dashed border-slate-50 rounded-4xl shadow-sm px-6"><CheckCircle2 size={40} className="mx-auto mb-4 text-slate-100"/><p className="text-slate-300 font-black uppercase text-[10px] tracking-[0.3em] italic">Mesa livre.</p></div>
         )}
       </div>
     </div>
 
-    <div className="w-full lg:w-[240px] space-y-5 flex-shrink-0">
+    <div className="w-full lg:w-60 space-y-5 shrink-0">
       <h2 className="text-[9px] font-black uppercase tracking-widest text-slate-400 px-2">Performance</h2>
       <div className="grid grid-cols-2 lg:grid-cols-1 gap-4">
-        <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col justify-center text-center group hover:border-blue-200 transition-all h-[95px] shadow-sm"><p className="text-[8px] font-black text-slate-400 uppercase mb-1 tracking-widest uppercase">Hoje</p><div className="text-2xl font-black text-blue-600 leading-none">{metrics.hoje}</div></div>
-        <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col justify-center text-center group hover:border-blue-200 transition-all h-[95px] shadow-sm"><p className="text-[8px] font-black text-slate-400 uppercase mb-1 tracking-widest uppercase">Ano</p><div className="text-2xl font-black text-slate-700 leading-none">{metrics.ano}</div></div>
+        <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col justify-center text-center group hover:border-blue-200 transition-all h-23.75"><p className="text-[8px] font-black text-slate-400 uppercase mb-1 tracking-widest">Hoje</p><div className="text-2xl font-black text-blue-600 leading-none">{metrics.hoje}</div></div>
+        <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col justify-center text-center group hover:border-blue-200 transition-all h-23.75"><p className="text-[8px] font-black text-slate-400 uppercase mb-1 tracking-widest">Ano</p><div className="text-2xl font-black text-slate-700 leading-none">{metrics.ano}</div></div>
       </div>
-      <div className="bg-blue-600 p-4 rounded-xl shadow-xl shadow-blue-500/10 flex items-center gap-3 text-white group overflow-hidden relative"><TrendingUp size={18} className="flex-shrink-0 opacity-80"/><div className="truncate"><p className="text-[7px] font-bold text-blue-100 uppercase tracking-widest mb-0.5 leading-none font-black uppercase">Fila VCA</p><div className="text-[10px] font-black uppercase tracking-tight truncate">Sync Real Time</div></div></div>
+      <div className="bg-blue-600 p-4 rounded-xl shadow-xl shadow-blue-500/10 flex items-center gap-3 text-white group overflow-hidden relative"><TrendingUp size={18} className="shrink-0 opacity-80"/><div className="truncate"><p className="text-[7px] text-blue-100 font-black uppercase tracking-widest mb-0.5 leading-none">Fila VCA</p><div className="text-[10px] font-black uppercase tracking-tight truncate">Sync Real Time</div></div></div>
     </div>
   </div>
 );
