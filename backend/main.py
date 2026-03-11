@@ -121,7 +121,11 @@ CVCRM_TOKEN = get_required_env("CVCRM_TOKEN")
 app = FastAPI(title="VCA Distribuidor - Backend Oficial")
 
 # Configuração de CORS para o Frontend
-cors_origins = ALLOWED_ORIGINS.split(",") if ALLOWED_ORIGINS else []
+if isinstance(ALLOWED_ORIGINS, list):
+    cors_origins = ALLOWED_ORIGINS.copy()
+else:
+    cors_origins = parse_allowed_origins(str(ALLOWED_ORIGINS))
+
 # Adicionar URL de produção (Vercel) se não estiver já configurada
 if "https://distribuidor-analises.vercel.app" not in cors_origins:
     cors_origins.append("https://distribuidor-analises.vercel.app")
