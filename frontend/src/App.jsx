@@ -4,10 +4,12 @@ import {
   Hash, LayoutDashboard, AlertTriangle, XCircle, BarChart4, 
   TrendingUp, Calendar, LogOut, Lock, Eye, EyeOff,
   UserPlus, Trash2, Power, Settings, CheckSquare, Square, 
-  Edit3, UserCheck, Users, ShieldCheck, CheckCircle, Save,
+  Edit3, UserCheck, Users, ShieldCheck, Save,
   Layout, ChevronDown, Search, User as UserIcon,
   Tag, BarChart3, PieChart, RotateCcw, ListOrdered, ArrowRightLeft
 } from 'lucide-react';
+import { api } from './services/api';
+import { ConfirmActionModal, LoadingOverlay, StatusToast } from './components/FeedbackOverlays';
 
 const AUTO_REFRESH_SECONDS = 15;
 const ALL_FILTER = 'all';
@@ -98,7 +100,6 @@ const App = () => {
   const [bulkTransferReason, setBulkTransferReason] = useState("");
   const confirmResolverRef = useRef(null);
 
-  const API_BASE = "http://localhost:8000/api";
   const CRM_BASE = "https://vca.cvcrm.com.br/gestor/comercial/reservas";
 
   const SITUACOES_MAP = {
@@ -191,18 +192,18 @@ const App = () => {
     if (!silent) setIsGlobalLoading(true);
     setIsSyncing(true);
     try {
-      const resA = await fetch(`${API_BASE}/analistas`);
+      const resA = await api.listAnalysts();
       if (resA.ok) setAnalysts(await resA.json());
 
       if (view === 'analyst' && currentUser) {
-        const resM = await fetch(`${API_BASE}/mesa/${currentUser.id}`);
+        const resM = await api.getMesa(currentUser.id);
         if (resM.ok) setMyTasks(await resM.json());
-        const resMet = await fetch(`${API_BASE}/metricas/${currentUser.id}`);
+        const resMet = await api.getMetrics(currentUser.id);
         if (resMet.ok) setMetrics(await resMet.json());
       }
 
       if (view === 'manager') {
-        const resD = await fetch(`${API_BASE}/gestor/overview`);
+        const resD = await api.getManagerOverview();
         if (resD.ok) {
           const d = await resD.json();
           setDashData({ 
@@ -249,11 +250,7 @@ const App = () => {
     if (!password) return;
     setIsGlobalLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ analista_id: selectedAnalyst.id, senha: password })
-      });
+      const res = await api.login(selectedAnalyst.id, password);
       if (res.ok) {
         const userData = await res.json();
         setCurrentUser(userData);
@@ -270,11 +267,7 @@ const App = () => {
   const toggleQueueStatus = async (status) => {
     setIsGlobalLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/analista/status-fila`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ analista_id: currentUser.id, online: status })
-      });
+      const res = await api.setQueueStatus(currentUser.id, status);
       if (res.ok) {
         setCurrentUser(prev => ({ ...prev, is_online: status }));
         notify(status ? "Você está Online!" : "Pausado.");
@@ -287,7 +280,7 @@ const App = () => {
   const handleFinish = async (id, outcome) => {
     setIsGlobalLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/concluir?reserva_id=${id}&resultado=${outcome}`, { method: 'POST' });
+      const res = await api.finishTask(id, outcome);
       if (res.ok) {
         notify("Pasta finalizada.");
         fetchData();
@@ -318,15 +311,11 @@ const App = () => {
     }
     setIsGlobalLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/analista/transferir`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          reserva_id: transferTask.reserva_id,
-          analista_origem_id: currentUser.id,
-          analista_destino_id: parseInt(transferToId),
-          motivo: trimmedReason
-        })
+      const res = await api.transferTask({
+        reserva_id: transferTask.reserva_id,
+        analista_origem_id: currentUser.id,
+        analista_destino_id: parseInt(transferToId),
+        motivo: trimmedReason
       });
 
       if (res.ok) {
@@ -376,15 +365,11 @@ const App = () => {
     }
     setIsGlobalLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/analista/transferir-massa`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          reserva_ids: Array.from(selectedTaskIds),
-          analista_origem_id: currentUser.id,
-          analista_destino_id: parseInt(bulkTransferToId),
-          motivo: trimmedReason
-        })
+      const res = await api.transferTaskBulk({
+        reserva_ids: Array.from(selectedTaskIds),
+        analista_origem_id: currentUser.id,
+        analista_destino_id: parseInt(bulkTransferToId),
+        motivo: trimmedReason
       });
       if (res.ok) {
         const data = await res.json();
@@ -412,7 +397,7 @@ const App = () => {
     if (!confirmed) return;
     setIsGlobalLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/gestor/redistribuir`, { method: 'POST' });
+      const res = await api.redistribute();
       if (res.ok) {
         notify("Redistribuição efetuada!");
         fetchData();
@@ -431,7 +416,7 @@ const App = () => {
     if (!confirmed) return;
     setIsGlobalLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/gestor/zerar-dados`, { method: 'POST' });
+      const res = await api.resetData();
       if (res.ok) {
         notify("Mesas limpas e ordem reiniciada!");
         fetchData();
@@ -457,11 +442,7 @@ const App = () => {
     applyAnalystQueueStatus(analyst.id, nextStatus);
 
     try {
-      const res = await fetch(`${API_BASE}/analista/status-fila`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ analista_id: analyst.id, online: nextStatus })
-      });
+      const res = await api.setQueueStatus(analyst.id, nextStatus);
       if (res.ok) {
         const data = await res.json();
         if (!nextStatus) {
@@ -486,11 +467,9 @@ const App = () => {
     setIsGlobalLoading(true);
     try {
         const isEdit = editForm.id !== null;
-        const url = isEdit ? `${API_BASE}/gestor/analistas/${editForm.id}` : `${API_BASE}/gestor/analistas`;
-        const res = await fetch(url, {
-            method: isEdit ? 'PATCH' : 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(editForm)
+        const res = await api.saveAnalyst({
+          id: isEdit ? editForm.id : null,
+          payload: editForm
         });
         if (res.ok) {
             notify("Alterações gravadas!");
@@ -505,7 +484,7 @@ const App = () => {
     if (!window.confirm("Remover este analista?")) return;
     setIsGlobalLoading(true);
     try {
-        await fetch(`${API_BASE}/gestor/analistas/${id}`, { method: 'DELETE' });
+        await api.deleteAnalyst(id);
         notify("Analista removido.");
         fetchData();
     } catch (e) { notify("Erro ao remover."); }
@@ -653,52 +632,11 @@ const App = () => {
     setTransferDestinationFilter(ALL_FILTER);
   };
 
-  // --- UI COMPONENTS ---
-  const LoadingOverlay = () => (
-    <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-white/60 backdrop-blur-[2px]">
-      <div className="bg-white p-5 rounded-2xl shadow-2xl flex flex-col items-center gap-3 border border-slate-100 animate-in zoom-in-95">
-        <RefreshCw className="text-blue-600 animate-spin" size={24} />
-        <p className="text-slate-400 font-bold text-[10px] uppercase tracking-widest">Processando...</p>
-      </div>
-    </div>
-  );
-
-  const StatusToast = () => (
-    <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] flex items-center gap-3 px-6 py-3 rounded-xl shadow-2xl transition-all duration-500 transform ${toast.show ? 'translate-y-0 opacity-100' : 'translate-y-20 opacity-0 pointer-events-none'} ${toast.type === 'success' ? 'bg-blue-600 shadow-blue-200' : 'bg-red-500 shadow-red-200'} text-white`}>
-      {toast.type === 'success' ? <CheckCircle size={16}/> : <AlertTriangle size={16}/>}
-      <span className="font-bold text-[11px] uppercase tracking-tight">{toast.message}</span>
-    </div>
-  );
-
-  const ConfirmActionModal = () => {
-    if (!confirmAction.open) return null;
-    const isDanger = confirmAction.tone === "danger";
-    return (
-      <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[450] flex items-center justify-center p-4" onClick={() => closeConfirmation(false)}>
-        <div className="bg-white border border-slate-100 rounded-2xl shadow-2xl w-full max-w-md p-6 animate-in zoom-in-95" onClick={(e) => e.stopPropagation()}>
-          <div className="flex items-start gap-3 mb-4">
-            <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${isDanger ? 'bg-red-50 text-red-600' : 'bg-amber-50 text-amber-600'}`}>
-              <AlertTriangle size={16} />
-            </div>
-            <div>
-              <h3 className="text-sm font-black uppercase tracking-wide text-slate-800">{confirmAction.title}</h3>
-              <p className="text-[11px] font-bold text-slate-500 mt-1 leading-relaxed">{confirmAction.message}</p>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3 mt-5">
-            <button onClick={() => closeConfirmation(false)} className="py-2.5 bg-slate-50 text-slate-500 rounded-xl text-[10px] font-black uppercase border border-slate-100">Cancelar</button>
-            <button onClick={() => closeConfirmation(true)} className={`py-2.5 rounded-xl text-[10px] font-black uppercase text-white ${isDanger ? 'bg-red-600' : 'bg-amber-600'}`}>{confirmAction.confirmLabel}</button>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
   // --- TELA DE LOGIN ---
   if (view === 'login') return (
     <div className="min-h-screen flex font-sans overflow-hidden">
-      <StatusToast />
-      <ConfirmActionModal />
+      <StatusToast toast={toast} />
+      <ConfirmActionModal confirmAction={confirmAction} onClose={closeConfirmation} />
       {isGlobalLoading && <LoadingOverlay />}
 
       {/* Painel esquerdo — branding */}
@@ -836,8 +774,8 @@ const App = () => {
   // --- PAINEL GESTOR ---
   if (view === 'manager') return (
     <div className="min-h-screen font-sans bg-[#f8fafc] text-slate-800 flex flex-col overflow-x-hidden">
-      <StatusToast />
-      <ConfirmActionModal />
+      <StatusToast toast={toast} />
+      <ConfirmActionModal confirmAction={confirmAction} onClose={closeConfirmation} />
       {isGlobalLoading && <LoadingOverlay />}
       <nav className="bg-white border-b border-slate-100 p-2.5 px-4 md:px-8 flex justify-between items-center sticky top-0 z-[100] shadow-sm">
         <div className="flex items-center gap-3 truncate">
@@ -1055,8 +993,8 @@ const App = () => {
   // --- PAINEL DO ANALISTA ---
   return (
     <div className="min-h-screen font-sans bg-[#f8fafc] text-slate-800 flex flex-col overflow-x-hidden">
-      <StatusToast />
-      <ConfirmActionModal />
+      <StatusToast toast={toast} />
+      <ConfirmActionModal confirmAction={confirmAction} onClose={closeConfirmation} />
       {showTransferModal && transferTask && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[450] flex items-center justify-center p-4" onClick={() => setShowTransferModal(false)}>
           <div className="bg-white border border-slate-100 rounded-2xl shadow-2xl w-full max-w-md p-6 animate-in zoom-in-95" onClick={(e) => e.stopPropagation()}>
