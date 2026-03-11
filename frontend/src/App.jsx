@@ -10,6 +10,33 @@ import {
 } from 'lucide-react';
 
 const AUTO_REFRESH_SECONDS = 15;
+const ALL_FILTER = 'all';
+
+const getLogDateRef = (log) => log?.data_transferencia || log?.created_at;
+
+const getMonthKey = (dateValue) => {
+  const d = new Date(dateValue);
+  if (Number.isNaN(d.getTime())) return null;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+};
+
+const getAnalystDisplayName = (id, name) => name || `Analista ${id}`;
+
+const createTransferOptions = (logs, idField, nameField) => {
+  const map = new Map();
+  (logs || []).forEach((log) => {
+    const id = log?.[idField];
+    if (!id) return;
+    const key = String(id);
+    if (!map.has(key)) {
+      map.set(key, {
+        value: key,
+        label: getAnalystDisplayName(id, log?.[nameField])
+      });
+    }
+  });
+  return Array.from(map.values()).sort((a, b) => a.label.localeCompare(b.label));
+};
 
 const App = () => {
   // --- ESTADOS DE NAVEGAÇÃO ---
@@ -17,9 +44,9 @@ const App = () => {
   const [currentUser, setCurrentUser] = useState(null);
   const [analystTab, setAnalystTab] = useState('mesa'); 
   const [managerTab, setManagerTab] = useState('dashboard');
-  const [transferMonthFilter, setTransferMonthFilter] = useState('all');
-  const [transferOriginFilter, setTransferOriginFilter] = useState('all');
-  const [transferDestinationFilter, setTransferDestinationFilter] = useState('all');
+  const [transferMonthFilter, setTransferMonthFilter] = useState(ALL_FILTER);
+  const [transferOriginFilter, setTransferOriginFilter] = useState(ALL_FILTER);
+  const [transferDestinationFilter, setTransferDestinationFilter] = useState(ALL_FILTER);
 
   // --- ESTADOS DE DADOS ---
   const [analysts, setAnalysts] = useState([]);
@@ -415,15 +442,19 @@ const App = () => {
     finally { setIsGlobalLoading(false); }
   };
 
+  const applyAnalystQueueStatus = useCallback((analystId, isOnline) => {
+    setDashData(prev => ({
+      ...prev,
+      equipe: (prev.equipe || []).map(a => a.id === analystId ? { ...a, is_online: isOnline } : a)
+    }));
+    setAnalysts(prev => (prev || []).map(a => a.id === analystId ? { ...a, is_online: isOnline } : a));
+  }, []);
+
   const handleAdminQueueToggle = async (analyst) => {
     if (togglingQueueIds.includes(analyst.id)) return;
     const nextStatus = !analyst.is_online;
     setTogglingQueueIds(prev => [...prev, analyst.id]);
-    setDashData(prev => ({
-      ...prev,
-      equipe: (prev.equipe || []).map(a => a.id === analyst.id ? { ...a, is_online: nextStatus } : a)
-    }));
-    setAnalysts(prev => (prev || []).map(a => a.id === analyst.id ? { ...a, is_online: nextStatus } : a));
+    applyAnalystQueueStatus(analyst.id, nextStatus);
 
     try {
       const res = await fetch(`${API_BASE}/analista/status-fila`, {
@@ -440,19 +471,11 @@ const App = () => {
         }
         fetchData(true);
       } else {
-        setDashData(prev => ({
-          ...prev,
-          equipe: (prev.equipe || []).map(a => a.id === analyst.id ? { ...a, is_online: analyst.is_online } : a)
-        }));
-        setAnalysts(prev => (prev || []).map(a => a.id === analyst.id ? { ...a, is_online: analyst.is_online } : a));
+        applyAnalystQueueStatus(analyst.id, analyst.is_online);
         notify("Erro ao atualizar fila do analista.", "error");
       }
     } catch (e) {
-      setDashData(prev => ({
-        ...prev,
-        equipe: (prev.equipe || []).map(a => a.id === analyst.id ? { ...a, is_online: analyst.is_online } : a)
-      }));
-      setAnalysts(prev => (prev || []).map(a => a.id === analyst.id ? { ...a, is_online: analyst.is_online } : a));
+      applyAnalystQueueStatus(analyst.id, analyst.is_online);
       notify("Erro ao atualizar fila do analista.", "error");
     } finally {
       setTogglingQueueIds(prev => prev.filter(id => id !== analyst.id));
@@ -540,24 +563,24 @@ const App = () => {
     const logs = dashData.logs_transferencias || [];
 
     const filtered = logs.filter(log => {
-      if (transferMonthFilter === 'all') return true;
-      const dateRef = log.data_transferencia || log.created_at;
+      if (transferMonthFilter === ALL_FILTER) return true;
+      const dateRef = getLogDateRef(log);
       if (!dateRef) return false;
-      const d = new Date(dateRef);
-      const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const monthKey = getMonthKey(dateRef);
+      if (!monthKey) return false;
       return monthKey === transferMonthFilter;
     }).filter(log => {
-      if (transferOriginFilter === 'all') return true;
+      if (transferOriginFilter === ALL_FILTER) return true;
       return String(log.analista_origem_id) === String(transferOriginFilter);
     }).filter(log => {
-      if (transferDestinationFilter === 'all') return true;
+      if (transferDestinationFilter === ALL_FILTER) return true;
       return String(log.analista_destino_id) === String(transferDestinationFilter);
     });
 
     const grouped = {};
 
     filtered.forEach(log => {
-      const dateRef = log.data_transferencia || log.created_at;
+      const dateRef = getLogDateRef(log);
       if (!dateRef) return;
       const dayKey = new Date(dateRef).toLocaleDateString('pt-BR');
       if (!grouped[dayKey]) grouped[dayKey] = [];
@@ -575,12 +598,13 @@ const App = () => {
     const options = [];
     const seen = new Set();
     (dashData.logs_transferencias || []).forEach(log => {
-      const dateRef = log.data_transferencia || log.created_at;
+      const dateRef = getLogDateRef(log);
       if (!dateRef) return;
-      const d = new Date(dateRef);
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const key = getMonthKey(dateRef);
+      if (!key) return;
       if (!seen.has(key)) {
         seen.add(key);
+        const d = new Date(dateRef);
         const label = d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
         options.push({ value: key, label: label.charAt(0).toUpperCase() + label.slice(1) });
       }
@@ -589,33 +613,11 @@ const App = () => {
   }, [dashData.logs_transferencias]);
 
   const transferOriginOptions = useMemo(() => {
-    const map = new Map();
-    (dashData.logs_transferencias || []).forEach(log => {
-      if (!log.analista_origem_id) return;
-      const key = String(log.analista_origem_id);
-      if (!map.has(key)) {
-        map.set(key, {
-          value: key,
-          label: log.analista_origem_nome || `Analista ${log.analista_origem_id}`
-        });
-      }
-    });
-    return Array.from(map.values()).sort((a, b) => a.label.localeCompare(b.label));
+    return createTransferOptions(dashData.logs_transferencias, 'analista_origem_id', 'analista_origem_nome');
   }, [dashData.logs_transferencias]);
 
   const transferDestinationOptions = useMemo(() => {
-    const map = new Map();
-    (dashData.logs_transferencias || []).forEach(log => {
-      if (!log.analista_destino_id) return;
-      const key = String(log.analista_destino_id);
-      if (!map.has(key)) {
-        map.set(key, {
-          value: key,
-          label: log.analista_destino_nome || `Analista ${log.analista_destino_id}`
-        });
-      }
-    });
-    return Array.from(map.values()).sort((a, b) => a.label.localeCompare(b.label));
+    return createTransferOptions(dashData.logs_transferencias, 'analista_destino_id', 'analista_destino_nome');
   }, [dashData.logs_transferencias]);
 
   const transferInsights = useMemo(() => {
@@ -646,9 +648,9 @@ const App = () => {
   }, [groupedTransferLogs]);
 
   const resetTransferFilters = () => {
-    setTransferMonthFilter('all');
-    setTransferOriginFilter('all');
-    setTransferDestinationFilter('all');
+    setTransferMonthFilter(ALL_FILTER);
+    setTransferOriginFilter(ALL_FILTER);
+    setTransferDestinationFilter(ALL_FILTER);
   };
 
   // --- UI COMPONENTS ---
