@@ -36,6 +36,7 @@ export const api = {
   listAnalysts: () => request("/api/analistas"),
   getMesa: (analystId) => request(`/api/mesa/${analystId}`),
   getMetrics: (analystId) => request(`/api/metricas/${analystId}`),
+  getAnalystDashboard: (analystId) => request(`/api/analista/dashboard/${analystId}`),
   getManagerOverview: () => request("/api/gestor/overview", { headers: getManagerAuthHeaders() }),
 
   login: (analystId, password) =>

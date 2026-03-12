@@ -12,6 +12,7 @@ import { api } from './services/api';
 import { ConfirmActionModal, LoadingOverlay, StatusToast } from './components/FeedbackOverlays';
 import LoginView from './components/LoginView';
 import MesaView from './components/analyst/MesaView';
+import AnalystAnalyticsTab from './components/analyst/AnalystAnalyticsTab';
 import AnalystSettingsTab from './components/analyst/AnalystSettingsTab';
 import ManagerHeader from './components/manager/ManagerHeader';
 import ManagerDashboardTab from './components/manager/ManagerDashboardTab';
@@ -21,6 +22,14 @@ import EditAnalystModal from './components/manager/EditAnalystModal';
 const AUTO_REFRESH_SECONDS = 15;
 const ALL_FILTER = 'all';
 const LEGACY_MANAGER_TOKEN = 'legacy-admin-session';
+const EMPTY_ANALYTICS = {
+  resumo: { total: 0, hoje: 0, mes: 0, ano: 0, media_por_dia: 0, dias_com_producao: 0 },
+  series: { por_dia: [], por_mes: [] },
+  rankings: { por_resultado: [], por_situacao: [], por_empreendimento: [] },
+  registros: [],
+  total_registros: 0,
+  gerado_em: null,
+};
 
 const getLogDateRef = (log) => log?.data_transferencia || log?.created_at;
 
@@ -62,6 +71,7 @@ const App = () => {
   const [analysts, setAnalysts] = useState([]);
   const [myTasks, setMyTasks] = useState([]);
   const [metrics, setMetrics] = useState({ hoje: 0, ano: 0 });
+  const [analyticsData, setAnalyticsData] = useState(EMPTY_ANALYTICS);
   const [dashData, setDashData] = useState({ 
     equipe: [], 
     distribuicao_atual: [],
@@ -257,6 +267,12 @@ const App = () => {
         if (resM.ok) setMyTasks(await resM.json());
         const resMet = await api.getMetrics(currentUser.id);
         if (resMet.ok) setMetrics(await resMet.json());
+        const resAnalytics = await api.getAnalystDashboard(currentUser.id);
+        if (resAnalytics.ok) {
+          setAnalyticsData(await resAnalytics.json());
+        } else {
+          setAnalyticsData(EMPTY_ANALYTICS);
+        }
       }
 
       if (view === 'manager') {
@@ -1033,9 +1049,9 @@ const App = () => {
                 <Power size={14} /> <span className="hidden xs:inline">{currentUser?.is_online ? "Pausar" : "Ligar"}</span>
                 </button>
                 <div className="w-px h-5 bg-slate-200 mx-0.5" />
-                <button onClick={() => setAnalystTab('mesa')} className={`p-1.5 md:p-2 rounded-lg transition-all ${analystTab === 'mesa' ? 'bg-white text-blue-600 shadow-sm border border-slate-100' : 'text-slate-300 hover:text-slate-400'}`}><LayoutDashboard size={18}/></button>
-                <button onClick={() => setAnalystTab('historico')} className={`p-1.5 md:p-2 rounded-lg transition-all ${analystTab === 'historico' ? 'bg-white text-blue-600 shadow-sm border border-slate-100' : 'text-slate-300 hover:text-slate-400'}`}><History size={18}/></button>
-                <button onClick={() => setAnalystTab('settings')} className={`p-1.5 md:p-2 rounded-lg transition-all ${analystTab === 'settings' ? 'bg-white text-blue-600 shadow-sm border border-slate-100' : 'text-slate-300 hover:text-slate-400'}`}><Settings size={18}/></button>
+                <button onClick={() => setAnalystTab('mesa')} className={`p-1.5 md:p-2 rounded-lg transition-all ${analystTab === 'mesa' ? 'bg-white text-blue-600 shadow-sm border border-slate-100' : 'text-slate-300 hover:text-slate-400'}`} title="Mesa"><LayoutDashboard size={18}/></button>
+                <button onClick={() => setAnalystTab('analytics')} className={`p-1.5 md:p-2 rounded-lg transition-all ${analystTab === 'analytics' ? 'bg-white text-blue-600 shadow-sm border border-slate-100' : 'text-slate-300 hover:text-slate-400'}`} title="Dashboard analítico"><BarChart3 size={18}/></button>
+                <button onClick={() => setAnalystTab('settings')} className={`p-1.5 md:p-2 rounded-lg transition-all ${analystTab === 'settings' ? 'bg-white text-blue-600 shadow-sm border border-slate-100' : 'text-slate-300 hover:text-slate-400'}`} title="Configurações"><Settings size={18}/></button>
             </div>
             <button onClick={() => { setView('login'); setCurrentUser(null); setAnalystTab('mesa'); }} className="bg-white text-slate-300 p-1.5 md:p-2 rounded-lg hover:text-red-500 transition-all border border-slate-100 active:scale-95 shadow-sm ml-1 shrink-0"><LogOut size={18}/></button>
         </div>
@@ -1047,6 +1063,12 @@ const App = () => {
             isSubmitting={isGlobalLoading}
             onSubmit={handleChangePassword}
             onClose={() => setAnalystTab('mesa')}
+          />
+        ) : analystTab === 'analytics' ? (
+          <AnalystAnalyticsTab
+            analyticsData={analyticsData}
+            currentUser={currentUser}
+            notify={notify}
           />
         ) : currentUser && !currentUser.is_online && analystTab === 'mesa' ? (
            <div className="py-20 md:py-24 text-center bg-white border border-slate-100 rounded-[2.5rem] md:rounded-[3.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.02)] max-w-md mx-auto flex flex-col items-center animate-in zoom-in-95 px-6">
@@ -1075,7 +1097,7 @@ const App = () => {
               metrics={metrics}
             />
           ) : (
-            <div className="space-y-6 py-20 text-center text-slate-300 italic text-[11px] uppercase tracking-[0.4em] font-bold px-6">Histórico detalhado sendo carregado...</div>
+            <div className="space-y-6 py-20 text-center text-slate-300 italic text-[11px] uppercase tracking-[0.4em] font-bold px-6">Nenhum conteúdo disponível nesta aba.</div>
           )
         )}
       </main>

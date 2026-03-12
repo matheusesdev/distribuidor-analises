@@ -267,9 +267,9 @@ app.add_middleware(
 # --- CONFIGURAÇÃO SUPABASE ---
 try:
     supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-    print("✓ Conexão com Supabase estabelecida.")
+    print("[OK] Conex\u00e3o com Supabase estabelecida.")
 except Exception as e:
-    print(f"✗ Erro ao ligar ao Supabase: {e}")
+    print(f"[ERRO] Erro ao ligar ao Supabase: {e}")
 
 # --- MAPEAMENTO DE SITUAÇÕES DO CVCRM ---
 SITUACOES_NOMES = {
@@ -293,6 +293,52 @@ async def fetch_cvcrm_reservas(sit_id: int, timeout_seconds: int):
     """Executa request ao CRM fora do event loop para evitar bloqueio."""
     url = f"https://vca.cvcrm.com.br/api/v1/comercial/reservas?situacao={sit_id}"
     return await asyncio.to_thread(requests.get, url, headers=HEADERS, timeout=timeout_seconds)
+
+
+def parse_history_datetime(value: Optional[str]) -> Optional[datetime.datetime]:
+    normalized_value = (value or "").strip()
+    if not normalized_value:
+        return None
+
+    try:
+        return datetime.datetime.fromisoformat(normalized_value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def build_sorted_counter(counter_map: Dict[str, int], *, limit: Optional[int] = None) -> List[Dict[str, Any]]:
+    items = [
+        {"label": label, "total": total}
+        for label, total in counter_map.items()
+    ]
+    items.sort(key=lambda item: (-item["total"], item["label"]))
+    if limit is not None:
+        return items[:limit]
+    return items
+
+
+def build_daily_series(counter_map: Dict[str, int], *, limit: int = 14) -> List[Dict[str, Any]]:
+    ordered_keys = sorted(counter_map.keys())[-limit:]
+    return [
+        {
+            "key": key,
+            "label": datetime.datetime.strptime(key, "%Y-%m-%d").strftime("%d/%m"),
+            "total": counter_map[key],
+        }
+        for key in ordered_keys
+    ]
+
+
+def build_monthly_series(counter_map: Dict[str, int], *, limit: int = 12) -> List[Dict[str, Any]]:
+    ordered_keys = sorted(counter_map.keys())[-limit:]
+    return [
+        {
+            "key": key,
+            "label": datetime.datetime.strptime(f"{key}-01", "%Y-%m-%d").strftime("%m/%Y"),
+            "total": counter_map[key],
+        }
+        for key in ordered_keys
+    ]
 
 # --- MODELOS DE DADOS ---
 
@@ -639,6 +685,98 @@ async def get_metrics(analista_id: int):
         "ano": count_period(now.strftime("%Y-01-01"))
     }
 
+@app.get("/api/analista/dashboard/{analista_id}")
+async def get_analyst_dashboard(analista_id: int):
+    try:
+        history_response = (
+            supabase.table("historico")
+            .select("reserva_id,cliente,empreendimento,unidade,resultado,data_fim", count="exact")
+            .eq("analista_id", analista_id)
+            .order("data_fim", desc=True)
+            .limit(5000)
+            .execute()
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao carregar dashboard analítico: {e}")
+
+    raw_rows = history_response.data or []
+    now = datetime.datetime.now()
+    today = now.date()
+    current_month = today.strftime("%Y-%m")
+    current_year = today.strftime("%Y")
+
+    total_por_dia: Dict[str, int] = {}
+    total_por_mes: Dict[str, int] = {}
+    total_por_resultado: Dict[str, int] = {}
+    total_por_situacao: Dict[str, int] = {}
+    total_por_empreendimento: Dict[str, int] = {}
+    normalized_rows: List[Dict[str, Any]] = []
+
+    total_hoje = 0
+    total_mes = 0
+    total_ano = 0
+
+    for row in raw_rows:
+        finished_at = parse_history_datetime(row.get("data_fim"))
+        if not finished_at:
+            continue
+
+        finished_local = finished_at.astimezone() if finished_at.tzinfo else finished_at
+        day_key = finished_local.strftime("%Y-%m-%d")
+        month_key = finished_local.strftime("%Y-%m")
+        year_key = finished_local.strftime("%Y")
+
+        total_por_dia[day_key] = total_por_dia.get(day_key, 0) + 1
+        total_por_mes[month_key] = total_por_mes.get(month_key, 0) + 1
+
+        resultado = (row.get("resultado") or "Sem resultado").strip()
+        empreendimento = (row.get("empreendimento") or "Não informado").strip()
+
+        total_por_resultado[resultado] = total_por_resultado.get(resultado, 0) + 1
+        total_por_empreendimento[empreendimento] = total_por_empreendimento.get(empreendimento, 0) + 1
+
+        if finished_local.date() == today:
+            total_hoje += 1
+        if month_key == current_month:
+            total_mes += 1
+        if year_key == current_year:
+            total_ano += 1
+
+        normalized_rows.append({
+            "reserva_id": row.get("reserva_id"),
+            "cliente": row.get("cliente") or "Não informado",
+            "empreendimento": empreendimento,
+            "unidade": row.get("unidade") or "Não informado",
+            "resultado": resultado,
+            "data_fim": finished_local.isoformat(),
+            "data_fim_label": finished_local.strftime("%d/%m/%Y %H:%M"),
+        })
+
+    dias_com_producao = len(total_por_dia)
+    media_por_dia = round((len(normalized_rows) / dias_com_producao), 2) if dias_com_producao else 0
+
+    return {
+        "resumo": {
+            "total": len(normalized_rows),
+            "hoje": total_hoje,
+            "mes": total_mes,
+            "ano": total_ano,
+            "media_por_dia": media_por_dia,
+            "dias_com_producao": dias_com_producao,
+        },
+        "series": {
+            "por_dia": build_daily_series(total_por_dia, limit=14),
+            "por_mes": build_monthly_series(total_por_mes, limit=12),
+        },
+        "rankings": {
+            "por_resultado": build_sorted_counter(total_por_resultado),
+            "por_empreendimento": build_sorted_counter(total_por_empreendimento, limit=10),
+        },
+        "registros": normalized_rows,
+        "total_registros": history_response.count or len(normalized_rows),
+        "gerado_em": now.isoformat(),
+    }
+
 @app.post("/api/concluir")
 async def concluir(reserva_id: str, resultado: str):
     dist = supabase.table("distribuicoes").select("*").eq("reserva_id", reserva_id).execute()
@@ -649,7 +787,7 @@ async def concluir(reserva_id: str, resultado: str):
             "cliente": d["cliente"],
             "empreendimento": d["empreendimento"],
             "unidade": d["unidade"],
-            "analista_id": d["analista_id"], 
+            "analista_id": d["analista_id"],
             "resultado": resultado,
             "data_fim": datetime.datetime.now().isoformat()
         }).execute()
