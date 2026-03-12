@@ -1,6 +1,11 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { BarChart4, ChevronDown, Eye, EyeOff, Lock, Search, User as UserIcon, X } from 'lucide-react';
 import { ConfirmActionModal, LoadingOverlay, StatusToast } from './FeedbackOverlays';
+
+const HERO_TEXT = 'Um sistema de distribuição de pastas que organiza e direciona demandas para a equipe de analistas em tempo real.';
+const TYPING_SPEED_MS = 45;
+const CURSOR_BLINK_MS = 220;
+const FULL_TEXT_HOLD_TICKS = 70;
 
 const LoginView = ({
   toast,
@@ -31,7 +36,35 @@ const LoginView = ({
   setShowManagerPassword,
   handleLogin,
   handleManagerLogin,
-}) => (
+}) => {
+  const [typedHeroText, setTypedHeroText] = useState('');
+  const [isCursorVisible, setIsCursorVisible] = useState(true);
+
+  useEffect(() => {
+    let currentIndex = 0;
+
+    const typingInterval = setInterval(() => {
+      currentIndex += 1;
+      if (currentIndex > HERO_TEXT.length + FULL_TEXT_HOLD_TICKS) {
+        currentIndex = 0;
+      }
+
+      const safeIndex = Math.min(currentIndex, HERO_TEXT.length);
+      setTypedHeroText(HERO_TEXT.slice(0, safeIndex));
+    }, TYPING_SPEED_MS);
+
+    return () => clearInterval(typingInterval);
+  }, []);
+
+  useEffect(() => {
+    const cursorInterval = setInterval(() => {
+      setIsCursorVisible((current) => !current);
+    }, CURSOR_BLINK_MS);
+
+    return () => clearInterval(cursorInterval);
+  }, []);
+
+  return (
   <div className="min-h-screen flex font-sans overflow-hidden">
     <StatusToast toast={toast} />
     <ConfirmActionModal confirmAction={confirmAction} onClose={closeConfirmation} />
@@ -43,7 +76,10 @@ const LoginView = ({
         <img src="/logo.png" alt="VCA Logo" className="h-10 w-auto object-contain brightness-0 invert" />
       </div>
       <div className="relative z-10 space-y-5">
-        <h1 className="text-4xl font-black text-white leading-tight tracking-tight">Um sistema de distribuição de pastas que organiza e direciona demandas para a equipe de analistas em tempo real.</h1>
+        <h1 className="text-4xl font-black text-white leading-tight tracking-tight">
+          {typedHeroText}
+          <span className={`inline-block ml-1 text-white/80 transition-opacity ${isCursorVisible ? 'opacity-100' : 'opacity-0'}`}>|</span>
+        </h1>
         <p className="text-blue-200 text-sm font-bold leading-relaxed max-w-xs">VCA Cloud</p>
       </div>
       <div className="relative z-10 flex items-center gap-2.5">
@@ -152,7 +188,10 @@ const LoginView = ({
           </button>
         </div>
 
-        <p className="text-center text-[9px] font-bold text-slate-800 uppercase tracking-widest">VCA Construtora © {new Date().getFullYear()}</p>
+        <div className="space-y-1">
+          <p className="text-center text-[9px] font-bold text-slate-800 uppercase tracking-widest">VCA Construtora © {new Date().getFullYear()}</p>
+          <p className="text-center text-[10px] font-semibold text-slate-800">Feito por Matheus Santos © {new Date().getFullYear()}</p>
+        </div>
       </div>
     </div>
 
@@ -311,6 +350,7 @@ const LoginView = ({
       </div>
     )}
   </div>
-);
+  );
+};
 
 export default LoginView;

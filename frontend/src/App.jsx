@@ -26,6 +26,7 @@ const EMPTY_ANALYTICS = {
   resumo: { total: 0, hoje: 0, mes: 0, ano: 0, media_por_dia: 0, dias_com_producao: 0 },
   series: { por_dia: [], por_mes: [] },
   rankings: { por_resultado: [], por_situacao: [], por_empreendimento: [] },
+  schema: { historico_tem_analista_nome: false, historico_tem_situacao: false },
   registros: [],
   total_registros: 0,
   gerado_em: null,

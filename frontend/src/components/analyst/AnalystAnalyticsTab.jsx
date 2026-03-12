@@ -5,6 +5,13 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
 const formatNumber = (value) => new Intl.NumberFormat('pt-BR').format(value || 0);
+const formatPercent = (value) => `${new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(value || 0)}%`;
+const formatDecimal = (value) => new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(value || 0);
+const formatDateTime = (value) => {
+  if (!value) return '-';
+  const parsedDate = new Date(value);
+  return Number.isNaN(parsedDate.getTime()) ? String(value) : parsedDate.toLocaleString('pt-BR');
+};
 
 const getSafeFilePart = (value) =>
   String(value || 'analista')
@@ -15,8 +22,29 @@ const getSafeFilePart = (value) =>
     .toLowerCase() || 'analista';
 
 const getMaxValue = (items) => Math.max(...items.map((item) => item.total || 0), 1);
+const getShare = (total, base) => (base ? ((total || 0) / base) * 100 : 0);
 
-const RankingCard = ({ title, icon: Icon, items, accentClass }) => {
+const addWorksheet = (workbook, name, rows, columns) => {
+  const worksheet = utils.json_to_sheet(rows);
+  if (columns?.length) {
+    worksheet['!cols'] = columns.map((width) => ({ wch: width }));
+  }
+  utils.book_append_sheet(workbook, worksheet, name);
+};
+
+const getTopItem = (items) => items.find((item) => (item.total || 0) > 0) || null;
+
+const ensurePdfSpace = (doc, requiredHeight = 120) => {
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const currentY = doc.lastAutoTable?.finalY || 0;
+  if (currentY + requiredHeight > pageHeight - 36) {
+    doc.addPage();
+    return 36;
+  }
+  return currentY + 18;
+};
+
+const RankingCard = ({ title, icon: Icon, items, accentClass, emptyMessage = 'Sem dados suficientes' }) => {
   const maxValue = getMaxValue(items);
 
   return (
@@ -47,7 +75,7 @@ const RankingCard = ({ title, icon: Icon, items, accentClass }) => {
           </div>
         )) : (
           <div className="py-10 text-center text-[10px] font-black uppercase tracking-[0.24em] text-slate-300 border border-dashed border-slate-100 rounded-3xl">
-            Sem dados suficientes
+            {emptyMessage}
           </div>
         )}
       </div>
@@ -96,9 +124,86 @@ const AnalystAnalyticsTab = ({ analyticsData, currentUser, notify }) => {
   const byResult = analyticsData?.rankings?.por_resultado || [];
   const bySituation = analyticsData?.rankings?.por_situacao || [];
   const byEnterprise = analyticsData?.rankings?.por_empreendimento || [];
+  const hasSituationTracking = analyticsData?.schema?.historico_tem_situacao !== false;
   const records = analyticsData?.registros || [];
+  const generatedAt = analyticsData?.gerado_em
+    ? formatDateTime(analyticsData.gerado_em)
+    : formatDateTime(new Date().toISOString());
+  const totalRecords = summary.total || records.length || 0;
 
   const recentRecords = useMemo(() => records.slice(0, 20), [records]);
+  const exportRecords = useMemo(() => records.slice(0, 100), [records]);
+  const summaryRows = useMemo(() => ([
+    { indicador: 'Total concluído', valor: summary.total || 0, descricao: 'Volume total registrado no histórico do analista' },
+    { indicador: 'Concluído hoje', valor: summary.hoje || 0, descricao: 'Finalizações registradas na data atual' },
+    { indicador: 'Concluído no mês', valor: summary.mes || 0, descricao: 'Volume consolidado no mês corrente' },
+    { indicador: 'Concluído no ano', valor: summary.ano || 0, descricao: 'Volume consolidado no ano corrente' },
+    { indicador: 'Média por dia produtivo', valor: summary.media_por_dia || 0, descricao: 'Média considerando apenas dias com produção' },
+    { indicador: 'Dias com produção', valor: summary.dias_com_producao || 0, descricao: 'Dias do histórico com ao menos uma conclusão' },
+  ]), [summary]);
+
+  const insightRows = useMemo(() => {
+    const bestDay = getTopItem(daySeries);
+    const bestMonth = getTopItem(monthSeries);
+    const topResult = getTopItem(byResult);
+    const topEnterprise = getTopItem(byEnterprise);
+    const topSituation = getTopItem(bySituation);
+
+    return [
+      { insight: 'Melhor dia recente', valor: bestDay ? `${bestDay.label} (${formatNumber(bestDay.total)})` : 'Sem dados' },
+      { insight: 'Melhor mês', valor: bestMonth ? `${bestMonth.label} (${formatNumber(bestMonth.total)})` : 'Sem dados' },
+      { insight: 'Resultado dominante', valor: topResult ? `${topResult.label} (${formatPercent(getShare(topResult.total, totalRecords))})` : 'Sem dados' },
+      { insight: 'Empreendimento líder', valor: topEnterprise ? `${topEnterprise.label} (${formatPercent(getShare(topEnterprise.total, totalRecords))})` : 'Sem dados' },
+      { insight: 'Tipo de pasta líder', valor: topSituation ? `${topSituation.label} (${formatPercent(getShare(topSituation.total, totalRecords))})` : (hasSituationTracking ? 'Sem dados' : 'Schema ainda sem rastreamento de tipo') },
+    ];
+  }, [daySeries, monthSeries, byResult, byEnterprise, bySituation, totalRecords, hasSituationTracking]);
+
+  const dailyRows = useMemo(() => daySeries.map((item) => ({
+    periodo: item.label,
+    chave: item.key,
+    total: item.total || 0,
+    participacao: formatPercent(getShare(item.total, totalRecords)),
+  })), [daySeries, totalRecords]);
+
+  const monthlyRows = useMemo(() => monthSeries.map((item) => ({
+    periodo: item.label,
+    chave: item.key,
+    total: item.total || 0,
+    participacao: formatPercent(getShare(item.total, totalRecords)),
+  })), [monthSeries, totalRecords]);
+
+  const buildRankingRows = (items, labelKey) => items.map((item, index) => ({
+    posicao: index + 1,
+    [labelKey]: item.label,
+    total: item.total || 0,
+    participacao: formatPercent(getShare(item.total, totalRecords)),
+  }));
+
+  const situationRows = useMemo(() => buildRankingRows(bySituation, 'tipo_pasta'), [bySituation, totalRecords]);
+  const enterpriseRows = useMemo(() => buildRankingRows(byEnterprise, 'empreendimento'), [byEnterprise, totalRecords]);
+  const resultRows = useMemo(() => buildRankingRows(byResult, 'resultado'), [byResult, totalRecords]);
+
+  const metadataRows = useMemo(() => ([
+    { campo: 'Analista', valor: currentUser?.nome || 'Não informado' },
+    { campo: 'Gerado em', valor: generatedAt },
+    { campo: 'Registros exportados', valor: formatNumber(records.length) },
+    { campo: 'Registros no dashboard', valor: formatNumber(totalRecords) },
+    { campo: 'Período diário', valor: daySeries.length ? `${daySeries[0].label} até ${daySeries[daySeries.length - 1].label}` : 'Sem dados' },
+    { campo: 'Período mensal', valor: monthSeries.length ? `${monthSeries[0].label} até ${monthSeries[monthSeries.length - 1].label}` : 'Sem dados' },
+    { campo: 'Rastreamento de tipo', valor: hasSituationTracking ? 'Ativo' : 'Pendente de schema / backfill' },
+  ]), [currentUser, generatedAt, records.length, totalRecords, daySeries, monthSeries, hasSituationTracking]);
+
+  const detailedRecordsRows = useMemo(() => records.map((row, index) => ({
+    ordem: index + 1,
+    data_finalizacao: row.data_fim_label,
+    data_iso: row.data_fim,
+    reserva_id: row.reserva_id,
+    cliente: row.cliente,
+    empreendimento: row.empreendimento,
+    unidade: row.unidade,
+    tipo_pasta: row.situacao_nome,
+    resultado: row.resultado,
+  })), [records]);
 
   const exportBaseName = useMemo(() => {
     const analyst = getSafeFilePart(currentUser?.nome);
@@ -114,34 +219,19 @@ const AnalystAnalyticsTab = ({ analyticsData, currentUser, notify }) => {
 
     const workbook = utils.book_new();
 
-    const summarySheet = utils.json_to_sheet([
-      { indicador: 'Total concluído', valor: summary.total || 0 },
-      { indicador: 'Concluído hoje', valor: summary.hoje || 0 },
-      { indicador: 'Concluído no mês', valor: summary.mes || 0 },
-      { indicador: 'Concluído no ano', valor: summary.ano || 0 },
-      { indicador: 'Média por dia produtivo', valor: summary.media_por_dia || 0 },
-      { indicador: 'Dias com produção', valor: summary.dias_com_producao || 0 },
-    ]);
-
-    const recordsSheet = utils.json_to_sheet(records.map((row) => ({
-      data_finalizacao: row.data_fim_label,
-      reserva_id: row.reserva_id,
-      cliente: row.cliente,
-      empreendimento: row.empreendimento,
-      unidade: row.unidade,
-      tipo_pasta: row.situacao_nome,
-      resultado: row.resultado,
-    })));
-
-    const situationSheet = utils.json_to_sheet(bySituation.map((item) => ({ tipo_pasta: item.label, total: item.total })));
-    const enterpriseSheet = utils.json_to_sheet(byEnterprise.map((item) => ({ empreendimento: item.label, total: item.total })));
-    const resultSheet = utils.json_to_sheet(byResult.map((item) => ({ resultado: item.label, total: item.total })));
-
-    utils.book_append_sheet(workbook, summarySheet, 'Resumo');
-    utils.book_append_sheet(workbook, recordsSheet, 'Registros');
-    utils.book_append_sheet(workbook, situationSheet, 'Por Tipo');
-    utils.book_append_sheet(workbook, enterpriseSheet, 'Por Empresa');
-    utils.book_append_sheet(workbook, resultSheet, 'Por Resultado');
+    addWorksheet(workbook, 'Capa', metadataRows, [24, 44]);
+    addWorksheet(workbook, 'Resumo', summaryRows.map((item) => ({
+      indicador: item.indicador,
+      valor: typeof item.valor === 'number' ? formatDecimal(item.valor) : item.valor,
+      descricao: item.descricao,
+    })), [28, 16, 56]);
+    addWorksheet(workbook, 'Insights', insightRows, [28, 48]);
+    addWorksheet(workbook, 'Serie Diaria', dailyRows, [14, 14, 12, 14]);
+    addWorksheet(workbook, 'Serie Mensal', monthlyRows, [14, 14, 12, 14]);
+    addWorksheet(workbook, 'Ranking Tipos', situationRows.length ? situationRows : [{ posicao: '-', tipo_pasta: hasSituationTracking ? 'Sem dados' : 'Schema ainda sem rastreamento de tipo', total: '-', participacao: '-' }], [10, 44, 12, 14]);
+    addWorksheet(workbook, 'Ranking Empresas', enterpriseRows, [10, 44, 12, 14]);
+    addWorksheet(workbook, 'Ranking Resultados', resultRows, [10, 28, 12, 14]);
+    addWorksheet(workbook, 'Registros', detailedRecordsRows, [10, 20, 24, 14, 26, 26, 18, 26, 16]);
 
     writeFile(workbook, `${exportBaseName}.xlsx`);
     notify('Relatório em Excel exportado.');
@@ -154,9 +244,6 @@ const AnalystAnalyticsTab = ({ analyticsData, currentUser, notify }) => {
     }
 
     const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
-    const generatedAt = analyticsData?.gerado_em
-      ? new Date(analyticsData.gerado_em).toLocaleString('pt-BR')
-      : new Date().toLocaleString('pt-BR');
 
     doc.setFontSize(18);
     doc.text('Dashboard analítico do analista', 40, 42);
@@ -166,15 +253,8 @@ const AnalystAnalyticsTab = ({ analyticsData, currentUser, notify }) => {
 
     autoTable(doc, {
       startY: 96,
-      head: [['Indicador', 'Valor']],
-      body: [
-        ['Total concluído', formatNumber(summary.total || 0)],
-        ['Concluído hoje', formatNumber(summary.hoje || 0)],
-        ['Concluído no mês', formatNumber(summary.mes || 0)],
-        ['Concluído no ano', formatNumber(summary.ano || 0)],
-        ['Média por dia produtivo', String(summary.media_por_dia || 0)],
-        ['Dias com produção', formatNumber(summary.dias_com_producao || 0)],
-      ],
+      head: [['Campo', 'Valor']],
+      body: metadataRows.map((item) => [item.campo, item.valor]),
       styles: { fontSize: 9 },
       headStyles: { fillColor: [37, 99, 235] },
       alternateRowStyles: { fillColor: [248, 250, 252] },
@@ -182,49 +262,117 @@ const AnalystAnalyticsTab = ({ analyticsData, currentUser, notify }) => {
 
     autoTable(doc, {
       startY: doc.lastAutoTable.finalY + 18,
-      head: [['Tipo de pasta', 'Total', 'Empreendimento', 'Total', 'Resultado', 'Total']],
-      body: Array.from({ length: Math.max(bySituation.length, byEnterprise.length, byResult.length, 1) }).map((_, index) => [
-        bySituation[index]?.label || '-',
-        bySituation[index]?.total || '-',
-        byEnterprise[index]?.label || '-',
-        byEnterprise[index]?.total || '-',
-        byResult[index]?.label || '-',
-        byResult[index]?.total || '-',
+      head: [['Indicador', 'Valor', 'Leitura']],
+      body: summaryRows.map((item) => [
+        item.indicador,
+        typeof item.valor === 'number' ? formatDecimal(item.valor) : item.valor,
+        item.descricao,
       ]),
       styles: { fontSize: 8 },
       headStyles: { fillColor: [15, 23, 42] },
       alternateRowStyles: { fillColor: [248, 250, 252] },
       columnStyles: {
         0: { cellWidth: 150 },
-        1: { halign: 'right', cellWidth: 45 },
-        2: { cellWidth: 180 },
-        3: { halign: 'right', cellWidth: 45 },
-        4: { cellWidth: 120 },
-        5: { halign: 'right', cellWidth: 45 },
+        1: { cellWidth: 70, halign: 'right' },
+        2: { cellWidth: 420 },
       },
     });
 
     autoTable(doc, {
       startY: doc.lastAutoTable.finalY + 18,
-      head: [['Data', 'Reserva', 'Cliente', 'Empreendimento', 'Tipo', 'Resultado']],
-      body: recentRecords.map((row) => [
-        row.data_fim_label,
-        row.reserva_id,
-        row.cliente,
-        row.empreendimento,
-        row.situacao_nome,
-        row.resultado,
-      ]),
+      head: [['Insight', 'Valor']],
+      body: insightRows.map((item) => [item.insight, item.valor]),
       styles: { fontSize: 8 },
       headStyles: { fillColor: [5, 150, 105] },
       alternateRowStyles: { fillColor: [248, 250, 252] },
       columnStyles: {
-        0: { cellWidth: 72 },
-        1: { cellWidth: 55 },
-        2: { cellWidth: 120 },
-        3: { cellWidth: 120 },
-        4: { cellWidth: 130 },
-        5: { cellWidth: 70 },
+        0: { cellWidth: 180 },
+        1: { cellWidth: 460 },
+      },
+    });
+
+    autoTable(doc, {
+      startY: ensurePdfSpace(doc, 180),
+      head: [['Dia', 'Chave', 'Total', 'Participação']],
+      body: dailyRows.length
+        ? dailyRows.map((item) => [item.periodo, item.chave, formatNumber(item.total), item.participacao])
+        : [['-', '-', '0', '0,0%']],
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [37, 99, 235] },
+      alternateRowStyles: { fillColor: [248, 250, 252] },
+    });
+
+    autoTable(doc, {
+      startY: ensurePdfSpace(doc, 180),
+      head: [['Mês', 'Chave', 'Total', 'Participação']],
+      body: monthlyRows.length
+        ? monthlyRows.map((item) => [item.periodo, item.chave, formatNumber(item.total), item.participacao])
+        : [['-', '-', '0', '0,0%']],
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [5, 150, 105] },
+      alternateRowStyles: { fillColor: [248, 250, 252] },
+    });
+
+    autoTable(doc, {
+      startY: ensurePdfSpace(doc, 220),
+      head: [['Posição', 'Tipo de pasta', 'Total', 'Participação']],
+      body: situationRows.length
+        ? situationRows.map((item) => [item.posicao, item.tipo_pasta, formatNumber(item.total), item.participacao])
+        : [[1, hasSituationTracking ? 'Sem dados' : 'Schema ainda sem rastreamento de tipo', '0', '0,0%']],
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [59, 130, 246] },
+      alternateRowStyles: { fillColor: [248, 250, 252] },
+    });
+
+    autoTable(doc, {
+      startY: ensurePdfSpace(doc, 220),
+      head: [['Posição', 'Empreendimento', 'Total', 'Participação']],
+      body: enterpriseRows.length
+        ? enterpriseRows.map((item) => [item.posicao, item.empreendimento, formatNumber(item.total), item.participacao])
+        : [[1, 'Sem dados', '0', '0,0%']],
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [16, 185, 129] },
+      alternateRowStyles: { fillColor: [248, 250, 252] },
+    });
+
+    autoTable(doc, {
+      startY: ensurePdfSpace(doc, 220),
+      head: [['Posição', 'Resultado', 'Total', 'Participação']],
+      body: resultRows.length
+        ? resultRows.map((item) => [item.posicao, item.resultado, formatNumber(item.total), item.participacao])
+        : [[1, 'Sem dados', '0', '0,0%']],
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [245, 158, 11] },
+      alternateRowStyles: { fillColor: [248, 250, 252] },
+    });
+
+    autoTable(doc, {
+      startY: ensurePdfSpace(doc, 320),
+      head: [['Data', 'Reserva', 'Cliente', 'Empreendimento', 'Unidade', 'Tipo', 'Resultado']],
+      body: exportRecords.map((row) => [
+        row.data_fim_label,
+        row.reserva_id,
+        row.cliente,
+        row.empreendimento,
+        row.unidade,
+        row.situacao_nome,
+        row.resultado,
+      ]),
+      styles: { fontSize: 7 },
+      headStyles: { fillColor: [15, 23, 42] },
+      alternateRowStyles: { fillColor: [248, 250, 252] },
+      columnStyles: {
+        0: { cellWidth: 74 },
+        1: { cellWidth: 54 },
+        2: { cellWidth: 110 },
+        3: { cellWidth: 122 },
+        4: { cellWidth: 68 },
+        5: { cellWidth: 130 },
+        6: { cellWidth: 58 },
+      },
+      didDrawPage: () => {
+        doc.setFontSize(9);
+        doc.text(`Registros detalhados exportados: ${formatNumber(exportRecords.length)} de ${formatNumber(records.length)}`, 40, 24);
       },
     });
 
@@ -311,7 +459,13 @@ const AnalystAnalyticsTab = ({ analyticsData, currentUser, notify }) => {
       </section>
 
       <section className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        <RankingCard title="Por tipo de pasta" icon={Layers3} items={bySituation} accentClass="bg-blue-50 text-blue-600" />
+        <RankingCard
+          title="Por tipo de pasta"
+          icon={Layers3}
+          items={bySituation}
+          accentClass="bg-blue-50 text-blue-600"
+          emptyMessage={records.length > 0 && !hasSituationTracking ? 'Atualize a tabela historico para rastrear o tipo da pasta' : 'Sem dados suficientes'}
+        />
         <RankingCard title="Por empreendimento" icon={Building2} items={byEnterprise} accentClass="bg-emerald-50 text-emerald-600" />
         <RankingCard title="Por resultado" icon={TrendingUp} items={byResult} accentClass="bg-amber-50 text-amber-600" />
       </section>

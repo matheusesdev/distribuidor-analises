@@ -11,6 +11,7 @@ import hmac
 from typing import Any, Dict, List, Optional
 from supabase import create_client, Client
 from pydantic import BaseModel
+from postgrest.exceptions import APIError
 
 
 def load_dotenv(dotenv_path: str = ".env") -> None:
@@ -271,6 +272,21 @@ try:
 except Exception as e:
     print(f"[ERRO] Erro ao ligar ao Supabase: {e}")
 
+
+def table_supports_column(table_name: str, column_name: str) -> bool:
+    try:
+        supabase.table(table_name).select(column_name).limit(1).execute()
+        return True
+    except APIError as exc:
+        if exc.args and "42703" in str(exc):
+            return False
+        raise
+
+
+HISTORICO_HAS_ANALISTA_NOME = table_supports_column("historico", "analista_nome")
+HISTORICO_HAS_SITUACAO_ID = table_supports_column("historico", "situacao_id")
+HISTORICO_HAS_SITUACAO_NOME = table_supports_column("historico", "situacao_nome")
+
 # --- MAPEAMENTO DE SITUAÇÕES DO CVCRM ---
 SITUACOES_NOMES = {
     62: "ANÁLISE VENDA LOTEAMENTO",
@@ -293,6 +309,163 @@ async def fetch_cvcrm_reservas(sit_id: int, timeout_seconds: int):
     """Executa request ao CRM fora do event loop para evitar bloqueio."""
     url = f"https://vca.cvcrm.com.br/api/v1/comercial/reservas?situacao={sit_id}"
     return await asyncio.to_thread(requests.get, url, headers=HEADERS, timeout=timeout_seconds)
+
+
+async def build_situacao_lookup() -> Dict[str, Dict[str, Any]]:
+    lookup: Dict[str, Dict[str, Any]] = {}
+
+    try:
+        distribuicoes = (
+            supabase.table("distribuicoes")
+            .select("reserva_id,situacao_id,situacao_nome")
+            .execute()
+            .data
+            or []
+        )
+        for item in distribuicoes:
+            reserva_id = str(item.get("reserva_id") or "").strip()
+            if not reserva_id:
+                continue
+            lookup[reserva_id] = {
+                "situacao_id": item.get("situacao_id"),
+                "situacao_nome": item.get("situacao_nome") or SITUACOES_NOMES.get(int(item.get("situacao_id") or 0), "Não informado"),
+                "source": "distribuicoes",
+            }
+    except Exception:
+        pass
+
+    try:
+        logs_transferencias = (
+            supabase.table("logs_transferencias")
+            .select("reserva_id,situacao_id,situacao_nome,data_transferencia")
+            .order("data_transferencia", desc=True)
+            .limit(10000)
+            .execute()
+            .data
+            or []
+        )
+        for item in logs_transferencias:
+            reserva_id = str(item.get("reserva_id") or "").strip()
+            if not reserva_id or reserva_id in lookup:
+                continue
+            lookup[reserva_id] = {
+                "situacao_id": item.get("situacao_id"),
+                "situacao_nome": item.get("situacao_nome") or SITUACOES_NOMES.get(int(item.get("situacao_id") or 0), "Não informado"),
+                "source": "logs_transferencias",
+            }
+    except Exception as exc:
+        if not is_missing_transfer_logs_table_error(str(exc)):
+            raise
+
+    for sit_id in SITUACOES_IDS:
+        try:
+            response = await fetch_cvcrm_reservas(sit_id, timeout_seconds=10)
+            if response.status_code != 200:
+                continue
+
+            payload = response.json()
+            items = payload.items() if isinstance(payload, dict) else enumerate(payload)
+            for key, info in items:
+                reserva_id = str(info.get("idreserva") or info.get("id") or key or "").strip()
+                if not reserva_id or reserva_id in lookup:
+                    continue
+                lookup[reserva_id] = {
+                    "situacao_id": sit_id,
+                    "situacao_nome": info.get("situacao_nome") or SITUACOES_NOMES.get(sit_id, "Não informado"),
+                    "source": "cvcrm",
+                }
+        except Exception:
+            continue
+
+    return lookup
+
+
+def build_analista_nome_lookup() -> Dict[int, str]:
+    try:
+        analistas = supabase.table("analistas").select("id,nome").execute().data or []
+    except Exception:
+        return {}
+
+    lookup: Dict[int, str] = {}
+    for analista in analistas:
+        analista_id = analista.get("id")
+        if analista_id is None:
+            continue
+        lookup[int(analista_id)] = (analista.get("nome") or "").strip()
+    return lookup
+
+
+async def backfill_historico_metadata(limit: int = 5000) -> Dict[str, Any]:
+    historico_rows = (
+        supabase.table("historico")
+        .select("id,reserva_id,analista_id,analista_nome,situacao_id,situacao_nome,data_fim")
+        .order("data_fim", desc=True)
+        .limit(limit)
+        .execute()
+        .data
+        or []
+    )
+
+    candidates = []
+    for row in historico_rows:
+        missing_situacao = (HISTORICO_HAS_SITUACAO_ID and row.get("situacao_id") is None) or (
+            HISTORICO_HAS_SITUACAO_NOME and not (row.get("situacao_nome") or "").strip()
+        )
+        missing_analista_nome = HISTORICO_HAS_ANALISTA_NOME and not (row.get("analista_nome") or "").strip()
+        if missing_situacao or missing_analista_nome:
+            candidates.append(row)
+
+    situacao_lookup = await build_situacao_lookup() if (HISTORICO_HAS_SITUACAO_ID or HISTORICO_HAS_SITUACAO_NOME) else {}
+    analista_lookup = build_analista_nome_lookup() if HISTORICO_HAS_ANALISTA_NOME else {}
+
+    updated_rows = 0
+    updated_situacao = 0
+    updated_analista_nome = 0
+    unresolved: List[str] = []
+    source_breakdown: Dict[str, int] = {}
+
+    for row in candidates:
+        update_payload: Dict[str, Any] = {}
+        reserva_id = str(row.get("reserva_id") or "").strip()
+
+        situacao_info = situacao_lookup.get(reserva_id) if reserva_id else None
+        if situacao_info:
+            if HISTORICO_HAS_SITUACAO_ID and row.get("situacao_id") is None and situacao_info.get("situacao_id") is not None:
+                update_payload["situacao_id"] = situacao_info.get("situacao_id")
+            if HISTORICO_HAS_SITUACAO_NOME and not (row.get("situacao_nome") or "").strip() and situacao_info.get("situacao_nome"):
+                update_payload["situacao_nome"] = situacao_info.get("situacao_nome")
+
+        analista_id = row.get("analista_id")
+        if HISTORICO_HAS_ANALISTA_NOME and not (row.get("analista_nome") or "").strip() and analista_id is not None:
+            analista_nome = analista_lookup.get(int(analista_id))
+            if analista_nome:
+                update_payload["analista_nome"] = analista_nome
+
+        if not update_payload:
+            if reserva_id:
+                unresolved.append(reserva_id)
+            continue
+
+        supabase.table("historico").update(update_payload).eq("id", row["id"]).execute()
+        updated_rows += 1
+        if "situacao_id" in update_payload or "situacao_nome" in update_payload:
+            updated_situacao += 1
+            source = (situacao_info or {}).get("source", "desconhecido")
+            source_breakdown[source] = source_breakdown.get(source, 0) + 1
+        if "analista_nome" in update_payload:
+            updated_analista_nome += 1
+
+    return {
+        "status": "ok",
+        "analisados": len(historico_rows),
+        "candidatos": len(candidates),
+        "atualizados": updated_rows,
+        "atualizados_situacao": updated_situacao,
+        "atualizados_analista_nome": updated_analista_nome,
+        "nao_encontrados": len(unresolved),
+        "fontes_situacao": source_breakdown,
+        "exemplos_nao_encontrados": unresolved[:20],
+    }
 
 
 def parse_history_datetime(value: Optional[str]) -> Optional[datetime.datetime]:
@@ -436,9 +609,6 @@ async def perform_sync():
                     if analista:
                         now = datetime.datetime.now().isoformat()
                         try:
-                            # Garante que não está no histórico (caso tenha voltado ao CRM)
-                            supabase.table("historico").delete().eq("reserva_id", res_id).execute()
-                            
                             supabase.table("distribuicoes").insert({
                                 "reserva_id": res_id,
                                 "cliente": info.get('titular', {}).get('nome', 'Desconhecido'),
@@ -687,10 +857,16 @@ async def get_metrics(analista_id: int):
 
 @app.get("/api/analista/dashboard/{analista_id}")
 async def get_analyst_dashboard(analista_id: int):
+    history_fields = ["reserva_id", "cliente", "empreendimento", "unidade", "resultado", "data_fim"]
+    if HISTORICO_HAS_SITUACAO_ID:
+        history_fields.append("situacao_id")
+    if HISTORICO_HAS_SITUACAO_NOME:
+        history_fields.append("situacao_nome")
+
     try:
         history_response = (
             supabase.table("historico")
-            .select("reserva_id,cliente,empreendimento,unidade,resultado,data_fim", count="exact")
+            .select(",".join(history_fields), count="exact")
             .eq("analista_id", analista_id)
             .order("data_fim", desc=True)
             .limit(5000)
@@ -731,8 +907,15 @@ async def get_analyst_dashboard(analista_id: int):
 
         resultado = (row.get("resultado") or "Sem resultado").strip()
         empreendimento = (row.get("empreendimento") or "Não informado").strip()
+        situacao_nome = ""
+        if HISTORICO_HAS_SITUACAO_NOME:
+            situacao_nome = (row.get("situacao_nome") or "").strip()
+        if not situacao_nome and HISTORICO_HAS_SITUACAO_ID:
+            situacao_nome = SITUACOES_NOMES.get(int(row.get("situacao_id") or 0), "")
 
         total_por_resultado[resultado] = total_por_resultado.get(resultado, 0) + 1
+        if situacao_nome:
+            total_por_situacao[situacao_nome] = total_por_situacao.get(situacao_nome, 0) + 1
         total_por_empreendimento[empreendimento] = total_por_empreendimento.get(empreendimento, 0) + 1
 
         if finished_local.date() == today:
@@ -747,6 +930,7 @@ async def get_analyst_dashboard(analista_id: int):
             "cliente": row.get("cliente") or "Não informado",
             "empreendimento": empreendimento,
             "unidade": row.get("unidade") or "Não informado",
+            "situacao_nome": situacao_nome or "Não informado",
             "resultado": resultado,
             "data_fim": finished_local.isoformat(),
             "data_fim_label": finished_local.strftime("%d/%m/%Y %H:%M"),
@@ -770,7 +954,12 @@ async def get_analyst_dashboard(analista_id: int):
         },
         "rankings": {
             "por_resultado": build_sorted_counter(total_por_resultado),
+            "por_situacao": build_sorted_counter(total_por_situacao),
             "por_empreendimento": build_sorted_counter(total_por_empreendimento, limit=10),
+        },
+        "schema": {
+            "historico_tem_analista_nome": HISTORICO_HAS_ANALISTA_NOME,
+            "historico_tem_situacao": HISTORICO_HAS_SITUACAO_ID or HISTORICO_HAS_SITUACAO_NOME,
         },
         "registros": normalized_rows,
         "total_registros": history_response.count or len(normalized_rows),
@@ -780,19 +969,43 @@ async def get_analyst_dashboard(analista_id: int):
 @app.post("/api/concluir")
 async def concluir(reserva_id: str, resultado: str):
     dist = supabase.table("distribuicoes").select("*").eq("reserva_id", reserva_id).execute()
-    if dist.data:
-        d = dist.data[0]
-        supabase.table("historico").insert({
-            "reserva_id": d["reserva_id"], 
-            "cliente": d["cliente"],
-            "empreendimento": d["empreendimento"],
-            "unidade": d["unidade"],
-            "analista_id": d["analista_id"],
-            "resultado": resultado,
-            "data_fim": datetime.datetime.now().isoformat()
-        }).execute()
-        supabase.table("distribuicoes").delete().eq("reserva_id", d["reserva_id"]).execute()
+    if not dist.data:
+        raise HTTPException(status_code=404, detail="Reserva não encontrada na mesa atual")
+
+    d = dist.data[0]
+    historico_payload = {
+        "reserva_id": d["reserva_id"],
+        "cliente": d["cliente"],
+        "empreendimento": d["empreendimento"],
+        "unidade": d["unidade"],
+        "analista_id": d["analista_id"],
+        "resultado": resultado,
+        "data_fim": datetime.datetime.now().isoformat(),
+    }
+
+    if HISTORICO_HAS_ANALISTA_NOME and d.get("analista_id") is not None:
+        analyst_response = supabase.table("analistas").select("nome").eq("id", d["analista_id"]).limit(1).execute()
+        if analyst_response.data:
+            historico_payload["analista_nome"] = analyst_response.data[0].get("nome")
+
+    if HISTORICO_HAS_SITUACAO_ID:
+        historico_payload["situacao_id"] = d.get("situacao_id")
+
+    if HISTORICO_HAS_SITUACAO_NOME:
+        historico_payload["situacao_nome"] = d.get("situacao_nome") or SITUACOES_NOMES.get(int(d.get("situacao_id") or 0), "Não informado")
+
+    supabase.table("historico").insert(historico_payload).execute()
+    supabase.table("distribuicoes").delete().eq("reserva_id", d["reserva_id"]).execute()
     return {"status": "ok"}
+
+
+@app.post("/api/gestor/historico/backfill")
+async def backfill_historico(
+    limit: int = Query(default=5000, ge=1, le=20000),
+    authorization: Optional[str] = Header(default=None),
+):
+    require_manager_auth(authorization)
+    return await backfill_historico_metadata(limit=limit)
 
 @app.post("/api/analista/transferir")
 async def transferir_pasta(req: TransferirPastaRequest):
