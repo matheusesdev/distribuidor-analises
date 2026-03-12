@@ -1,4 +1,4 @@
-app = "distribuidor-analises-backend"
+app = "distribuidor-reservas"
 primary_region = "gru"
 
 [build]

@@ -20,6 +20,7 @@ import EditAnalystModal from './components/manager/EditAnalystModal';
 
 const AUTO_REFRESH_SECONDS = 15;
 const ALL_FILTER = 'all';
+const LEGACY_MANAGER_TOKEN = 'legacy-admin-session';
 
 const getLogDateRef = (log) => log?.data_transferencia || log?.created_at;
 
@@ -347,6 +348,25 @@ const App = () => {
         setManagerTab('dashboard');
         setView('manager');
         notify('Acesso admin liberado.');
+      } else if (res.status === 404) {
+        const legacyOverview = await api.getManagerOverview();
+
+        if (legacyOverview.ok) {
+          persistManagerSession({
+            usuario: managerUsername.trim(),
+            email: null,
+            token: LEGACY_MANAGER_TOKEN,
+            legacyMode: true,
+          });
+          setShowManagerLoginModal(false);
+          setManagerPassword('');
+          setShowManagerPassword(false);
+          setManagerTab('dashboard');
+          setView('manager');
+          notify('Painel admin aberto em modo de compatibilidade.');
+        } else {
+          notify('O backend de produção não expõe o login do admin nem o overview do painel.', 'error');
+        }
       } else {
         notify(await getApiErrorMessage(res, 'Falha no login do admin'), 'error');
       }
