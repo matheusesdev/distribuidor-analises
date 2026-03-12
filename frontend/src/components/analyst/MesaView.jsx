@@ -1,8 +1,7 @@
 import React from 'react';
-import { ArrowRightLeft, Building2, CheckCircle2, CheckSquare, ListOrdered, Search, Square, Tag, TrendingUp, UserCheck } from 'lucide-react';
+import { ArrowRightLeft, Building2, CheckCircle2, CheckSquare, Search, Square, Tag, TrendingUp, UserCheck } from 'lucide-react';
 
 const MesaView = ({
-  myQueuePositions,
   filteredTasks,
   selectedTaskIds,
   toggleSelectAll,
@@ -21,21 +20,6 @@ const MesaView = ({
 }) => (
   <div className="flex flex-col lg:flex-row gap-6 md:gap-10 items-start relative">
     <div className="flex-1 w-full space-y-5">
-      <div className="flex flex-wrap gap-2 px-2">
-        <div className="flex items-center gap-2 bg-blue-50 border border-blue-100 px-3 py-1.5 rounded-xl shadow-sm">
-          <ListOrdered size={14} className="text-blue-600"/>
-          <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider">Minha Posicao:</span>
-          <div className="flex gap-2">
-            {Object.entries(myQueuePositions).map(([sitId, pos]) => (
-              <div key={sitId} className="flex items-center gap-1.5 bg-white border border-blue-200 px-2 py-0.5 rounded-lg shadow-sm">
-                <span className="text-[8px] font-black text-blue-600">{sitId}</span>
-                <span className="text-[10px] font-black text-slate-800">{pos}o</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
       <div className="flex flex-col sm:flex-row sm:items-center justify-between px-2 gap-3">
         <div className="flex items-center gap-2.5 flex-wrap">
           <UserCheck className="text-blue-600" size={18} />

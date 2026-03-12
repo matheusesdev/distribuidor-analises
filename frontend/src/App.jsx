@@ -6,7 +6,7 @@ import {
   UserPlus, Trash2, Power, Settings, CheckSquare, Square, 
   Edit3, UserCheck, Users, ShieldCheck, Save,
   Layout, ChevronDown, Search, User as UserIcon,
-  Tag, BarChart3, PieChart, RotateCcw, ListOrdered, ArrowRightLeft
+  Tag, BarChart3, PieChart, RotateCcw, ArrowRightLeft
 } from 'lucide-react';
 import { api } from './services/api';
 import { ConfirmActionModal, LoadingOverlay, StatusToast } from './components/FeedbackOverlays';
@@ -635,26 +635,6 @@ const App = () => {
     }
   };
 
-  // --- LÓGICA ANALÍTICA DE FILA ---
-  const myQueuePositions = useMemo(() => {
-    if (!currentUser || view !== 'analyst' || !analysts.length) return {};
-    const onlineAnalysts = analysts.filter(a => a.is_online);
-    const positions = {};
-    Object.keys(SITUACOES_MAP).forEach(sitId => {
-      const sid = parseInt(sitId);
-      const eligible = onlineAnalysts.filter(a => a.permissoes && a.permissoes.includes(sid));
-      if (eligible.some(a => a.id === currentUser.id)) {
-        const sorted = [...eligible].sort((a, b) => {
-          if (a.total_hoje !== b.total_hoje) return a.total_hoje - b.total_hoje;
-          return new Date(a.ultima_atribuicao || 0) - new Date(b.ultima_atribuicao || 0);
-        });
-        const pos = sorted.findIndex(a => a.id === currentUser.id) + 1;
-        positions[sid] = pos;
-      }
-    });
-    return positions;
-  }, [currentUser, analysts, view]);
-
   const filteredTasks = useMemo(() => {
     return (myTasks || []).filter(task => {
       const matchesSearch = task.cliente.toLowerCase().includes(taskSearch.toLowerCase()) || 
@@ -1058,7 +1038,6 @@ const App = () => {
         ) : (
           analystTab === 'mesa' ? (
             <MesaView
-              myQueuePositions={myQueuePositions}
               filteredTasks={filteredTasks}
               selectedTaskIds={selectedTaskIds}
               toggleSelectAll={toggleSelectAll}
