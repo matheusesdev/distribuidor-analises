@@ -2,15 +2,6 @@ import React from 'react';
 import { BarChart4, ChevronDown, Eye, EyeOff, Lock, Search, User as UserIcon, X } from 'lucide-react';
 import { ConfirmActionModal, LoadingOverlay, StatusToast } from './FeedbackOverlays';
 
-// Função para calcular força da senha
-const getPasswordStrength = (pwd) => {
-  if (!pwd) return null;
-  if (pwd.length < 6) return { level: 'weak', color: 'bg-red-500', label: 'Muito fraca' };
-  if (pwd.length < 10) return { level: 'medium', color: 'bg-yellow-500', label: 'Média' };
-  if (pwd.length < 14) return { level: 'strong', color: 'bg-green-500', label: 'Forte' };
-  return { level: 'verystrong', color: 'bg-green-600', label: 'Muito forte' };
-};
-
 const LoginView = ({
   toast,
   confirmAction,
@@ -23,15 +14,23 @@ const LoginView = ({
   setSelectedAnalyst,
   filteredAnalystsList,
   setShowLoginModal,
+  setShowManagerLoginModal,
   setProfileSearch,
   setPassword,
-  setView,
   profileSearch,
   showLoginModal,
+  showManagerLoginModal,
   password,
   showPassword,
+  managerUsername,
+  setManagerUsername,
+  managerPassword,
+  setManagerPassword,
+  showManagerPassword,
   setShowPassword,
+  setShowManagerPassword,
   handleLogin,
+  handleManagerLogin,
 }) => (
   <div className="min-h-screen flex font-sans overflow-hidden">
     <StatusToast toast={toast} />
@@ -44,7 +43,7 @@ const LoginView = ({
         <img src="/logo.png" alt="VCA Logo" className="h-10 w-auto object-contain brightness-0 invert" />
       </div>
       <div className="relative z-10 space-y-5">
-        <h1 className="text-4xl font-black text-white leading-tight tracking-tight">Um sistema de distribuicao de pastas que organiza e direciona demandas para a equipe de analistas em tempo real.</h1>
+        <h1 className="text-4xl font-black text-white leading-tight tracking-tight">Um sistema de distribuição de pastas que organiza e direciona demandas para a equipe de analistas em tempo real.</h1>
         <p className="text-blue-200 text-sm font-bold leading-relaxed max-w-xs">VCA Cloud</p>
       </div>
       <div className="relative z-10 flex items-center gap-2.5">
@@ -146,7 +145,7 @@ const LoginView = ({
           </div>
 
           <button
-            onClick={() => setView('manager')}
+            onClick={() => setShowManagerLoginModal(true)}
             className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl border-2 border-slate-100 bg-white text-slate-400 hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50 transition-all duration-200 text-[10px] font-black uppercase tracking-widest shadow-sm hover:shadow-md"
           >
             <BarChart4 size={13} /> Acesso Admin
@@ -197,24 +196,6 @@ const LoginView = ({
                 </button>
               </div>
 
-              {/* Indicador de força da senha */}
-              {password && (
-                <div className="space-y-2">
-                  <div className="h-1.5 w-full bg-slate-200 rounded-full overflow-hidden">
-                    <div 
-                      className={`h-full transition-all duration-300 ${getPasswordStrength(password).color}`}
-                      style={{ width: `${Math.min(password.length * 8, 100)}%` }}
-                    />
-                  </div>
-                  <p className={`text-[8px] font-bold uppercase tracking-widest ${
-                    getPasswordStrength(password).level === 'weak' ? 'text-red-500' :
-                    getPasswordStrength(password).level === 'medium' ? 'text-yellow-600' :
-                    'text-green-600'
-                  }`}>
-                    Força: {getPasswordStrength(password).label}
-                  </p>
-                </div>
-              )}
             </div>
 
             <button
@@ -238,6 +219,89 @@ const LoginView = ({
 
             <button 
               onClick={() => setShowLoginModal(false)} 
+              className="w-full py-2.5 text-slate-500 font-bold uppercase text-[9px] tracking-widest hover:text-slate-700 hover:bg-slate-50 rounded-lg transition-all duration-200"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {showManagerLoginModal && (
+      <div
+        className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-250 flex items-center justify-center p-4 animate-in fade-in duration-200"
+        onClick={() => setShowManagerLoginModal(false)}
+      >
+        <div
+          className="bg-white rounded-3xl w-full max-w-xs shadow-2xl border border-slate-100 overflow-hidden animate-in slide-in-from-bottom-4 zoom-in-95 duration-300"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <div className="bg-slate-900 px-8 pt-8 pb-6 flex flex-col items-center gap-3">
+            <div className="w-14 h-14 rounded-2xl bg-white/10 flex items-center justify-center text-white border border-white/10">
+              <BarChart4 size={22} />
+            </div>
+            <div className="text-center">
+              <p className="text-white font-black text-sm uppercase tracking-tight">Painel Admin</p>
+              <p className="text-slate-300 text-[9px] font-bold uppercase tracking-widest mt-0.5">Acesso restrito ao gestor</p>
+            </div>
+          </div>
+          <div className="px-8 py-8 space-y-6">
+            <div className="space-y-3">
+              <div className="relative">
+                <UserIcon size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-300 pointer-events-none" />
+                <input
+                  type="text"
+                  value={managerUsername}
+                  onChange={(event) => setManagerUsername(event.target.value)}
+                  onKeyDown={(event) => event.key === 'Enter' && handleManagerLogin()}
+                  className="w-full bg-slate-50 border border-slate-100 rounded-xl py-3.5 pl-10 pr-4 text-slate-800 font-bold outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm transition-all duration-200"
+                  autoFocus
+                  placeholder="Usuário admin"
+                />
+              </div>
+
+              <div className="relative">
+                <Lock size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-300 pointer-events-none" />
+                <input
+                  type={showManagerPassword ? 'text' : 'password'}
+                  value={managerPassword}
+                  onChange={(event) => setManagerPassword(event.target.value)}
+                  onKeyDown={(event) => event.key === 'Enter' && handleManagerLogin()}
+                  className="w-full bg-slate-50 border border-slate-100 rounded-xl py-3.5 pl-10 pr-10 text-slate-800 font-bold outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm transition-all duration-200"
+                  placeholder="Senha do admin"
+                />
+                <button
+                  onClick={() => setShowManagerPassword((current) => !current)}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-300 hover:text-slate-500 transition-colors duration-200 p-1"
+                  title={showManagerPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                >
+                  {showManagerPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                </button>
+              </div>
+            </div>
+
+            <button
+              disabled={isGlobalLoading || !managerUsername.trim() || !managerPassword.trim()}
+              onClick={handleManagerLogin}
+              className={`w-full py-3.5 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg transition-all duration-200 flex items-center justify-center gap-2.5 ${
+                isGlobalLoading || !managerUsername.trim() || !managerPassword.trim()
+                  ? 'bg-slate-100 text-slate-300 cursor-not-allowed'
+                  : 'bg-slate-900 text-white hover:bg-slate-800 active:scale-95'
+              }`}
+            >
+              {isGlobalLoading ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-slate-400 border-t-white rounded-full animate-spin" />
+                  Entrando...
+                </>
+              ) : (
+                'Entrar no Admin'
+              )}
+            </button>
+
+            <button
+              onClick={() => setShowManagerLoginModal(false)}
               className="w-full py-2.5 text-slate-500 font-bold uppercase text-[9px] tracking-widest hover:text-slate-700 hover:bg-slate-50 rounded-lg transition-all duration-200"
             >
               Cancelar

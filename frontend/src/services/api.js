@@ -1,6 +1,21 @@
 const RAW_API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 const API_BASE = RAW_API_URL.replace(/\/+$/, '').replace(/\/api$/, '');
 
+const getManagerAuthHeaders = () => {
+  if (typeof window === "undefined") return {};
+
+  const rawSession = window.sessionStorage.getItem("managerSession");
+  if (!rawSession) return {};
+
+  try {
+    const session = JSON.parse(rawSession);
+    if (!session?.token) return {};
+    return { Authorization: `Bearer ${session.token}` };
+  } catch {
+    return {};
+  }
+};
+
 const request = (path, { method = "GET", body, headers } = {}) => {
   const config = {
     method,
@@ -21,12 +36,28 @@ export const api = {
   listAnalysts: () => request("/api/analistas"),
   getMesa: (analystId) => request(`/api/mesa/${analystId}`),
   getMetrics: (analystId) => request(`/api/metricas/${analystId}`),
-  getManagerOverview: () => request("/api/gestor/overview"),
+  getManagerOverview: () => request("/api/gestor/overview", { headers: getManagerAuthHeaders() }),
 
   login: (analystId, password) =>
     request("/api/login", {
       method: "POST",
       body: { analista_id: analystId, senha: password },
+    }),
+
+  managerLogin: (username, password) =>
+    request("/api/gestor/login", {
+      method: "POST",
+      body: { usuario: username, senha: password },
+    }),
+
+  changePassword: ({ analystId, currentPassword, newPassword }) =>
+    request("/api/analista/alterar-senha", {
+      method: "POST",
+      body: {
+        analista_id: analystId,
+        senha_atual: currentPassword,
+        nova_senha: newPassword,
+      },
     }),
 
   setQueueStatus: (analystId, online) =>
@@ -52,14 +83,15 @@ export const api = {
       body: { reserva_ids, analista_origem_id, analista_destino_id, motivo },
     }),
 
-  redistribute: () => request("/api/gestor/redistribuir", { method: "POST" }),
-  resetData: () => request("/api/gestor/zerar-dados", { method: "POST" }),
+  redistribute: () => request("/api/gestor/redistribuir", { method: "POST", headers: getManagerAuthHeaders() }),
+  resetData: () => request("/api/gestor/zerar-dados", { method: "POST", headers: getManagerAuthHeaders() }),
 
   saveAnalyst: ({ id, payload }) =>
     request(id ? `/api/gestor/analistas/${id}` : "/api/gestor/analistas", {
       method: id ? "PATCH" : "POST",
       body: payload,
+      headers: getManagerAuthHeaders(),
     }),
 
-  deleteAnalyst: (id) => request(`/api/gestor/analistas/${id}`, { method: "DELETE" }),
+  deleteAnalyst: (id) => request(`/api/gestor/analistas/${id}`, { method: "DELETE", headers: getManagerAuthHeaders() }),
 };

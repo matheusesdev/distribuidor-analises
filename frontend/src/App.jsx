@@ -12,6 +12,7 @@ import { api } from './services/api';
 import { ConfirmActionModal, LoadingOverlay, StatusToast } from './components/FeedbackOverlays';
 import LoginView from './components/LoginView';
 import MesaView from './components/analyst/MesaView';
+import AnalystSettingsTab from './components/analyst/AnalystSettingsTab';
 import ManagerHeader from './components/manager/ManagerHeader';
 import ManagerDashboardTab from './components/manager/ManagerDashboardTab';
 import ManagerTransfersTab from './components/manager/ManagerTransfersTab';
@@ -94,6 +95,29 @@ const App = () => {
   const [editForm, setEditForm] = useState({ id: null, nome: "", senha: "", permissoes: [] });
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [showManagerLoginModal, setShowManagerLoginModal] = useState(false);
+  const [managerUsername, setManagerUsername] = useState(() => {
+    if (typeof window === 'undefined') return 'admin';
+    const rawSession = window.sessionStorage.getItem('managerSession');
+    if (!rawSession) return 'admin';
+    try {
+      return JSON.parse(rawSession)?.usuario || 'admin';
+    } catch {
+      return 'admin';
+    }
+  });
+  const [managerPassword, setManagerPassword] = useState("");
+  const [showManagerPassword, setShowManagerPassword] = useState(false);
+  const [managerSession, setManagerSession] = useState(() => {
+    if (typeof window === 'undefined') return null;
+    const rawSession = window.sessionStorage.getItem('managerSession');
+    if (!rawSession) return null;
+    try {
+      return JSON.parse(rawSession);
+    } catch {
+      return null;
+    }
+  });
   const [confirmAction, setConfirmAction] = useState({ open: false, title: "", message: "", confirmLabel: "Confirmar", tone: "warning" });
   const [togglingQueueIds, setTogglingQueueIds] = useState([]);
   const [showTransferModal, setShowTransferModal] = useState(false);
@@ -136,10 +160,36 @@ const App = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const notify = (message, type = "success") => {
+  const notify = useCallback((message, type = "success") => {
     setToast({ show: true, message, type });
     setTimeout(() => setToast({ show: false, message: "", type: "success" }), 3500);
-  };
+  }, []);
+
+  const persistManagerSession = useCallback((session) => {
+    setManagerSession(session);
+    if (typeof window === 'undefined') return;
+
+    if (session) {
+      window.sessionStorage.setItem('managerSession', JSON.stringify(session));
+      return;
+    }
+
+    window.sessionStorage.removeItem('managerSession');
+  }, []);
+
+  const clearManagerSession = useCallback(() => {
+    persistManagerSession(null);
+  }, [persistManagerSession]);
+
+  const handleManagerUnauthorized = useCallback(() => {
+    clearManagerSession();
+    setShowManagerLoginModal(false);
+    setManagerPassword('');
+    setShowManagerPassword(false);
+    setManagerTab('dashboard');
+    setView('login');
+    notify('Sessão do admin expirada. Faça login novamente.', 'error');
+  }, [clearManagerSession, notify]);
 
   const getApiErrorMessage = async (response, fallbackMessage) => {
     try {
@@ -220,6 +270,9 @@ const App = () => {
             total_pendente_cvcrm: d.total_pendente_cvcrm || 0,
             pastas_sem_destino: d.pastas_sem_destino || 0
           });
+        } else if (resD.status === 401) {
+          handleManagerUnauthorized();
+          return;
         }
       }
       setApiError(null);
@@ -230,7 +283,7 @@ const App = () => {
       if (!silent) setIsGlobalLoading(false);
       setNextRefreshAt(Date.now() + (AUTO_REFRESH_SECONDS * 1000));
     }
-  }, [currentUser, view]);
+  }, [currentUser, handleManagerUnauthorized, view]);
 
   useEffect(() => {
     fetchData();
@@ -247,6 +300,12 @@ const App = () => {
     return () => clearInterval(timer);
   }, [nextRefreshAt]);
 
+  useEffect(() => {
+    if (view === 'manager' && !managerSession?.token) {
+      setView('login');
+    }
+  }, [managerSession, view]);
+
   // --- ACÇÕES OPERACIONAIS ---
   const handleLogin = async () => {
     if (!selectedAnalyst) {
@@ -261,6 +320,9 @@ const App = () => {
         const userData = await res.json();
         setCurrentUser(userData);
         setShowLoginModal(false);
+        setPassword('');
+        setShowPassword(false);
+        setAnalystTab('mesa');
         setView('analyst');
         notify(`Olá, ${selectedAnalyst.nome}!`);
       } else {
@@ -269,6 +331,40 @@ const App = () => {
     } catch (e) { notify("Erro de conexão com o servidor.", "error"); }
     finally { setIsGlobalLoading(false); }
   };
+
+  const handleManagerLogin = async () => {
+    if (!managerUsername.trim() || !managerPassword.trim()) return;
+
+    setIsGlobalLoading(true);
+    try {
+      const res = await api.managerLogin(managerUsername.trim(), managerPassword);
+      if (res.ok) {
+        const session = await res.json();
+        persistManagerSession(session);
+        setShowManagerLoginModal(false);
+        setManagerPassword('');
+        setShowManagerPassword(false);
+        setManagerTab('dashboard');
+        setView('manager');
+        notify('Acesso admin liberado.');
+      } else {
+        notify(await getApiErrorMessage(res, 'Falha no login do admin'), 'error');
+      }
+    } catch (e) {
+      notify('Erro de conexão com o servidor.', 'error');
+    } finally {
+      setIsGlobalLoading(false);
+    }
+  };
+
+  const handleManagerLogout = useCallback(() => {
+    clearManagerSession();
+    setShowManagerLoginModal(false);
+    setManagerPassword('');
+    setShowManagerPassword(false);
+    setManagerTab('dashboard');
+    setView('login');
+  }, [clearManagerSession]);
 
   const toggleQueueStatus = async (status) => {
     setIsGlobalLoading(true);
@@ -404,6 +500,10 @@ const App = () => {
     setIsGlobalLoading(true);
     try {
       const res = await api.redistribute();
+      if (res.status === 401) {
+        handleManagerUnauthorized();
+        return;
+      }
       if (res.ok) {
         notify("Redistribuição efetuada!");
         fetchData();
@@ -423,6 +523,10 @@ const App = () => {
     setIsGlobalLoading(true);
     try {
       const res = await api.resetData();
+      if (res.status === 401) {
+        handleManagerUnauthorized();
+        return;
+      }
       if (res.ok) {
         notify("Mesas limpas e ordem reiniciada!");
         fetchData();
@@ -477,6 +581,10 @@ const App = () => {
           id: isEdit ? editForm.id : null,
           payload: editForm
         });
+        if (res.status === 401) {
+            handleManagerUnauthorized();
+            return;
+        }
         if (res.ok) {
             notify("Alterações gravadas!");
             setShowEditModal(false);
@@ -490,11 +598,41 @@ const App = () => {
     if (!window.confirm("Remover este analista?")) return;
     setIsGlobalLoading(true);
     try {
-        await api.deleteAnalyst(id);
+        const res = await api.deleteAnalyst(id);
+        if (res.status === 401) {
+            handleManagerUnauthorized();
+            return;
+        }
         notify("Analista removido.");
         fetchData();
     } catch (e) { notify("Erro ao remover."); }
     finally { setIsGlobalLoading(false); }
+  };
+
+  const handleChangePassword = async ({ currentPassword, newPassword }) => {
+    if (!currentUser) return false;
+
+    setIsGlobalLoading(true);
+    try {
+      const res = await api.changePassword({
+        analystId: currentUser.id,
+        currentPassword,
+        newPassword,
+      });
+
+      if (res.ok) {
+        notify('Senha alterada com sucesso.');
+        return true;
+      }
+
+      notify(await getApiErrorMessage(res, 'Não foi possível alterar a senha'), 'error');
+      return false;
+    } catch (e) {
+      notify('Erro de conexão ao alterar a senha.', 'error');
+      return false;
+    } finally {
+      setIsGlobalLoading(false);
+    }
   };
 
   // --- LÓGICA ANALÍTICA DE FILA ---
@@ -652,15 +790,23 @@ const App = () => {
       setSelectedAnalyst={setSelectedAnalyst}
       filteredAnalystsList={filteredAnalystsList}
       setShowLoginModal={setShowLoginModal}
+      setShowManagerLoginModal={setShowManagerLoginModal}
       setProfileSearch={setProfileSearch}
       setPassword={setPassword}
-      setView={setView}
       profileSearch={profileSearch}
       showLoginModal={showLoginModal}
+      showManagerLoginModal={showManagerLoginModal}
       password={password}
       showPassword={showPassword}
+      managerUsername={managerUsername}
+      setManagerUsername={setManagerUsername}
+      managerPassword={managerPassword}
+      setManagerPassword={setManagerPassword}
+      showManagerPassword={showManagerPassword}
       setShowPassword={setShowPassword}
+      setShowManagerPassword={setShowManagerPassword}
       handleLogin={handleLogin}
+      handleManagerLogin={handleManagerLogin}
     />
   );
 
@@ -673,7 +819,7 @@ const App = () => {
       <ManagerHeader
         handleRedistribute={handleRedistribute}
         handleResetData={handleResetData}
-        onExit={() => setView('login')}
+        onExit={handleManagerLogout}
       />
 
       <main className="max-w-7xl mx-auto p-4 md:p-6 space-y-6 flex-1">
@@ -889,13 +1035,20 @@ const App = () => {
                 <div className="w-px h-5 bg-slate-200 mx-0.5" />
                 <button onClick={() => setAnalystTab('mesa')} className={`p-1.5 md:p-2 rounded-lg transition-all ${analystTab === 'mesa' ? 'bg-white text-blue-600 shadow-sm border border-slate-100' : 'text-slate-300 hover:text-slate-400'}`}><LayoutDashboard size={18}/></button>
                 <button onClick={() => setAnalystTab('historico')} className={`p-1.5 md:p-2 rounded-lg transition-all ${analystTab === 'historico' ? 'bg-white text-blue-600 shadow-sm border border-slate-100' : 'text-slate-300 hover:text-slate-400'}`}><History size={18}/></button>
+                <button onClick={() => setAnalystTab('settings')} className={`p-1.5 md:p-2 rounded-lg transition-all ${analystTab === 'settings' ? 'bg-white text-blue-600 shadow-sm border border-slate-100' : 'text-slate-300 hover:text-slate-400'}`}><Settings size={18}/></button>
             </div>
-            <button onClick={() => { setView('login'); setCurrentUser(null); }} className="bg-white text-slate-300 p-1.5 md:p-2 rounded-lg hover:text-red-500 transition-all border border-slate-100 active:scale-95 shadow-sm ml-1 shrink-0"><LogOut size={18}/></button>
+            <button onClick={() => { setView('login'); setCurrentUser(null); setAnalystTab('mesa'); }} className="bg-white text-slate-300 p-1.5 md:p-2 rounded-lg hover:text-red-500 transition-all border border-slate-100 active:scale-95 shadow-sm ml-1 shrink-0"><LogOut size={18}/></button>
         </div>
       </nav>
 
       <main className="max-w-7xl mx-auto p-4 md:p-8 animate-in fade-in duration-700 w-full flex-1">
-        {currentUser && !currentUser.is_online && analystTab === 'mesa' ? (
+        {analystTab === 'settings' ? (
+          <AnalystSettingsTab
+            isSubmitting={isGlobalLoading}
+            onSubmit={handleChangePassword}
+            onClose={() => setAnalystTab('mesa')}
+          />
+        ) : currentUser && !currentUser.is_online && analystTab === 'mesa' ? (
            <div className="py-20 md:py-24 text-center bg-white border border-slate-100 rounded-[2.5rem] md:rounded-[3.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.02)] max-w-md mx-auto flex flex-col items-center animate-in zoom-in-95 px-6">
               <div className="w-14 h-14 bg-slate-50 rounded-full flex items-center justify-center text-slate-300 mb-6 border border-slate-100 shrink-0"><AlertTriangle size={32}/></div>
               <h2 className="text-xl font-black text-slate-700 mb-2 uppercase tracking-tighter text-center leading-none">Você está Pausado</h2>
