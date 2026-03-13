@@ -11,6 +11,7 @@ import {
 import { api } from './services/api';
 import { ConfirmActionModal, LoadingOverlay, StatusToast } from './components/FeedbackOverlays';
 import LoginView from './components/LoginView';
+import ResetPasswordView from './components/ResetPasswordView';
 import MesaView from './components/analyst/MesaView';
 import AnalystAnalyticsTab from './components/analyst/AnalystAnalyticsTab';
 import AnalystSettingsTab from './components/analyst/AnalystSettingsTab';
@@ -68,6 +69,13 @@ const App = () => {
   const [transferOriginFilter, setTransferOriginFilter] = useState(ALL_FILTER);
   const [transferDestinationFilter, setTransferDestinationFilter] = useState(ALL_FILTER);
 
+  // Detecta token de reset de senha na URL (?reset_token=...)
+  const [resetToken, setResetToken] = useState(() => {
+    if (typeof window === 'undefined') return null;
+    const params = new URLSearchParams(window.location.search);
+    return params.get('reset_token') || null;
+  });
+
   // --- ESTADOS DE DADOS ---
   const [analysts, setAnalysts] = useState([]);
   const [myTasks, setMyTasks] = useState([]);
@@ -95,18 +103,9 @@ const App = () => {
   const [taskSearch, setTaskSearch] = useState("");
   const [filterSit, setFilterSit] = useState("all");
 
-  // --- ESTADOS DE SELEÇÃO DE PERFIL ---
-  const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
-  const [profileSearch, setProfileSearch] = useState("");
-  const dropdownRef = useRef(null);
-
   // --- ESTADOS DE MODAIS ---
-  const [showLoginModal, setShowLoginModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [selectedAnalyst, setSelectedAnalyst] = useState(null);
   const [editForm, setEditForm] = useState({ id: null, nome: "", senha: "", permissoes: [] });
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
   const [showManagerLoginModal, setShowManagerLoginModal] = useState(false);
   const [managerUsername, setManagerUsername] = useState(() => {
     if (typeof window === 'undefined') return 'admin';
@@ -163,11 +162,7 @@ const App = () => {
   };
 
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setIsProfileDropdownOpen(false);
-      }
-    };
+    const handleClickOutside = () => {};
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
@@ -325,24 +320,17 @@ const App = () => {
   }, [managerSession, view]);
 
   // --- ACÇÕES OPERACIONAIS ---
-  const handleLogin = async () => {
-    if (!selectedAnalyst) {
-      notify("Selecione um usuário.", "error");
-      return;
-    }
-    if (!password) return;
+  const handleLogin = async (email, senha) => {
+    if (!email || !senha) return;
     setIsGlobalLoading(true);
     try {
-      const res = await api.login(selectedAnalyst.id, password);
+      const res = await api.loginEmail(email, senha);
       if (res.ok) {
         const userData = await res.json();
         setCurrentUser(userData);
-        setShowLoginModal(false);
-        setPassword('');
-        setShowPassword(false);
         setAnalystTab('mesa');
         setView('analyst');
-        notify(`Olá, ${selectedAnalyst.nome}!`);
+        notify(`Olá, ${userData.nome}!`);
       } else {
         notify(await getApiErrorMessage(res, "Falha no login"), "error");
       }
@@ -682,10 +670,6 @@ const App = () => {
     });
   }, [myTasks, taskSearch, filterSit]);
 
-  const filteredAnalystsList = useMemo(() => {
-    return (analysts || []).filter(a => a.nome.toLowerCase().includes(profileSearch.toLowerCase()));
-  }, [analysts, profileSearch]);
-
   const transferTargetOptions = useMemo(() => {
     if (!currentUser) return [];
     return (analysts || []).filter(a => {
@@ -793,6 +777,22 @@ const App = () => {
     setTransferDestinationFilter(ALL_FILTER);
   };
 
+  // --- TELA DE RESET DE SENHA (URL com ?reset_token=...) ---
+  if (resetToken) return (
+    <ResetPasswordView
+      token={resetToken}
+      onSuccess={() => {
+        window.history.replaceState({}, '', window.location.pathname);
+        setResetToken(null);
+        notify('Senha redefinida com sucesso! Faça login com a nova senha.');
+      }}
+      onBackToLogin={() => {
+        window.history.replaceState({}, '', window.location.pathname);
+        setResetToken(null);
+      }}
+    />
+  );
+
   // --- TELA DE LOGIN ---
   if (view === 'login') return (
     <LoginView
@@ -800,27 +800,13 @@ const App = () => {
       confirmAction={confirmAction}
       closeConfirmation={closeConfirmation}
       isGlobalLoading={isGlobalLoading}
-      dropdownRef={dropdownRef}
-      isProfileDropdownOpen={isProfileDropdownOpen}
-      setIsProfileDropdownOpen={setIsProfileDropdownOpen}
-      selectedAnalyst={selectedAnalyst}
-      setSelectedAnalyst={setSelectedAnalyst}
-      filteredAnalystsList={filteredAnalystsList}
-      setShowLoginModal={setShowLoginModal}
-      setShowManagerLoginModal={setShowManagerLoginModal}
-      setProfileSearch={setProfileSearch}
-      setPassword={setPassword}
-      profileSearch={profileSearch}
-      showLoginModal={showLoginModal}
       showManagerLoginModal={showManagerLoginModal}
-      password={password}
-      showPassword={showPassword}
+      setShowManagerLoginModal={setShowManagerLoginModal}
       managerUsername={managerUsername}
       setManagerUsername={setManagerUsername}
       managerPassword={managerPassword}
       setManagerPassword={setManagerPassword}
       showManagerPassword={showManagerPassword}
-      setShowPassword={setShowPassword}
       setShowManagerPassword={setShowManagerPassword}
       handleLogin={handleLogin}
       handleManagerLogin={handleManagerLogin}

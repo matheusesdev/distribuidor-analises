@@ -45,6 +45,24 @@ export const api = {
       body: { analista_id: analystId, senha: password },
     }),
 
+  loginEmail: (email, senha) =>
+    request("/api/login/email", {
+      method: "POST",
+      body: { email, senha },
+    }),
+
+  forgotPassword: (email) =>
+    request("/api/analista/esqueceu-senha", {
+      method: "POST",
+      body: { email },
+    }),
+
+  resetPassword: (token, nova_senha) =>
+    request("/api/analista/resetar-senha", {
+      method: "POST",
+      body: { token, nova_senha },
+    }),
+
   managerLogin: (username, password) =>
     request("/api/gestor/login", {
       method: "POST",
