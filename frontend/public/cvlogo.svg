@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="uuid-66c66dc2-0e5f-42fe-890e-a9a13a67641a" xmlns="http://www.w3.org/2000/svg" version="1.1" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 557.9 169.9">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: #24695b;
+      }
+
+      .cls-1, .cls-2, .cls-3, .cls-4 {
+        stroke-width: 0px;
+      }
+
+      .cls-2 {
+        fill: #181a29;
+      }
+
+      .cls-3 {
+        fill: url(#Gradiente_sem_nome);
+      }
+
+      .cls-4 {
+        fill: #41b28e;
+      }
+    </style>
+    <linearGradient id="Gradiente_sem_nome" data-name="Gradiente sem nome" x1="33.2" y1="39.6" x2="132.4" y2="130.2" gradientTransform="translate(0 172) scale(1 -1)" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#24695b"/>
+      <stop offset="1" stop-color="#00af86"/>
+    </linearGradient>
+  </defs>
+  <path class="cls-2" d="M192.8,85.1c0-22.8,11.5-33.6,36-33.6h19.1l1.9,13h-21c-14,0-20.6,6.6-20.6,20.6s6.6,20.6,20.6,20.6h21l-1.9,13h-19.1c-24.5,0-36-10.8-36-33.6Z"/>
+  <path class="cls-2" d="M325.5,51.5l-25.1,67.2h-22.6l-25.3-67.2h16l19.9,54.8h1.3l19.8-54.8h16Z"/>
+  <path class="cls-2" d="M330.8,85.1c0-22.8,11.3-33.6,35.2-33.6h19.9l1.1,7.2h-21c-18.2,0-26.9,8.5-26.9,26.4s8.6,26.4,26.9,26.4h21l-1.1,7.2h-19.9c-23.9,0-35.2-10.8-35.2-33.6Z"/>
+  <path class="cls-2" d="M446.9,118.7l-19.3-23.6h-20.1v23.6h-8.2V51.5h29.6c18,0,26.7,8.5,26.7,21.8s-6.1,18.9-18.7,21.1l20,24.3h-10ZM447.3,73.3c0-9.1-5.7-14.6-18.8-14.6h-20.9v29.2h20.9c13.1,0,18.8-5.4,18.8-14.6Z"/>
+  <path class="cls-2" d="M540.6,51.5v67.2h-7.7v-54.1l-24.8,30.4h-5.7l-24.8-30.4v54.1h-7.7V51.5h6.5l28.8,35.7,28.8-35.7h6.6Z"/>
+  <g>
+    <path class="cls-3" d="M148.5,17.4H56.4c-21.5,0-39,17.5-39,39v92.6c0,1.9,1.5,3.4,3.4,3.4h93.5c21,0,38.1-16.9,38.1-37.8V21.4c0-2.2-1.8-3.9-3.9-3.9h0ZM84.9,118.6l-45-33.7,45-33.7,45,33.7s-45,33.7-45,33.7Z"/>
+    <polygon class="cls-1" points="152.4 68 152.4 101.8 84.9 152.4 84.9 118.6 129.9 84.9 152.4 68"/>
+    <polygon class="cls-1" points="84.9 17.4 84.9 51.2 39.9 84.9 17.4 101.8 17.4 68 84.9 17.4"/>
+    <polygon class="cls-4" points="84.9 118.6 84.9 152.4 17.4 101.8 17.4 68 39.9 84.9 84.9 118.6"/>
+  </g>
+</svg>

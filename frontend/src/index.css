@@ -9,6 +9,38 @@
   animation: spin-slow 12s linear infinite;
 }
 
+@keyframes logo-light-pass {
+  0% {
+    transform: skewX(-20deg) translateX(-240%);
+  }
+  100% {
+    transform: skewX(-20deg) translateX(320%);
+  }
+}
+
+.logo-shimmer {
+  position: relative;
+  display: inline-flex;
+  overflow: hidden;
+}
+
+.logo-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: -40% auto -40% -55%;
+  width: 42%;
+  background: linear-gradient(
+    110deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(147, 197, 253, 0.18) 35%,
+    rgba(255, 255, 255, 0.7) 50%,
+    rgba(147, 197, 253, 0.18) 65%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  pointer-events: none;
+  animation: logo-light-pass 3.8s linear infinite;
+}
+
 body {
   margin: 0;
   padding: 0;

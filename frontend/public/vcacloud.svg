@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="840" height="220" viewBox="0 0 840 220" role="img" aria-labelledby="title desc">
+  <title id="title">VCACloud Logo</title>
+  <desc id="desc">Logo minimalista VCACloud em branco para fundo azul com icone de nuvem.</desc>
+
+  <g transform="translate(42,54)" fill="none" stroke="#FFFFFF" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" opacity="0.95">
+    <path d="M34 98h94c18 0 33-14 33-31 0-15-12-28-28-31-5-20-23-34-44-34-19 0-36 11-43 28-2-1-6-1-9-1-19 0-34 14-34 31 0 21 15 38 31 38z"/>
+    <path d="M56 116h60"/>
+    <path d="M72 133h28"/>
+  </g>
+
+  <g transform="translate(240,60)">
+    <text x="0" y="88"
+      font-family="Nunito, Quicksand, Manrope, Segoe UI, Arial, sans-serif"
+      font-size="86"
+      font-weight="500"
+      letter-spacing="0.2"
+      fill="#FFFFFF" opacity="0.96">VCACloud</text>
+  </g>
+</svg>
