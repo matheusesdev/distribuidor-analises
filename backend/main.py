@@ -384,11 +384,108 @@ HEADERS = {
     "accept": "application/json"
 }
 
+# Estado global do último sync — exposto via /api/gestor/sync-status
+_LAST_SYNC_STATE: Dict[str, Any] = {
+    "timestamp": None,
+    "total_no_crm": 0,
+    "por_situacao": {},
+    "erros": [],
+    "duracao_segundos": None,
+}
 
-async def fetch_cvcrm_reservas(sit_id: int, timeout_seconds: int):
+
+async def fetch_cvcrm_reservas(sit_id: int, timeout_seconds: int, pagina: int = 1):
     """Executa request ao CRM fora do event loop para evitar bloqueio."""
-    url = f"https://vca.cvcrm.com.br/api/v1/comercial/reservas?situacao={sit_id}"
+    url = (
+        f"https://vca.cvcrm.com.br/api/v1/comercial/reservas"
+        f"?situacao={sit_id}&pagina={pagina}"
+    )
     return await asyncio.to_thread(requests.get, url, headers=HEADERS, timeout=timeout_seconds)
+
+
+def extract_reservas_from_response(data: Any) -> tuple:
+    """
+    Normaliza a resposta do CVCRM para uma lista de (reserva_id_str, info_dict).
+    Suporta:
+      - Lista: [{idreserva: ..., ...}, ...]
+      - Dict com chaves numéricas: {"123": {...}, "456": {...}}
+      - Wrapper paginado: {"data": [...], "meta": {...}} ou {"reservas": [...]}
+    Retorna: (lista_de_pares, total_paginas)
+    """
+    total_pages = 1
+
+    if isinstance(data, list):
+        pairs = [(str(item.get("idreserva") or item.get("id") or i), item) for i, item in enumerate(data)]
+        return pairs, total_pages
+
+    if isinstance(data, dict):
+        # Detecta wrapper paginado (chave "data" com lista dentro)
+        for wrapper_key in ("data", "reservas", "items", "result", "results"):
+            if wrapper_key in data and isinstance(data[wrapper_key], list):
+                items_list = data[wrapper_key]
+                # Tenta extrair info de paginação
+                meta = data.get("meta") or data.get("pagination") or data.get("paginator") or {}
+                if isinstance(meta, dict):
+                    last_page = meta.get("last_page") or meta.get("totalPages") or meta.get("total_pages")
+                    if last_page:
+                        total_pages = int(last_page)
+                pairs = [(str(item.get("idreserva") or item.get("id") or i), item) for i, item in enumerate(items_list)]
+                return pairs, total_pages
+
+        # Dict com chaves numéricas (ou IDs de reserva como chave)
+        pairs = []
+        for key, value in data.items():
+            if not isinstance(value, dict):
+                continue
+            res_id = str(value.get("idreserva") or value.get("id") or key).strip()
+            pairs.append((res_id, value))
+        return pairs, total_pages
+
+    return [], total_pages
+
+
+async def fetch_all_reservas_for_situacao(sit_id: int) -> List[Dict[str, Any]]:
+    """Busca TODAS as páginas do CVCRM para uma situação, com suporte a paginação."""
+    all_pairs: List[tuple] = []
+    page = 1
+
+    while True:
+        try:
+            response = await fetch_cvcrm_reservas(sit_id, timeout_seconds=15, pagina=page)
+        except Exception as exc:
+            print(f"[SYNC] Timeout/erro na situacao {sit_id} pagina {page}: {exc}")
+            break
+
+        if response.status_code == 204:
+            break
+        if response.status_code != 200:
+            print(f"[SYNC] Situacao {sit_id} pagina {page}: HTTP {response.status_code}")
+            break
+
+        try:
+            data = response.json()
+        except Exception:
+            print(f"[SYNC] Situacao {sit_id} pagina {page}: resposta nao e JSON valido")
+            break
+
+        pairs, total_pages = extract_reservas_from_response(data)
+        print(f"[SYNC] Situacao {sit_id} pagina {page}/{total_pages}: {len(pairs)} reservas")
+        all_pairs.extend(pairs)
+
+        if page >= total_pages or not pairs:
+            break
+        page += 1
+
+    # Transforma em lista de dicts adicionando o reserva_id como campo auxiliar
+    result = []
+    for res_id, info in all_pairs:
+        if not res_id or res_id == "None":
+            continue
+        entry = dict(info)
+        entry["_reserva_id_normalizado"] = res_id
+        result.append(entry)
+
+    return result
 
 
 async def build_situacao_lookup() -> Dict[str, Dict[str, Any]]:
@@ -439,14 +536,9 @@ async def build_situacao_lookup() -> Dict[str, Dict[str, Any]]:
 
     for sit_id in SITUACOES_IDS:
         try:
-            response = await fetch_cvcrm_reservas(sit_id, timeout_seconds=10)
-            if response.status_code != 200:
-                continue
-
-            payload = response.json()
-            items = payload.items() if isinstance(payload, dict) else enumerate(payload)
-            for key, info in items:
-                reserva_id = str(info.get("idreserva") or info.get("id") or key or "").strip()
+            reservas = await fetch_all_reservas_for_situacao(sit_id)
+            for info in reservas:
+                reserva_id = str(info.get("_reserva_id_normalizado") or "").strip()
                 if not reserva_id or reserva_id in lookup:
                     continue
                 lookup[reserva_id] = {
@@ -681,105 +773,133 @@ async def get_next_analyst(sit_id: int, exclude_ids: Optional[List[int]] = None)
     return None
 
 async def perform_sync():
-    ids_no_crm = []
-    try:
-        for sit_id in SITUACOES_IDS:
-            response = await fetch_cvcrm_reservas(sit_id, timeout_seconds=15)
-            
-            if response.status_code == 204: continue
-            if response.status_code != 200: continue
-            
-            data = response.json()
-            items = data.items() if isinstance(data, dict) else enumerate(data)
+    """
+    Sincroniza reservas do CVCRM com a mesa local.
+    - Busca TODAS as páginas de cada situação (suporte a paginação)
+    - Trata robustamente diferentes formatos de resposta do CRM
+    - Registra resultado em _LAST_SYNC_STATE para auditoria
+    """
+    ids_no_crm: List[str] = []
+    erros_sync: List[str] = []
+    por_situacao: Dict[str, int] = {}
+    inicio = datetime.datetime.now(datetime.timezone.utc)
 
-            for key, info in items:
-                res_id = str(info.get('idreserva') or info.get('id') or key)
-                if not res_id or res_id == 'None': continue
+    for sit_id in SITUACOES_IDS:
+        sit_nome = SITUACOES_NOMES.get(sit_id, str(sit_id))
+        try:
+            reservas = await fetch_all_reservas_for_situacao(sit_id)
+            por_situacao[sit_nome] = len(reservas)
+            print(f"[SYNC] Situacao '{sit_nome}' ({sit_id}): {len(reservas)} reservas encontradas")
+
+            for info in reservas:
+                res_id = str(info.get("_reserva_id_normalizado") or "").strip()
+                if not res_id or res_id == "None":
+                    continue
                 ids_no_crm.append(res_id)
-                
-                # Busca se já existe distribuição para esta reserva
-                ativa = supabase.table("distribuicoes").select("*").eq("reserva_id", res_id).execute()
-                
-                if not ativa.data:
-                    # NOVA DISTRIBUIÇÃO
-                    analista = await get_next_analyst(sit_id)
-                    if analista:
-                        now = datetime.datetime.now().isoformat()
-                        try:
+
+                try:
+                    # Busca se já existe distribuição para esta reserva
+                    ativa = supabase.table("distribuicoes").select("*").eq("reserva_id", res_id).execute()
+
+                    if not ativa.data:
+                        # NOVA DISTRIBUIÇÃO
+                        analista = await get_next_analyst(sit_id)
+                        if analista:
+                            now = datetime.datetime.now().isoformat()
+                            titular = info.get("titular") or {}
+                            unidade = info.get("unidade") or {}
                             supabase.table("distribuicoes").insert({
                                 "reserva_id": res_id,
-                                "cliente": info.get('titular', {}).get('nome', 'Desconhecido'),
-                                "empreendimento": info.get('unidade', {}).get('empreendimento', 'N/A'),
-                                "unidade": info.get('unidade', {}).get('unidade', 'N/A'),
+                                "cliente": titular.get("nome", "Desconhecido") if isinstance(titular, dict) else "Desconhecido",
+                                "empreendimento": unidade.get("empreendimento", "N/A") if isinstance(unidade, dict) else "N/A",
+                                "unidade": unidade.get("unidade", "N/A") if isinstance(unidade, dict) else "N/A",
                                 "situacao_id": sit_id,
                                 "situacao_nome": SITUACOES_NOMES.get(sit_id, "Geral"),
                                 "analista_id": analista["id"],
                                 "data_atribuicao": now
                             }).execute()
-                            
+
                             supabase.table("analistas").update({
                                 "ultima_atribuicao": now,
-                                "total_hoje": analista["total_hoje"] + 1
+                                "total_hoje": (analista.get("total_hoje") or 0) + 1
                             }).eq("id", analista["id"]).execute()
-                        except Exception as e:
-                            print(f"Erro ao gravar no banco: {e}")
-                else:
-                    # ATUALIZAÇÃO DE STATUS (RESOLVE O PROBLEMA DA PASTA 45815)
-                    # Se a pasta já existe, verificamos se a situação mudou no CRM
-                    dist_db = ativa.data[0]
-                    analista_atual_id = dist_db.get("analista_id")
+                    else:
+                        # RESERVA JÁ EXISTE — verifica reassign e mudança de situação
+                        dist_db = ativa.data[0]
+                        analista_atual_id = dist_db.get("analista_id")
 
-                    # AUTO-REASSIGN: se está sem analista ou com analista inativo/offline, tenta atribuir novamente.
-                    # Permissões NÃO são verificadas aqui para preservar transferências manuais —
-                    # um analista pode receber uma pasta por transferência mesmo sem a situação configurada.
-                    deve_reatribuir = not analista_atual_id
-                    if analista_atual_id:
-                        analista_atual = supabase.table("analistas").select("*").eq("id", analista_atual_id).execute()
-                        if not analista_atual.data:
-                            deve_reatribuir = True
-                        else:
-                            a = analista_atual.data[0]
-                            if a.get("status") != "ativo" or not a.get("is_online"):
+                        # AUTO-REASSIGN: se está sem analista ou com analista inativo/offline
+                        deve_reatribuir = not analista_atual_id
+                        if analista_atual_id:
+                            analista_atual = supabase.table("analistas").select("*").eq("id", analista_atual_id).execute()
+                            if not analista_atual.data:
                                 deve_reatribuir = True
+                            else:
+                                a = analista_atual.data[0]
+                                if a.get("status") != "ativo" or not a.get("is_online"):
+                                    deve_reatribuir = True
 
-                    if deve_reatribuir:
-                        proximo = await get_next_analyst(sit_id, exclude_ids=[analista_atual_id] if analista_atual_id else None)
-                        if proximo:
-                            now = datetime.datetime.now().isoformat()
+                        if deve_reatribuir:
+                            proximo = await get_next_analyst(sit_id, exclude_ids=[analista_atual_id] if analista_atual_id else None)
+                            if proximo:
+                                now = datetime.datetime.now().isoformat()
+                                supabase.table("distribuicoes").update({
+                                    "analista_id": proximo["id"],
+                                    "data_atribuicao": now,
+                                    "situacao_id": sit_id,
+                                    "situacao_nome": SITUACOES_NOMES.get(sit_id, "Geral")
+                                }).eq("reserva_id", res_id).execute()
+
+                                supabase.table("analistas").update({
+                                    "ultima_atribuicao": now,
+                                    "total_hoje": (proximo.get("total_hoje") or 0) + 1
+                                }).eq("id", proximo["id"]).execute()
+                            else:
+                                supabase.table("distribuicoes").update({
+                                    "analista_id": None,
+                                    "data_atribuicao": None,
+                                    "situacao_id": sit_id,
+                                    "situacao_nome": SITUACOES_NOMES.get(sit_id, "Geral")
+                                }).eq("reserva_id", res_id).execute()
+
+                        if int(dist_db.get("situacao_id") or 0) != int(sit_id):
                             supabase.table("distribuicoes").update({
-                                "analista_id": proximo["id"],
-                                "data_atribuicao": now,
                                 "situacao_id": sit_id,
                                 "situacao_nome": SITUACOES_NOMES.get(sit_id, "Geral")
                             }).eq("reserva_id", res_id).execute()
 
-                            supabase.table("analistas").update({
-                                "ultima_atribuicao": now,
-                                "total_hoje": (proximo.get("total_hoje") or 0) + 1
-                            }).eq("id", proximo["id"]).execute()
-                        else:
-                            supabase.table("distribuicoes").update({
-                                "analista_id": None,
-                                "data_atribuicao": None,
-                                "situacao_id": sit_id,
-                                "situacao_nome": SITUACOES_NOMES.get(sit_id, "Geral")
-                            }).eq("reserva_id", res_id).execute()
+                except Exception as item_err:
+                    msg = f"Reserva {res_id} (sit {sit_id}): {item_err}"
+                    print(f"[SYNC][ERRO] {msg}")
+                    erros_sync.append(msg)
 
-                    if int(dist_db.get("situacao_id", 0)) != int(sit_id):
-                        supabase.table("distribuicoes").update({
-                            "situacao_id": sit_id,
-                            "situacao_nome": SITUACOES_NOMES.get(sit_id, "Geral")
-                        }).eq("reserva_id", res_id).execute()
+        except Exception as sit_err:
+            msg = f"Situacao {sit_nome} ({sit_id}): {sit_err}"
+            print(f"[SYNC][ERRO] {msg}")
+            erros_sync.append(msg)
+            por_situacao[sit_nome] = -1  # -1 indica falha de fetch
 
-        # REMOÇÃO: Se sumiu do CRM das situações monitoradas, apaga da mesa
+    # REMOÇÃO: se sumiu do CRM, retira da mesa local
+    try:
         locais = supabase.table("distribuicoes").select("reserva_id").execute()
         if locais.data:
             for l in locais.data:
                 if l["reserva_id"] not in ids_no_crm:
                     supabase.table("distribuicoes").delete().eq("reserva_id", l["reserva_id"]).execute()
+    except Exception as rem_err:
+        erros_sync.append(f"Remocao: {rem_err}")
 
-    except Exception as e:
-        print(f"Erro Geral Sync: {e}")
+    fim = datetime.datetime.now(datetime.timezone.utc)
+    _LAST_SYNC_STATE["timestamp"] = fim.isoformat()
+    _LAST_SYNC_STATE["total_no_crm"] = len(ids_no_crm)
+    _LAST_SYNC_STATE["por_situacao"] = por_situacao
+    _LAST_SYNC_STATE["erros"] = erros_sync[-50:]  # guarda os últimos 50 erros
+    _LAST_SYNC_STATE["duracao_segundos"] = round((fim - inicio).total_seconds(), 2)
+
+    if erros_sync:
+        print(f"[SYNC] Concluido com {len(erros_sync)} erros. Total CRM: {len(ids_no_crm)}")
+    else:
+        print(f"[SYNC] OK — {len(ids_no_crm)} reservas, {_LAST_SYNC_STATE['duracao_segundos']}s")
 
 async def background_task():
     while True:
@@ -791,6 +911,64 @@ async def startup_event():
     asyncio.create_task(background_task())
 
 # --- ENDPOINTS ---
+
+@app.get("/api/gestor/sync-status")
+async def sync_status(authorization: Optional[str] = Header(default=None)):
+    """
+    Retorna o resultado do último ciclo de sincronização com o CVCRM.
+    Útil para diagnosticar se reservas estão sendo puxadas corretamente.
+    """
+    require_manager_auth(authorization)
+    mesa_count = 0
+    try:
+        mesa_count = len(supabase.table("distribuicoes").select("reserva_id").execute().data or [])
+    except Exception:
+        pass
+    return {
+        **_LAST_SYNC_STATE,
+        "total_na_mesa_local": mesa_count,
+        "situacoes_monitoradas": SITUACOES_NOMES,
+    }
+
+
+@app.get("/api/gestor/debug/cvcrm")
+async def debug_cvcrm_response(
+    sit_id: int = Query(..., description="ID da situacao a inspecionar"),
+    pagina: int = Query(default=1, ge=1),
+    authorization: Optional[str] = Header(default=None),
+):
+    """
+    Inspeciona a resposta crua do CVCRM para uma situação específica.
+    Útil para entender o formato de retorno e detectar paginação.
+    """
+    require_manager_auth(authorization)
+    try:
+        response = await fetch_cvcrm_reservas(sit_id, timeout_seconds=15, pagina=pagina)
+        status_code = response.status_code
+        if status_code != 200:
+            return {
+                "status_code": status_code,
+                "situacao_id": sit_id,
+                "pagina": pagina,
+                "conteudo_bruto": response.text[:500],
+            }
+        data = response.json()
+        data_type = type(data).__name__
+        pairs, total_pages = extract_reservas_from_response(data)
+        primeiro_item = pairs[0][1] if pairs else None
+        return {
+            "status_code": status_code,
+            "situacao_id": sit_id,
+            "pagina": pagina,
+            "total_paginas_detectadas": total_pages,
+            "tipo_resposta": data_type,
+            "chaves_raiz": list(data.keys()) if isinstance(data, dict) else None,
+            "total_reservas_nesta_pagina": len(pairs),
+            "campos_primeiro_item": list(primeiro_item.keys()) if isinstance(primeiro_item, dict) else None,
+        }
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
 
 @app.post("/api/gestor/redistribuir")
 async def redistribute_all(authorization: Optional[str] = Header(default=None)):
@@ -1427,15 +1605,8 @@ async def manager_overview(
     authorization: Optional[str] = Header(default=None),
 ):
     require_manager_auth(authorization)
-    total_crm = 0
-    for sit_id in SITUACOES_IDS:
-        try:
-            r = await fetch_cvcrm_reservas(sit_id, timeout_seconds=4)
-            if r.status_code == 200:
-                d = r.json()
-                total_crm += len(d) if isinstance(d, list) else len(d.keys())
-        except: pass
-    
+    # Usa os dados do último sync para não duplicar requests ao CVCRM
+    total_crm = _LAST_SYNC_STATE.get("total_no_crm") or 0
     equipe = supabase.table("analistas").select("*").order("nome").execute().data or []
     distribuicao_atual = supabase.table("distribuicoes").select("*").execute().data or []
     historico_recente = supabase.table("historico").select("*").order("data_fim", desc=True).limit(100).execute().data or []
