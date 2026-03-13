@@ -620,11 +620,14 @@ class ManagerLoginRequest(BaseModel):
 
 class AnalystCreate(BaseModel):
     nome: str
+    email: str
     senha: str
     permissoes: List[int]
+    status: str = "ativo"
 
 class AnalystUpdate(BaseModel):
     nome: Optional[str] = None
+    email: Optional[str] = None
     senha: Optional[str] = None
     permissoes: Optional[List[int]] = None
     status: Optional[str] = None
@@ -1467,13 +1470,40 @@ async def manager_overview(
 async def create_analyst(req: AnalystCreate, authorization: Optional[str] = Header(default=None)):
     try:
         require_manager_auth(authorization)
+
+        nome = (req.nome or "").strip()
+        email = (req.email or "").strip().lower()
+        senha = (req.senha or "").strip()
+        status = (req.status or "ativo").strip().lower()
+        permissoes = [int(p) for p in (req.permissoes or [])]
+
+        if not nome:
+            raise HTTPException(status_code=400, detail="Nome completo é obrigatório")
+        if not email or "@" not in email:
+            raise HTTPException(status_code=400, detail="E-mail de acesso inválido")
+        if not senha:
+            raise HTTPException(status_code=400, detail="Senha é obrigatória")
+        if not permissoes:
+            raise HTTPException(status_code=400, detail="Selecione pelo menos uma situação")
+        if status not in {"ativo", "inativo"}:
+            raise HTTPException(status_code=400, detail="Status inválido")
+
         res = supabase.table("analistas").insert({
-            "nome": req.nome,
-            "senha": hash_password(req.senha),
-            "permissoes": req.permissoes,
-            "status": "ativo", "is_online": False, "total_hoje": 0
+            "nome": nome,
+            "email": email,
+            "senha": hash_password(senha),
+            "permissoes": permissoes,
+            "status": status,
+            "is_online": False,
+            "total_hoje": 0
         }).execute()
         return res.data[0]
+    except HTTPException:
+        raise
+    except APIError as e:
+        if e.args and "23505" in str(e):
+            raise HTTPException(status_code=409, detail="E-mail já cadastrado para outro analista")
+        raise HTTPException(status_code=500, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -1482,10 +1512,45 @@ async def update_analyst(id: int, req: AnalystUpdate, authorization: Optional[st
     try:
         require_manager_auth(authorization)
         data = {k: v for k, v in req.dict().items() if v is not None}
+
+        if "nome" in data:
+            data["nome"] = str(data["nome"] or "").strip()
+            if not data["nome"]:
+                raise HTTPException(status_code=400, detail="Nome completo é obrigatório")
+
+        if "email" in data:
+            data["email"] = str(data["email"] or "").strip().lower()
+            if not data["email"] or "@" not in data["email"]:
+                raise HTTPException(status_code=400, detail="E-mail de acesso inválido")
+
         if "senha" in data:
-            data["senha"] = hash_password(str(data["senha"]))
+            senha_limpa = str(data["senha"] or "").strip()
+            if senha_limpa:
+                data["senha"] = hash_password(senha_limpa)
+            else:
+                data.pop("senha")
+
+        if "permissoes" in data and not data["permissoes"]:
+            raise HTTPException(status_code=400, detail="Selecione pelo menos uma situação")
+
+        if "status" in data:
+            data["status"] = str(data["status"] or "").strip().lower()
+            if data["status"] not in {"ativo", "inativo"}:
+                raise HTTPException(status_code=400, detail="Status inválido")
+            if data["status"] == "inativo":
+                data["is_online"] = False
+
+        if not data:
+            raise HTTPException(status_code=400, detail="Nenhum campo válido para atualizar")
+
         res = supabase.table("analistas").update(data).eq("id", id).execute()
         return res.data[0]
+    except HTTPException:
+        raise
+    except APIError as e:
+        if e.args and "23505" in str(e):
+            raise HTTPException(status_code=409, detail="E-mail já cadastrado para outro analista")
+        raise HTTPException(status_code=500, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
