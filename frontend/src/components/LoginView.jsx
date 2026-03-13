@@ -73,24 +73,30 @@ const LoginView = ({
     <div className="hidden lg:flex flex-col justify-between w-[45%] bg-blue-600 p-12 relative overflow-hidden shrink-0">
       <div className="absolute inset-0 opacity-[0.07]" style={{ backgroundImage: 'radial-gradient(circle, white 1.5px, transparent 1.5px)', backgroundSize: '32px 32px' }} />
       <div className="relative z-10">
-        <img src="/logo.png" alt="VCA Logo" className="h-10 w-auto object-contain brightness-0 invert" />
+        <img src="/vcahub.svg" alt="VCAHub Logo" className="h-10 w-auto object-contain" />
       </div>
       <div className="relative z-10 space-y-5">
-        <h1 className="text-4xl font-black text-white leading-tight tracking-tight">
-          {typedHeroText}
-          <span className={`inline-block ml-1 text-white/80 transition-opacity ${isCursorVisible ? 'opacity-100' : 'opacity-0'}`}>|</span>
-        </h1>
-        <p className="text-blue-200 text-sm font-bold leading-relaxed max-w-xs">VCA Cloud</p>
+        <div className="relative max-w-md">
+          <h1 className="text-4xl font-black text-white leading-tight tracking-tight opacity-0 select-none" aria-hidden="true">
+            {HERO_TEXT}
+          </h1>
+          <h1 className="absolute inset-0 text-4xl font-black text-white leading-tight tracking-tight">
+            {typedHeroText}
+            <span className={`inline-block ml-1 text-white/80 transition-opacity ${isCursorVisible ? 'opacity-100' : 'opacity-0'}`}>|</span>
+          </h1>
+        </div>
       </div>
       <div className="relative z-10 flex items-center gap-2.5">
         <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
         <span className="text-blue-200 text-[10px] font-black uppercase tracking-widest">Sincronizacao em tempo real</span>
+        <img src="/cvlogo.svg" alt="CV Logo" className="h-7 w-auto object-contain max-w-42.5 brightness-0 invert ml-4" />
       </div>
     </div>
 
     <div className="flex-1 flex flex-col items-center justify-center p-8 bg-[#f8fafc]">
-      <div className="lg:hidden mb-10">
-        <img src="/logo.png" alt="VCA Logo" className="h-9 w-auto object-contain" />
+      <div className="lg:hidden mb-10 flex flex-col items-center gap-2.5">
+        <img src="/vcahub.svg" alt="VCAHub Logo" className="h-9 w-auto object-contain" />
+        <img src="/cvlogo.svg" alt="CV Logo" className="h-7 w-auto object-contain max-w-42.5 brightness-0 invert" />
       </div>
 
       <div className="w-full max-w-sm space-y-8">
@@ -191,6 +197,9 @@ const LoginView = ({
         <div className="space-y-1">
           <p className="text-center text-[9px] font-bold text-slate-800 uppercase tracking-widest">VCA Construtora © {new Date().getFullYear()}</p>
           <p className="text-center text-[10px] font-semibold text-slate-800">Feito por Matheus Santos © {new Date().getFullYear()}</p>
+          <div className="pt-2 flex justify-center">
+            <img src="/logo.png" alt="VCA Logo" className="h-5 w-auto object-contain" />
+          </div>
         </div>
       </div>
     </div>

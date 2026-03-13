@@ -1033,10 +1033,15 @@ const App = () => {
       {isGlobalLoading && <LoadingOverlay />}
       <nav className="bg-white border-b border-slate-100 p-2 md:p-2.5 px-4 md:px-8 flex justify-between items-center sticky top-0 z-100 shadow-sm h-14 md:h-16">
         <div className="flex items-center gap-3 md:gap-4 truncate">
+          <div className="logo-shimmer shrink-0">
+            <img src="/vcacloud.svg" alt="VCACloud" className="h-7 md:h-8 w-auto object-contain shrink-0 brightness-0 opacity-80" />
+          </div>
           <div className="w-9 h-9 md:w-10 md:h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white font-black text-lg shadow-lg shadow-blue-500/20 shrink-0">{currentUser?.nome?.charAt(0)}</div>
-          <div className="hidden sm:block truncate">
-            <h3 className="font-bold text-slate-700 leading-none text-xs md:text-sm uppercase truncate">{currentUser?.nome}</h3>
-            <span className={`text-[8px] md:text-[9px] font-black uppercase tracking-widest mt-1 flex items-center gap-1 ${currentUser?.is_online ? 'text-green-600' : 'text-slate-400'}`}>{currentUser?.is_online ? `ATIVO NA FILA • ${refreshCountdown}s` : 'PAUSADO'}</span>
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="truncate">
+              <h3 className="font-bold text-slate-700 leading-none text-xs md:text-sm uppercase truncate">{currentUser?.nome}</h3>
+              <span className={`text-[8px] md:text-[9px] font-black uppercase tracking-widest mt-1 flex items-center gap-1 ${currentUser?.is_online ? 'text-green-600' : 'text-slate-400'}`}>{currentUser?.is_online ? `ATIVO NA FILA • ${refreshCountdown}s` : 'PAUSADO'}</span>
+            </div>
           </div>
         </div>
         <div className="flex items-center gap-2 md:gap-3">
