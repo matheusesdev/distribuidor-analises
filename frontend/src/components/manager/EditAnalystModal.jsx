@@ -11,7 +11,12 @@ const EditAnalystModal = ({ showEditModal, setShowEditModal, editForm, setEditFo
         <div className="space-y-4 overflow-y-auto pr-2 custom-scrollbar flex-1">
           <div className="space-y-3 px-1">
             <input type="text" value={editForm.nome} onChange={(e) => setEditForm({...editForm, nome: e.target.value})} className="w-full bg-slate-50 border border-slate-100 rounded-xl py-3 px-4 text-sm text-slate-800 font-bold outline-none focus:ring-2 focus:ring-blue-500 shadow-inner" placeholder="Nome Completo" />
-            <input type="text" value={editForm.senha} onChange={(e) => setEditForm({...editForm, senha: e.target.value})} className="w-full bg-slate-50 border border-slate-100 rounded-xl py-3 px-4 text-sm text-slate-800 font-bold outline-none focus:ring-2 focus:ring-blue-500 shadow-inner" placeholder="Senha" />
+            <input type="email" value={editForm.email || ''} onChange={(e) => setEditForm({...editForm, email: e.target.value})} className="w-full bg-slate-50 border border-slate-100 rounded-xl py-3 px-4 text-sm text-slate-800 font-bold outline-none focus:ring-2 focus:ring-blue-500 shadow-inner" placeholder="E-mail de acesso" />
+            <select value={editForm.status || 'ativo'} onChange={(e) => setEditForm({...editForm, status: e.target.value})} className="w-full bg-slate-50 border border-slate-100 rounded-xl py-3 px-4 text-sm text-slate-800 font-bold outline-none focus:ring-2 focus:ring-blue-500 shadow-inner">
+              <option value="ativo">Ativo</option>
+              <option value="inativo">Inativo</option>
+            </select>
+            <input type="password" value={editForm.senha} onChange={(e) => setEditForm({...editForm, senha: e.target.value})} className="w-full bg-slate-50 border border-slate-100 rounded-xl py-3 px-4 text-sm text-slate-800 font-bold outline-none focus:ring-2 focus:ring-blue-500 shadow-inner" placeholder={editForm.id ? "Nova senha (opcional)" : "Senha inicial"} />
           </div>
           <div className="pt-1 px-1">
             <p className="text-[10px] font-black uppercase text-slate-400 ml-2 mb-3 tracking-widest">Responsabilidades</p>

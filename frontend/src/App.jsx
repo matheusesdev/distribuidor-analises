@@ -105,7 +105,7 @@ const App = () => {
 
   // --- ESTADOS DE MODAIS ---
   const [showEditModal, setShowEditModal] = useState(false);
-  const [editForm, setEditForm] = useState({ id: null, nome: "", senha: "", permissoes: [] });
+  const [editForm, setEditForm] = useState({ id: null, nome: "", email: "", senha: "", permissoes: [], status: "ativo" });
   const [showManagerLoginModal, setShowManagerLoginModal] = useState(false);
   const [managerUsername, setManagerUsername] = useState(() => {
     if (typeof window === 'undefined') return 'admin';
@@ -599,23 +599,60 @@ const App = () => {
   };
 
   const handleSaveAnalyst = async () => {
+    const isEdit = editForm.id !== null;
+    const nome = (editForm.nome || '').trim();
+    const email = (editForm.email || '').trim().toLowerCase();
+    const senha = (editForm.senha || '').trim();
+    const permissoes = Array.isArray(editForm.permissoes) ? editForm.permissoes.map(Number) : [];
+    const status = (editForm.status || 'ativo').trim().toLowerCase();
+
+    if (!nome) {
+      notify('Informe o nome completo.', 'error');
+      return;
+    }
+
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      notify('Informe um e-mail de acesso válido.', 'error');
+      return;
+    }
+
+    if (!isEdit && !senha) {
+      notify('Informe uma senha para o novo analista.', 'error');
+      return;
+    }
+
+    if (!permissoes.length) {
+      notify('Selecione pelo menos uma situação.', 'error');
+      return;
+    }
+
+    if (status !== 'ativo' && status !== 'inativo') {
+      notify('Status inválido.', 'error');
+      return;
+    }
+
+    const payload = { nome, email, permissoes, status };
+    if (senha) payload.senha = senha;
+
     setIsGlobalLoading(true);
     try {
-        const isEdit = editForm.id !== null;
         const res = await api.saveAnalyst({
           id: isEdit ? editForm.id : null,
-          payload: editForm
+          payload
         });
         if (res.status === 401) {
             handleManagerUnauthorized();
             return;
         }
         if (res.ok) {
-            notify("Alterações gravadas!");
+            notify(isEdit ? "Analista atualizado com sucesso!" : "Analista cadastrado com sucesso!");
             setShowEditModal(false);
+            setEditForm({ id: null, nome: "", email: "", senha: "", permissoes: [], status: "ativo" });
             fetchData();
-        } else { notify("Erro ao salvar."); }
-    } catch (e) { notify("Erro de conexão."); }
+        } else {
+            notify(await getApiErrorMessage(res, "Erro ao salvar analista"), "error");
+        }
+    } catch (e) { notify("Erro de conexão.", "error"); }
     finally { setIsGlobalLoading(false); }
   };
 
