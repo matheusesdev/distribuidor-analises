@@ -3,7 +3,7 @@ import { BarChart4, Eye, EyeOff, Lock, Mail, ArrowLeft, CheckCircle2 } from 'luc
 import { ConfirmActionModal, LoadingOverlay, StatusToast } from './FeedbackOverlays';
 import { api } from '../services/api';
 
-const HERO_TEXT = 'Um sistema de distribuiÃ§Ã£o de pastas que organiza e direciona demandas para a equipe de analistas em tempo real.';
+const HERO_TEXT = 'Um sistema de distribuição de pastas que organiza e direciona demandas para a equipe de analistas em tempo real.';
 const TYPING_SPEED_MS = 45;
 const CURSOR_BLINK_MS = 220;
 const FULL_TEXT_HOLD_TICKS = 70;
@@ -72,10 +72,10 @@ const LoginView = ({
       if (res.ok) {
         setForgotSent(true);
       } else {
-        setForgotError('NÃ£o foi possÃ­vel processar a solicitaÃ§Ã£o. Tente novamente.');
+        setForgotError('Não foi possível processar a solicitação. Tente novamente.');
       }
     } catch {
-      setForgotError('Erro de conexÃ£o. Verifique sua internet e tente novamente.');
+      setForgotError('Erro de conexão. Verifique sua internet e tente novamente.');
     } finally {
       setForgotLoading(false);
     }
@@ -120,7 +120,7 @@ const LoginView = ({
         </div>
         <div className="relative z-10 flex items-center gap-2.5">
           <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-          <span className="text-blue-200 text-[10px] font-black uppercase tracking-widest">Sincronizacao em tempo real</span>
+          <span className="text-blue-200 text-[10px] font-black uppercase tracking-widest">Sincronização em tempo real</span>
           <img src="/cvlogo.svg" alt="CV Logo" className="h-7 w-auto object-contain max-w-42.5 brightness-0 invert ml-4" />
         </div>
       </div>
@@ -139,7 +139,7 @@ const LoginView = ({
             <p className="text-slate-400 text-sm font-bold mt-1.5">Entre com seu e-mail e senha para continuar</p>
           </div>
 
-          {/* ===== FORMULÃRIO DE LOGIN ===== */}
+          {/* ===== FORMULARIO DE LOGIN ===== */}
           <form onSubmit={handleSubmitLogin} className="space-y-4" noValidate>
             {/* Campo E-mail */}
             <div>
@@ -177,7 +177,7 @@ const LoginView = ({
                   value={loginPassword}
                   onChange={(e) => setLoginPassword(e.target.value)}
                   className="w-full bg-white border-2 border-slate-100 rounded-2xl py-3.5 pl-10 pr-10 text-slate-800 font-bold outline-none focus:ring-4 focus:ring-blue-50 focus:border-blue-500 text-sm transition-all duration-200 shadow-sm"
-                  placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
+                  placeholder="********"
                   autoComplete="current-password"
                 />
                 <button
@@ -191,7 +191,7 @@ const LoginView = ({
               </div>
             </div>
 
-            {/* BotÃ£o Entrar */}
+            {/* Botao Entrar */}
             <button
               type="submit"
               disabled={isGlobalLoading || !loginEmail.trim() || !loginPassword.trim()}
@@ -212,7 +212,7 @@ const LoginView = ({
             </button>
           </form>
 
-          {/* BotÃ£o Acesso Admin */}
+          {/* Botao Acesso Admin */}
           <button
             type="button"
             onClick={() => setShowManagerLoginModal(true)}
@@ -221,10 +221,10 @@ const LoginView = ({
             <BarChart4 size={13} /> Acesso Admin
           </button>
 
-          {/* RodapÃ© */}
+          {/* Rodape */}
           <div className="space-y-1">
-            <p className="text-center text-[9px] font-bold text-slate-800 uppercase tracking-widest">VCA Construtora Â© {new Date().getFullYear()}</p>
-            <p className="text-center text-[10px] font-semibold text-slate-800">Feito por Matheus Santos Â© {new Date().getFullYear()}</p>
+            <p className="text-center text-[9px] font-bold text-slate-800 uppercase tracking-widest">VCA Construtora (c) {new Date().getFullYear()}</p>
+            <p className="text-center text-[10px] font-semibold text-slate-800">Feito por Matheus Santos (c) {new Date().getFullYear()}</p>
             <div className="pt-2 flex justify-center">
               <img src="/logo.png" alt="VCA Logo" className="h-5 w-auto object-contain" />
             </div>
@@ -261,7 +261,7 @@ const LoginView = ({
                   <div>
                     <p className="text-slate-800 font-black text-sm">E-mail enviado!</p>
                     <p className="text-slate-400 text-xs font-bold mt-1.5 leading-relaxed">
-                      Se o endereÃ§o estiver cadastrado, vocÃª receberÃ¡ as instruÃ§Ãµes de redefiniÃ§Ã£o em breve.
+                      Se o endereço estiver cadastrado, você receberá as instruções de redefinição em breve.
                     </p>
                   </div>
                   <button
@@ -356,7 +356,7 @@ const LoginView = ({
                     onChange={(e) => setManagerUsername(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleManagerLogin()}
                     className="w-full bg-slate-50 border border-slate-100 rounded-xl py-3.5 pl-10 pr-4 text-slate-800 font-bold outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm transition-all duration-200"
-                    placeholder="UsuÃ¡rio admin"
+                    placeholder="Usuário admin"
                     autoFocus
                     autoComplete="username"
                   />
