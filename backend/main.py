@@ -8,6 +8,9 @@ import base64
 import binascii
 import hashlib
 import hmac
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from typing import Any, Dict, List, Optional
 from supabase import create_client, Client
 from pydantic import BaseModel
@@ -181,6 +184,74 @@ def require_manager_auth(authorization: Optional[str]) -> None:
         raise HTTPException(status_code=401, detail="Sessão do admin inválida ou expirada.")
 
 
+def generate_reset_token() -> tuple:
+    """Gera (plain_token, token_hash). Armazena apenas o hash, envia o plain."""
+    raw = os.urandom(32)
+    plain = base64.urlsafe_b64encode(raw).decode("ascii").rstrip("=")
+    token_hash = hashlib.sha256(plain.encode("utf-8")).hexdigest()
+    return plain, token_hash
+
+
+def send_reset_email(to_email: str, reset_link: str, analyst_name: str) -> bool:
+    """Envia e-mail de redefinição de senha via SMTP configurado nas env vars."""
+    if not SMTP_HOST or not SMTP_USER or not SMTP_PASS:
+        print(f"[AVISO] SMTP não configurado. Link de reset para {to_email}: {reset_link}")
+        return False
+    try:
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = "Redefinição de senha — VCAHub"
+        msg["From"] = SMTP_FROM
+        msg["To"] = to_email
+
+        text_body = (
+            f"Olá, {analyst_name}!\n\n"
+            f"Recebemos uma solicitação de redefinição de senha para sua conta no VCAHub.\n\n"
+            f"Clique no link abaixo (válido por {RESET_TOKEN_TTL_MINUTES} minutos):\n{reset_link}\n\n"
+            f"Se você não solicitou, desconsidere este e-mail.\n\nVCA Construtora"
+        )
+
+        year = datetime.datetime.now().year
+        html_body = f"""<!DOCTYPE html>
+<html><head><meta charset="utf-8"></head>
+<body style="font-family:Arial,sans-serif;background:#f8fafc;margin:0;padding:24px;">
+  <div style="max-width:480px;margin:0 auto;background:white;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.08);">
+    <div style="background:#2563eb;padding:32px;text-align:center;">
+      <p style="color:white;font-size:22px;font-weight:900;margin:0;letter-spacing:-0.5px;">VCAHub</p>
+    </div>
+    <div style="padding:32px;">
+      <p style="color:#1e293b;font-size:16px;font-weight:700;margin:0 0 8px;">Olá, {analyst_name}!</p>
+      <p style="color:#64748b;font-size:14px;margin:0 0 24px;">
+        Recebemos uma solicitação de redefinição de senha para sua conta no <strong>VCAHub</strong>.
+      </p>
+      <a href="{reset_link}"
+         style="display:block;background:#2563eb;color:white;text-align:center;padding:14px 24px;border-radius:12px;font-weight:900;font-size:13px;text-decoration:none;letter-spacing:1px;text-transform:uppercase;">
+        Redefinir minha senha
+      </a>
+      <p style="color:#94a3b8;font-size:11px;margin:20px 0 0;text-align:center;">
+        Link válido por {RESET_TOKEN_TTL_MINUTES} minutos.<br>
+        Se não foi você, desconsidere este e-mail.
+      </p>
+    </div>
+    <div style="background:#f1f5f9;padding:16px 32px;text-align:center;">
+      <p style="color:#94a3b8;font-size:11px;margin:0;">VCA Construtora © {year}</p>
+    </div>
+  </div>
+</body></html>"""
+
+        msg.attach(MIMEText(text_body, "plain", "utf-8"))
+        msg.attach(MIMEText(html_body, "html", "utf-8"))
+
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15) as server:
+            server.ehlo()
+            server.starttls()
+            server.login(SMTP_USER, SMTP_PASS)
+            server.sendmail(SMTP_FROM, to_email, msg.as_string())
+        return True
+    except Exception as e:
+        print(f"[ERRO] Falha ao enviar e-mail de reset: {e}")
+        return False
+
+
 def validate_analyst_password(analyst_id: int, received_password: str, stored_password: str) -> bool:
     normalized_received_password = (received_password or "").strip()
     normalized_stored_password = (stored_password or "").strip()
@@ -244,6 +315,15 @@ CVCRM_EMAIL = get_required_env("CVCRM_EMAIL")
 CVCRM_TOKEN = get_required_env("CVCRM_TOKEN")
 ADMIN_AUTH_SECRET = (os.getenv("ADMIN_AUTH_SECRET") or SUPABASE_KEY).strip()
 MANAGER_TOKEN_TTL_SECONDS = int(os.getenv("MANAGER_TOKEN_TTL_SECONDS", "43200"))
+
+# --- CONFIGURAÇÕES DE E-MAIL PARA RESET DE SENHA ---
+SMTP_HOST = os.getenv("SMTP_HOST", "")
+SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
+SMTP_USER = os.getenv("SMTP_USER", "")
+SMTP_PASS = os.getenv("SMTP_PASS", "")
+SMTP_FROM = os.getenv("SMTP_FROM", "") or SMTP_USER
+FRONTEND_URL = os.getenv("FRONTEND_URL", "https://distribuidor-analises.vercel.app")
+RESET_TOKEN_TTL_MINUTES = int(os.getenv("RESET_TOKEN_TTL_MINUTES", "60"))
 
 app = FastAPI(title="VCA Distribuidor - Backend Oficial")
 
@@ -520,6 +600,20 @@ class LoginRequest(BaseModel):
     senha: str
 
 
+class LoginEmailRequest(BaseModel):
+    email: str
+    senha: str
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    nova_senha: str
+
+
 class ManagerLoginRequest(BaseModel):
     usuario: str
     senha: str
@@ -748,6 +842,136 @@ async def login(req: LoginRequest):
         if not validate_analyst_password(req.analista_id, senha_recebida, senha_cadastrada):
             raise HTTPException(status_code=401, detail="Senha incorreta")
         return analista
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/login/email")
+async def login_email(req: LoginEmailRequest):
+    """Login do analista com e-mail e senha."""
+    email_normalizado = (req.email or "").strip().lower()
+    senha_recebida = (req.senha or "").strip()
+
+    if not email_normalizado or not senha_recebida:
+        raise HTTPException(status_code=400, detail="E-mail e senha são obrigatórios")
+
+    try:
+        res = supabase.table("analistas").select("*").eq("email", email_normalizado).execute()
+        if not res.data:
+            raise HTTPException(status_code=401, detail="E-mail ou senha incorretos")
+
+        analista = res.data[0]
+
+        if analista.get("status") == "inativo":
+            raise HTTPException(status_code=403, detail="Conta desativada. Entre em contato com o administrador.")
+
+        senha_cadastrada = str(analista.get("senha") or "").strip()
+        if not validate_analyst_password(analista["id"], senha_recebida, senha_cadastrada):
+            raise HTTPException(status_code=401, detail="E-mail ou senha incorretos")
+
+        return analista
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/analista/esqueceu-senha")
+async def forgot_password(req: ForgotPasswordRequest):
+    """Solicita redefinição de senha. Sempre retorna 200 para não vazar existência de e-mails."""
+    email_normalizado = (req.email or "").strip().lower()
+    if not email_normalizado:
+        raise HTTPException(status_code=400, detail="Informe o e-mail")
+
+    RESPOSTA_PADRAO = {
+        "status": "ok",
+        "message": "Se o e-mail estiver cadastrado, você receberá as instruções em breve.",
+    }
+
+    try:
+        res = supabase.table("analistas").select("id,nome,email,status").eq("email", email_normalizado).execute()
+        if not res.data:
+            return RESPOSTA_PADRAO
+
+        analista = res.data[0]
+        if analista.get("status") == "inativo":
+            return RESPOSTA_PADRAO
+
+        plain_token, token_hash = generate_reset_token()
+        expires_at = (
+            datetime.datetime.now(datetime.timezone.utc)
+            + datetime.timedelta(minutes=RESET_TOKEN_TTL_MINUTES)
+        ).isoformat()
+
+        supabase.table("analistas").update({
+            "reset_token_hash": token_hash,
+            "reset_token_expires": expires_at,
+        }).eq("id", analista["id"]).execute()
+
+        reset_link = f"{FRONTEND_URL}?reset_token={plain_token}"
+        send_reset_email(
+            to_email=analista["email"],
+            reset_link=reset_link,
+            analyst_name=analista.get("nome", "Analista"),
+        )
+
+        return RESPOSTA_PADRAO
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/analista/resetar-senha")
+async def reset_password(req: ResetPasswordRequest):
+    """Aplica nova senha usando o token de redefinição recebido por e-mail."""
+    plain_token = (req.token or "").strip()
+    nova_senha = (req.nova_senha or "").strip()
+
+    if not plain_token or not nova_senha:
+        raise HTTPException(status_code=400, detail="Token e nova senha são obrigatórios")
+
+    password_strength = evaluate_password_strength(nova_senha)
+    if not password_strength["is_acceptable"]:
+        raise HTTPException(
+            status_code=400,
+            detail="A senha está fraca. Use pelo menos 8 caracteres com letras, números e símbolos.",
+        )
+
+    token_hash = hashlib.sha256(plain_token.encode("utf-8")).hexdigest()
+    now = datetime.datetime.now(datetime.timezone.utc)
+
+    try:
+        res = (
+            supabase.table("analistas")
+            .select("id,reset_token_hash,reset_token_expires")
+            .eq("reset_token_hash", token_hash)
+            .execute()
+        )
+        if not res.data:
+            raise HTTPException(status_code=400, detail="Token inválido ou já utilizado")
+
+        analista = res.data[0]
+        expires_str = (analista.get("reset_token_expires") or "").strip()
+        if not expires_str:
+            raise HTTPException(status_code=400, detail="Token inválido")
+
+        expires_at = datetime.datetime.fromisoformat(expires_str.replace("Z", "+00:00"))
+        if now > expires_at:
+            raise HTTPException(
+                status_code=400,
+                detail="Token expirado. Solicite um novo link de redefinição.",
+            )
+
+        supabase.table("analistas").update({
+            "senha": hash_password(nova_senha),
+            "reset_token_hash": None,
+            "reset_token_expires": None,
+        }).eq("id", analista["id"]).execute()
+
+        return {"status": "ok", "message": "Senha redefinida com sucesso. Faça login com sua nova senha."}
     except HTTPException:
         raise
     except Exception as e:
