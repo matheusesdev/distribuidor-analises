@@ -21,6 +21,7 @@ const LoginView = ({
   setManagerPassword,
   showManagerPassword,
   setShowManagerPassword,
+  loginNotice,
   handleLogin,
   handleManagerLogin,
 }) => {
@@ -137,6 +138,12 @@ const LoginView = ({
           <div>
             <h2 className="text-2xl font-black text-slate-800 tracking-tight">Bem-vindo de volta</h2>
             <p className="text-slate-400 text-sm font-bold mt-1.5">Entre com seu e-mail e senha para continuar</p>
+            {loginNotice && (
+              <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2">
+                <p className="text-[10px] font-black uppercase tracking-widest text-amber-800">Aviso de sessão</p>
+                <p className="text-[11px] font-bold text-amber-700 mt-1">{loginNotice}</p>
+              </div>
+            )}
           </div>
 
           {/* ===== FORMULARIO DE LOGIN ===== */}

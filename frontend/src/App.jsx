@@ -125,6 +125,7 @@ const App = () => {
   const [refreshCountdown, setRefreshCountdown] = useState(AUTO_REFRESH_SECONDS);
   const [nextRefreshAt, setNextRefreshAt] = useState(Date.now() + (AUTO_REFRESH_SECONDS * 1000));
   const [toast, setToast] = useState({ show: false, message: "", type: "success" });
+  const [loginNotice, setLoginNotice] = useState(null);
   const [apiError, setApiError] = useState(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
 
@@ -334,12 +335,20 @@ const App = () => {
     setView('login');
 
     if (reason === 'idle') {
-      notify('Sessão encerrada por inatividade. Suas pastas foram redistribuídas automaticamente.', 'error');
+      setLoginNotice('Sua sessão foi encerrada por inatividade. Faça login para retomar o atendimento.');
+      notify('Sessão encerrada por inatividade. As pastas em atendimento foram redistribuídas automaticamente.', 'error');
       return;
     }
 
     if (reason === 'password-change') {
+      setLoginNotice('Senha atualizada com sucesso. Entre novamente para abrir uma nova sessão segura.');
       notify('Senha alterada. Por segurança, faça login novamente.', 'success');
+      return;
+    }
+
+    if (reason === 'manager-revocation') {
+      setLoginNotice('Sua sessão foi encerrada pelo gestor. Faça login novamente para continuar.');
+      notify('Acesso encerrado pelo gestor. Faça login novamente.', 'error');
       return;
     }
 
@@ -358,6 +367,7 @@ const App = () => {
     setShowManagerPassword(false);
     setManagerTab('dashboard');
     setView('login');
+    setLoginNotice('Sua sessão de gestor expirou. Faça login novamente para continuar no painel.');
     notify('Sessão do admin expirada. Faça login novamente.', 'error');
   }, [clearManagerSession, notify]);
 
@@ -365,7 +375,8 @@ const App = () => {
     clearAnalystSession();
     setIdlePrompt({ visible: false, role: null, secondsLeft: 0 });
     setView('login');
-    notify('Sua sessão foi encerrada ou revogada. Faça login novamente.', 'error');
+    setLoginNotice('Sua sessão foi encerrada pelo gestor ou expirou. Faça login novamente para continuar.');
+    notify('Sessão revogada ou expirada. Faça login novamente.', 'error');
   }, [clearAnalystSession, notify]);
 
   const getApiErrorMessage = async (response, fallbackMessage) => {
@@ -554,6 +565,7 @@ const App = () => {
         persistAnalystSession(userData);
         setAnalystTab('mesa');
         setView('analyst');
+        setLoginNotice(null);
         notify(`Olá, ${userData.nome}!`);
       } else {
         notify(await getApiErrorMessage(res, "Falha no login"), "error");
@@ -576,6 +588,7 @@ const App = () => {
         setShowManagerPassword(false);
         setManagerTab('dashboard');
         setView('manager');
+        setLoginNotice(null);
         notify('Acesso admin liberado.');
       } else if (res.status === 404) {
         const legacyOverview = await api.getManagerOverview();
@@ -592,6 +605,7 @@ const App = () => {
           setShowManagerPassword(false);
           setManagerTab('dashboard');
           setView('manager');
+          setLoginNotice(null);
           notify('Painel admin aberto em modo de compatibilidade.');
         } else {
           notify('O backend de produção não expõe o login do admin nem o overview do painel.', 'error');
@@ -613,6 +627,7 @@ const App = () => {
     setManagerPassword('');
     setShowManagerPassword(false);
     setManagerTab('dashboard');
+    setLoginNotice(null);
     setView('login');
   }, [clearManagerSession]);
 
@@ -697,9 +712,9 @@ const App = () => {
   const handleRevokeAdminSession = async (admin) => {
     if (!admin?.id) return;
     const confirmed = await requestConfirmation({
-      title: 'Revogar sessão do admin',
-      message: `Deseja revogar todas as sessões ativas de ${admin.username || admin.email || 'admin'}?`,
-      confirmLabel: 'Revogar Sessões',
+      title: 'Encerrar acessos do administrador',
+      message: `Deseja encerrar todas as sessões ativas de ${admin.username || admin.email || 'admin'}?`,
+      confirmLabel: 'Encerrar Sessões',
       tone: 'danger',
     });
     if (!confirmed) return;
@@ -718,7 +733,7 @@ const App = () => {
       }
 
       if (res.ok) {
-        notify('Sessões do administrador revogadas com sucesso.');
+        notify('Sessões do administrador encerradas com sucesso.');
         fetchAdminUsers();
       } else {
         notify(await getApiErrorMessage(res, 'Erro ao revogar sessão do admin'), 'error');
@@ -733,9 +748,9 @@ const App = () => {
   const handleRevokeAnalystSession = async (analyst) => {
     if (!analyst?.id) return;
     const confirmed = await requestConfirmation({
-      title: 'Revogar sessão do analista',
-      message: `Deseja revogar as sessões de ${analyst.nome || `Analista ${analyst.id}`} e colocá-lo offline?`,
-      confirmLabel: 'Revogar e Desconectar',
+      title: 'Encerrar acessos do analista',
+      message: `Deseja encerrar as sessões de ${analyst.nome || `Analista ${analyst.id}`} e colocá-lo em pausa na fila? As pastas em atendimento serão redistribuídas.`,
+      confirmLabel: 'Encerrar e Pausar',
       tone: 'danger',
     });
     if (!confirmed) return;
@@ -755,7 +770,9 @@ const App = () => {
 
       if (res.ok) {
         const data = await res.json();
-        notify(`Sessões revogadas. Redistribuídas: ${data.redistribuidas || 0}. Sem destino: ${data.sem_destino || 0}.`);
+        const redistribuidas = Number(data.redistribuidas || 0);
+        const semDestino = Number(data.sem_destino || 0);
+        notify(`Sessão do analista encerrada. ${redistribuidas} pasta(s) redistribuída(s). ${semDestino} sem destino automático.`, semDestino > 0 ? 'error' : 'success');
         fetchData(true);
       } else {
         notify(await getApiErrorMessage(res, 'Erro ao revogar sessão do analista'), 'error');
@@ -814,6 +831,7 @@ const App = () => {
           clearManagerSession();
           setIdlePrompt({ visible: false, role: null, secondsLeft: 0 });
           setView('login');
+          setLoginNotice('Sua sessão de gestor foi encerrada por inatividade. Faça login novamente para continuar.');
           notify('Sessão admin encerrada por inatividade (30 minutos).', 'error');
           setTimeout(() => {
             sessionExpiryGuardRef.current = false;
@@ -1316,12 +1334,12 @@ const App = () => {
           </div>
           <div>
             <h3 className="text-sm font-black uppercase tracking-wide text-slate-800">
-              {idlePrompt.role === 'admin' ? 'Sessão admin quase expirada' : 'Hora de um check-in rápido'}
+              {idlePrompt.role === 'admin' ? 'Sessão admin quase expirada' : 'Sua sessão está perto de expirar'}
             </h3>
             <p className="text-[11px] font-bold text-slate-500 mt-1 leading-relaxed">
               {idlePrompt.role === 'admin'
-                ? 'Sem atividade por um tempo. Confirme presença para manter o painel aberto.'
-                : 'Seu plantão está em modo soneca. Toque em continuar para manter sua sessão ativa.'}
+                ? 'Sem atividade recente no painel. Confirme sua presença para manter o acesso ativo.'
+                : 'Sem atividade recente. Se a sessão expirar, você será desconectado e suas pastas serão redistribuídas automaticamente.'}
             </p>
           </div>
         </div>
@@ -1338,6 +1356,7 @@ const App = () => {
               if (idlePrompt.role === 'admin') {
                 clearManagerSession();
                 setView('login');
+                setLoginNotice('Sua sessão de gestor foi encerrada por escolha manual. Faça login novamente quando precisar.');
                 notify('Sessão admin encerrada manualmente.', 'success');
               } else {
                 void handleAnalystLogout({ reason: 'idle' });
@@ -1345,7 +1364,7 @@ const App = () => {
             }}
             className="py-2.5 rounded-xl border border-slate-100 bg-slate-50 text-slate-500 text-[10px] font-black uppercase"
           >
-            Encerrar agora
+            {idlePrompt.role === 'admin' ? 'Encerrar agora' : 'Pausar agora'}
           </button>
           <button
             type="button"
@@ -1356,12 +1375,19 @@ const App = () => {
             }}
             className="py-2.5 rounded-xl bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-blue-500"
           >
-            Continuar sessão
+            {idlePrompt.role === 'admin' ? 'Continuar sessão' : 'Continuar trabalhando'}
           </button>
         </div>
       </div>
     </div>
   ) : null;
+
+  const managerIdleSecondsLeft = managerSession?.token
+    ? Math.max(0, Math.ceil(((Number(managerSession.lastActivityAt || 0) || Date.now()) + ADMIN_IDLE_TIMEOUT_MS - Date.now()) / 1000))
+    : null;
+  const analystIdleSecondsLeft = currentUser?.id
+    ? Math.max(0, Math.ceil(((Number(currentUser.lastActivityAt || 0) || Date.now()) + ANALYST_IDLE_TIMEOUT_MS - Date.now()) / 1000))
+    : null;
 
   // --- TELA DE RESET DE SENHA (URL com ?reset_token=...) ---
   if (resetToken) return (
@@ -1394,6 +1420,7 @@ const App = () => {
       setManagerPassword={setManagerPassword}
       showManagerPassword={showManagerPassword}
       setShowManagerPassword={setShowManagerPassword}
+      loginNotice={loginNotice}
       handleLogin={handleLogin}
       handleManagerLogin={handleManagerLogin}
     />
@@ -1413,6 +1440,16 @@ const App = () => {
       />
 
       <main className="max-w-7xl mx-auto p-4 md:p-6 space-y-6 flex-1">
+        {managerIdleSecondsLeft !== null && managerIdleSecondsLeft > 0 && managerIdleSecondsLeft <= (ADMIN_IDLE_WARNING_MS / 1000) && (
+          <section className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 flex items-center justify-between gap-3">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-widest text-amber-800">Sessão do gestor perto do limite</p>
+              <p className="text-[11px] font-bold text-amber-700 mt-1">Interaja com o painel para manter a sessão aberta.</p>
+            </div>
+            <span className="shrink-0 text-base font-black text-amber-900 tracking-wider">{formatIdleCountdown(managerIdleSecondsLeft)}</span>
+          </section>
+        )}
+
         <section className="bg-white border border-slate-100 rounded-2xl p-2 shadow-sm flex gap-2 w-fit">
           <button onClick={() => setManagerTab('dashboard')} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wide transition-all ${managerTab === 'dashboard' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-500 bg-slate-50 hover:bg-slate-100'}`}>Dashboard</button>
           <button onClick={() => setManagerTab('transferencias')} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wide transition-all flex items-center gap-2 ${managerTab === 'transferencias' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-500 bg-slate-50 hover:bg-slate-100'}`}><ArrowRightLeft size={12} /> Transferências</button>
@@ -1634,6 +1671,12 @@ const App = () => {
           </div>
         </div>
         <div className="flex items-center gap-2 md:gap-3">
+            {analystIdleSecondsLeft !== null && analystIdleSecondsLeft > 0 && analystIdleSecondsLeft <= (ANALYST_IDLE_WARNING_MS / 1000) && (
+              <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full border border-amber-200 bg-amber-50 text-amber-700">
+               <AlertTriangle size={12} className="shrink-0" />
+               <span className="text-[9px] font-black uppercase tracking-widest">Sessão expira em {formatIdleCountdown(analystIdleSecondsLeft)}</span>
+              </div>
+            )}
            <div className={`hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full border ${currentUser?.is_online ? 'bg-green-50 border-green-100 text-green-600' : 'bg-slate-50 border-slate-200 text-slate-300'}`}>
               <div className={`w-1.5 h-1.5 rounded-full ${currentUser?.is_online ? 'bg-green-500 animate-pulse' : 'bg-slate-300'}`} />
               <Clock size={12} className="opacity-70" />

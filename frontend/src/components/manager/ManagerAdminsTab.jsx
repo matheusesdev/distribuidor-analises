@@ -126,8 +126,9 @@ const ManagerAdminsTab = ({
                           : 'border-amber-200 text-amber-700 bg-amber-50 hover:bg-amber-100'
                       }`}
                     >
-                      <RotateCcw size={11} /> Revogar Sessões
+                      <RotateCcw size={11} /> Encerrar Sessões
                     </button>
+                    <p className="text-[9px] font-bold text-slate-400">Exige novo login em todos os dispositivos.</p>
                   </div>
                 </div>
               </div>
@@ -143,12 +144,16 @@ const ManagerAdminsTab = ({
           <div className="flex items-center justify-between gap-3 mb-4">
             <div className="flex items-center gap-2">
               <UserCog size={18} className="text-blue-600" />
-              <h3 className="text-[11px] font-black uppercase tracking-widest text-slate-700">Revogação de Analistas</h3>
+              <h3 className="text-[11px] font-black uppercase tracking-widest text-slate-700">Sessões e Acessos</h3>
             </div>
             <span className="px-2 py-1 rounded-full bg-slate-100 text-[9px] font-black uppercase text-slate-500">
               Total: {sortedAnalysts.length}
             </span>
           </div>
+
+          <p className="text-[10px] font-bold text-slate-500 mb-3">
+            Ao encerrar o acesso do analista, ele sai da plataforma, fica em pausa na fila e as pastas em andamento são redistribuídas.
+          </p>
 
           <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
             {sortedAnalysts.length > 0 ? (
@@ -171,7 +176,7 @@ const ManagerAdminsTab = ({
                           : 'border-red-200 text-red-700 bg-red-50 hover:bg-red-100'
                       }`}
                     >
-                      <RotateCcw size={11} /> Revogar
+                      <RotateCcw size={11} /> Encerrar e Pausar
                     </button>
                   </div>
                 </div>
