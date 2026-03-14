@@ -14,6 +14,7 @@ const MesaView = ({
   SIT_COLORS,
   toggleTaskSelection,
   openReservaInCRM,
+  getReservaDisplayId,
   openTransferModal,
   handleFinish,
   metrics,
@@ -60,6 +61,7 @@ const MesaView = ({
         {filteredTasks.length > 0 ? filteredTasks.map(task => {
           const sitStyle = SIT_COLORS[task.situacao_id] || { text: '#2563eb', bg: '#eff6ff' };
           const isSelected = selectedTaskIds.has(task.reserva_id);
+          const displayReservaId = getReservaDisplayId ? getReservaDisplayId(task.reserva_id) : task.reserva_id;
           return (
             <div
               key={task.reserva_id}
@@ -83,8 +85,8 @@ const MesaView = ({
                   >
                     {isSelected ? <CheckSquare size={16} className="text-blue-600"/> : <Square size={16} className="text-slate-300"/>}
                   </button>
-                  <div className="w-8 h-8 md:w-9 md:h-9 bg-slate-50 rounded-lg flex items-center justify-center text-[10px] font-black text-slate-400 border border-slate-100 shrink-0 group-hover:text-blue-500 transition-all">{task.reserva_id.toString().slice(-2)}</div>
-                  <div className="min-w-0 flex flex-col"><span className="text-[7px] font-black text-slate-400 uppercase tracking-widest leading-none block">ID: {task.reserva_id}</span><h4 className="text-[12px] md:text-[13px] font-black text-slate-800 uppercase tracking-tight truncate pr-2" title={task.cliente}>{task.cliente}</h4></div>
+                  <div className="w-8 h-8 md:w-9 md:h-9 bg-slate-50 rounded-lg flex items-center justify-center text-[10px] font-black text-slate-400 border border-slate-100 shrink-0 group-hover:text-blue-500 transition-all">{displayReservaId.toString().slice(-2)}</div>
+                  <div className="min-w-0 flex flex-col"><span className="text-[7px] font-black text-slate-400 uppercase tracking-widest leading-none block">ID: {displayReservaId}</span><h4 className="text-[12px] md:text-[13px] font-black text-slate-800 uppercase tracking-tight truncate pr-2" title={task.cliente}>{task.cliente}</h4></div>
                 </div>
                 <div className="col-span-12 lg:col-span-4 space-y-1 min-w-0 lg:border-l border-slate-100 lg:pl-4">
                   <div className="flex items-center gap-1.5 text-[9px] md:text-[10px] font-bold text-slate-400 uppercase truncate"><Building2 size={12} className="text-blue-300 shrink-0"/><span className="truncate">{task.empreendimento}</span></div>

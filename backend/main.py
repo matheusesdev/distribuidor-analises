@@ -314,6 +314,9 @@ SUPABASE_URL = get_required_env("SUPABASE_URL")
 SUPABASE_KEY = get_required_env("SUPABASE_KEY")
 CVCRM_EMAIL = get_required_env("CVCRM_EMAIL")
 CVCRM_TOKEN = get_required_env("CVCRM_TOKEN")
+CVCRM_BASE_URL = (os.getenv("CVCRM_BASE_URL") or "https://vca.cvcrm.com.br/api/v1/comercial/reservas").strip()
+CVCRM_LOTEAR_BASE_URL = (os.getenv("CVCRM_LOTEAR_BASE_URL") or "https://vcalotear.cvcrm.com.br/api/v1/comercial/reservas").strip()
+CVCRM_LOTEAR_TOKEN = (os.getenv("CVCRM_LOTEAR_TOKEN") or "").strip()
 ADMIN_AUTH_SECRET = (os.getenv("ADMIN_AUTH_SECRET") or SUPABASE_KEY).strip()
 MANAGER_TOKEN_TTL_SECONDS = int(os.getenv("MANAGER_TOKEN_TTL_SECONDS", "43200"))
 APP_TIMEZONE_NAME = (os.getenv("APP_TIMEZONE") or "America/Sao_Paulo").strip() or "America/Sao_Paulo"
@@ -374,22 +377,41 @@ HISTORICO_HAS_ANALISTA_NOME = table_supports_column("historico", "analista_nome"
 HISTORICO_HAS_SITUACAO_ID = table_supports_column("historico", "situacao_id")
 HISTORICO_HAS_SITUACAO_NOME = table_supports_column("historico", "situacao_nome")
 
-# --- MAPEAMENTO DE SITUAÇÕES DO CVCRM ---
-SITUACOES_NOMES = {
-    62: "ANÁLISE VENDA LOTEAMENTO",
-    66: "ANÁLISE VENDA PARCELAMENTO INCORPORADORA",
-    30: "ANÁLISE VENDA CAIXA",
-    16: "CONFECÇÃO DE CONTRATO",
-    31: "ASSINADO",
-    84: "APROVAÇÃO EXPANSÃO"
+# --- MAPEAMENTO DE ORIGENS E SITUAÇÕES DO CVCRM ---
+CRM_SOURCES: Dict[str, Dict[str, Any]] = {
+    "cvcrm": {
+        "name": "CVCRM",
+        "api_base_url": CVCRM_BASE_URL,
+        "gestor_base_url": "https://vca.cvcrm.com.br/gestor/comercial/reservas",
+        "email": CVCRM_EMAIL,
+        "token": CVCRM_TOKEN,
+        "enabled": True,
+    },
+    "lotear": {
+        "name": "CVCRM LOTEAR",
+        "api_base_url": CVCRM_LOTEAR_BASE_URL,
+        "gestor_base_url": "https://vcalotear.cvcrm.com.br/gestor/comercial/reservas",
+        "email": CVCRM_EMAIL,
+        "token": CVCRM_LOTEAR_TOKEN,
+        "enabled": bool(CVCRM_LOTEAR_TOKEN),
+    },
 }
-SITUACOES_IDS = list(SITUACOES_NOMES.keys())
 
-HEADERS = {
-    "email": CVCRM_EMAIL,
-    "token": CVCRM_TOKEN,
-    "accept": "application/json"
-}
+SITUACOES_DEFINITIONS: List[Dict[str, Any]] = [
+    {"id": 62, "external_id": 62, "source": "cvcrm", "nome": "ANÁLISE VENDA LOTEAMENTO"},
+    {"id": 66, "external_id": 66, "source": "cvcrm", "nome": "ANÁLISE VENDA PARCELAMENTO INCORPORADORA"},
+    {"id": 30, "external_id": 30, "source": "cvcrm", "nome": "ANÁLISE VENDA CAIXA"},
+    {"id": 16, "external_id": 16, "source": "cvcrm", "nome": "CONFECÇÃO DE CONTRATO"},
+    {"id": 31, "external_id": 31, "source": "cvcrm", "nome": "ASSINADO"},
+    {"id": 84, "external_id": 84, "source": "cvcrm", "nome": "APROVAÇÃO EXPANSÃO"},
+    {"id": 1012, "external_id": 12, "source": "lotear", "nome": "ANÁLISE VENDA LOTEAMENTO (LOTEAR)"},
+    {"id": 1023, "external_id": 23, "source": "lotear", "nome": "APROVAÇÃO EXPANSÃO (LOTEAR)"},
+    {"id": 1016, "external_id": 16, "source": "lotear", "nome": "CONFECÇÃO DE CONTRATO (LOTEAR)"},
+]
+
+SITUACOES_NOMES = {item["id"]: item["nome"] for item in SITUACOES_DEFINITIONS}
+SITUACOES_IDS = [item["id"] for item in SITUACOES_DEFINITIONS]
+SITUACOES_META = {item["id"]: item for item in SITUACOES_DEFINITIONS}
 
 # Estado global do último sync — exposto via /api/gestor/sync-status
 _LAST_SYNC_STATE: Dict[str, Any] = {
@@ -404,11 +426,48 @@ _SYNC_LOCK = asyncio.Lock()
 
 async def fetch_cvcrm_reservas(sit_id: int, timeout_seconds: int, pagina: int = 1):
     """Executa request ao CRM fora do event loop para evitar bloqueio."""
-    url = (
-        f"https://vca.cvcrm.com.br/api/v1/comercial/reservas"
-        f"?situacao={sit_id}&pagina={pagina}"
-    )
-    return await asyncio.to_thread(requests.get, url, headers=HEADERS, timeout=timeout_seconds)
+    meta = SITUACOES_META.get(int(sit_id) if sit_id is not None else -1)
+    if not meta:
+        raise RuntimeError(f"Situação interna não mapeada: {sit_id}")
+
+    source_key = str(meta.get("source") or "cvcrm")
+    source_cfg = CRM_SOURCES.get(source_key)
+    if not source_cfg:
+        raise RuntimeError(f"Fonte CRM não configurada para situação {sit_id}: {source_key}")
+    if not source_cfg.get("enabled"):
+        raise RuntimeError(f"Fonte CRM desabilitada para situação {sit_id}: {source_key}")
+
+    external_id = int(meta.get("external_id") or sit_id)
+    url = f"{source_cfg['api_base_url']}?situacao={external_id}&pagina={pagina}"
+    headers = {
+        "email": source_cfg["email"],
+        "token": source_cfg["token"],
+        "accept": "application/json",
+    }
+    return await asyncio.to_thread(requests.get, url, headers=headers, timeout=timeout_seconds)
+
+
+def build_reserva_key(source: str, external_reserva_id: Any) -> str:
+    normalized = str(external_reserva_id or "").strip()
+    if not normalized:
+        return ""
+    # Mantém compatibilidade histórica: reservas da fonte padrão continuam sem prefixo.
+    if source == "cvcrm":
+        return normalized
+    return f"{source}:{normalized}"
+
+
+def parse_reserva_key(reserva_key: Any) -> Dict[str, str]:
+    normalized = str(reserva_key or "").strip()
+    if not normalized:
+        return {"source": "cvcrm", "external_id": ""}
+
+    if ":" in normalized:
+        prefix, external = normalized.split(":", 1)
+        if prefix in CRM_SOURCES and external:
+            return {"source": prefix, "external_id": external}
+
+    return {"source": "cvcrm", "external_id": normalized}
 
 
 def extract_reservas_from_response(data: Any) -> tuple:
@@ -454,6 +513,16 @@ def extract_reservas_from_response(data: Any) -> tuple:
 
 async def fetch_all_reservas_for_situacao(sit_id: int) -> List[Dict[str, Any]]:
     """Busca TODAS as páginas do CVCRM para uma situação, com suporte a paginação."""
+    meta = SITUACOES_META.get(int(sit_id) if sit_id is not None else -1)
+    if not meta:
+        raise RuntimeError(f"Situação interna não mapeada: {sit_id}")
+
+    source_key = str(meta.get("source") or "cvcrm")
+    source_cfg = CRM_SOURCES.get(source_key)
+    if not source_cfg or not source_cfg.get("enabled"):
+        return []
+
+    external_id = int(meta.get("external_id") or sit_id)
     all_pairs: List[tuple] = []
     page = 1
 
@@ -467,8 +536,10 @@ async def fetch_all_reservas_for_situacao(sit_id: int) -> List[Dict[str, Any]]:
         if response.status_code == 204:
             break
         if response.status_code != 200:
-            print(f"[SYNC] Situacao {sit_id} pagina {page}: HTTP {response.status_code}")
-            raise RuntimeError(f"CVCRM retornou HTTP {response.status_code} para situacao {sit_id}, pagina {page}")
+            print(f"[SYNC] Fonte {source_key} situacao {external_id} pagina {page}: HTTP {response.status_code}")
+            raise RuntimeError(
+                f"CVCRM ({source_key}) retornou HTTP {response.status_code} para situacao {external_id}, pagina {page}"
+            )
 
         try:
             data = response.json()
@@ -477,7 +548,7 @@ async def fetch_all_reservas_for_situacao(sit_id: int) -> List[Dict[str, Any]]:
             raise RuntimeError(f"Resposta invalida do CVCRM na situacao {sit_id}, pagina {page}") from exc
 
         pairs, total_pages = extract_reservas_from_response(data)
-        print(f"[SYNC] Situacao {sit_id} pagina {page}/{total_pages}: {len(pairs)} reservas")
+        print(f"[SYNC] Fonte {source_key} situacao {external_id} pagina {page}/{total_pages}: {len(pairs)} reservas")
         all_pairs.extend(pairs)
 
         if page >= total_pages or not pairs:
@@ -490,7 +561,10 @@ async def fetch_all_reservas_for_situacao(sit_id: int) -> List[Dict[str, Any]]:
         if not res_id or res_id == "None":
             continue
         entry = dict(info)
-        entry["_reserva_id_normalizado"] = res_id
+        entry["_reserva_id_externo"] = res_id
+        entry["_reserva_id_normalizado"] = build_reserva_key(source_key, res_id)
+        entry["_reserva_source"] = source_key
+        entry["_situacao_id_externo"] = external_id
         result.append(entry)
 
     return result
@@ -843,14 +917,27 @@ async def perform_sync():
         erros_sync: List[str] = []
         por_situacao: Dict[str, int] = {}
         situacoes_ok: set[int] = set()
+        situacoes_monitoradas_sync: set[int] = set()
         situacoes_falharam: List[Dict[str, Any]] = []
+        situacoes_ignoradas: List[Dict[str, Any]] = []
         removidas_na_limpeza = 0
         limpeza_aplicada = False
         limpeza_escopo = "nenhuma"
         inicio = datetime.datetime.now(datetime.timezone.utc)
 
         for sit_id in SITUACOES_IDS:
+            sit_meta = SITUACOES_META.get(int(sit_id), {})
             sit_nome = SITUACOES_NOMES.get(sit_id, str(sit_id))
+            source_key = str(sit_meta.get("source") or "cvcrm")
+            source_cfg = CRM_SOURCES.get(source_key) or {}
+
+            if not source_cfg.get("enabled"):
+                por_situacao[sit_nome] = 0
+                situacoes_ignoradas.append({"situacao_id": sit_id, "situacao_nome": sit_nome, "fonte": source_key})
+                continue
+
+            situacoes_monitoradas_sync.add(int(sit_id))
+
             try:
                 reservas = await fetch_all_reservas_for_situacao(sit_id)
                 por_situacao[sit_nome] = len(reservas)
@@ -870,25 +957,28 @@ async def perform_sync():
                         if not ativa.data:
                             # NOVA DISTRIBUIÇÃO
                             analista = await get_next_analyst(sit_id)
-                            if analista:
-                                now = datetime.datetime.now().isoformat()
-                                titular = info.get("titular") or {}
-                                unidade = info.get("unidade") or {}
-                                supabase.table("distribuicoes").upsert(
-                                    {
-                                        "reserva_id": res_id,
-                                        "cliente": titular.get("nome", "Desconhecido") if isinstance(titular, dict) else "Desconhecido",
-                                        "empreendimento": unidade.get("empreendimento", "N/A") if isinstance(unidade, dict) else "N/A",
-                                        "unidade": unidade.get("unidade", "N/A") if isinstance(unidade, dict) else "N/A",
-                                        "situacao_id": sit_id,
-                                        "situacao_nome": SITUACOES_NOMES.get(sit_id, "Geral"),
-                                        "analista_id": analista["id"],
-                                        "data_atribuicao": now,
-                                    },
-                                    on_conflict="reserva_id",
-                                    ignore_duplicates=True,
-                                ).execute()
+                            now = datetime.datetime.now().isoformat()
+                            titular = info.get("titular") or {}
+                            unidade = info.get("unidade") or {}
+                            analista_id = analista["id"] if analista else None
+                            data_atribuicao = now if analista else None
 
+                            supabase.table("distribuicoes").upsert(
+                                {
+                                    "reserva_id": res_id,
+                                    "cliente": titular.get("nome", "Desconhecido") if isinstance(titular, dict) else "Desconhecido",
+                                    "empreendimento": unidade.get("empreendimento", "N/A") if isinstance(unidade, dict) else "N/A",
+                                    "unidade": unidade.get("unidade", "N/A") if isinstance(unidade, dict) else "N/A",
+                                    "situacao_id": sit_id,
+                                    "situacao_nome": SITUACOES_NOMES.get(sit_id, "Geral"),
+                                    "analista_id": analista_id,
+                                    "data_atribuicao": data_atribuicao,
+                                },
+                                on_conflict="reserva_id",
+                                ignore_duplicates=True,
+                            ).execute()
+
+                            if analista:
                                 supabase.table("analistas").update({
                                     "ultima_atribuicao": now,
                                     "total_hoje": build_next_total_hoje(analista)
@@ -948,7 +1038,7 @@ async def perform_sync():
                 print(f"[SYNC][ERRO] {msg}")
                 erros_sync.append(msg)
                 por_situacao[sit_nome] = -1  # -1 indica falha de fetch
-                situacoes_falharam.append({"situacao_id": sit_id, "situacao_nome": sit_nome})
+                situacoes_falharam.append({"situacao_id": sit_id, "situacao_nome": sit_nome, "fonte": source_key})
 
         # REMOÇÃO SEGURA: remove apenas reservas realmente fora do CRM,
         # sem apagar lotes inteiros quando houver falha parcial de coleta.
@@ -956,7 +1046,7 @@ async def perform_sync():
             locais = supabase.table("distribuicoes").select("reserva_id,situacao_id").execute().data or []
             if locais and situacoes_ok:
                 limpeza_aplicada = True
-                if situacoes_falharam:
+                if situacoes_falharam or situacoes_ignoradas:
                     limpeza_escopo = "parcial"
                 else:
                     limpeza_escopo = "total"
@@ -966,11 +1056,15 @@ async def perform_sync():
                     if not reserva_id_local:
                         continue
 
+                    try:
+                        situacao_local = int(registro.get("situacao_id") or 0)
+                    except (TypeError, ValueError):
+                        situacao_local = 0
+
+                    if situacao_local and situacao_local not in situacoes_monitoradas_sync:
+                        continue
+
                     if situacoes_falharam:
-                        try:
-                            situacao_local = int(registro.get("situacao_id") or 0)
-                        except (TypeError, ValueError):
-                            situacao_local = 0
                         if situacao_local not in situacoes_ok:
                             continue
 
@@ -989,6 +1083,7 @@ async def perform_sync():
         _LAST_SYNC_STATE["erros"] = erros_sync[-50:]  # guarda os últimos 50 erros
         _LAST_SYNC_STATE["duracao_segundos"] = round((fim - inicio).total_seconds(), 2)
         _LAST_SYNC_STATE["situacoes_falharam"] = situacoes_falharam
+        _LAST_SYNC_STATE["situacoes_ignoradas"] = situacoes_ignoradas
         _LAST_SYNC_STATE["limpeza_aplicada"] = limpeza_aplicada
         _LAST_SYNC_STATE["limpeza_escopo"] = limpeza_escopo
         _LAST_SYNC_STATE["removidas_na_limpeza"] = removidas_na_limpeza

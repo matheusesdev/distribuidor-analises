@@ -91,6 +91,7 @@ const App = () => {
     pastas_sem_destino: 0
   });
   const [managerSyncStatus, setManagerSyncStatus] = useState({
+    por_situacao: {},
     situacoes_falharam: [],
     limpeza_escopo: null,
     removidas_na_limpeza: 0,
@@ -148,7 +149,10 @@ const App = () => {
   const [bulkTransferReason, setBulkTransferReason] = useState("");
   const confirmResolverRef = useRef(null);
 
-  const CRM_BASE = "https://vca.cvcrm.com.br/gestor/comercial/reservas";
+  const CRM_BASE_BY_SOURCE = {
+    cvcrm: "https://vca.cvcrm.com.br/gestor/comercial/reservas",
+    lotear: "https://vcalotear.cvcrm.com.br/gestor/comercial/reservas",
+  };
 
   const SITUACOES_MAP = {
     62: "ANÁLISE VENDA LOTEAMENTO",
@@ -156,7 +160,10 @@ const App = () => {
     30: "ANÁLISE VENDA CAIXA",
     16: "CONFECÇÃO DE CONTRATO",
     31: "ASSINADO",
-    84: "APROVAÇÃO EXPANSÃO"
+    84: "APROVAÇÃO EXPANSÃO",
+    1012: "ANÁLISE VENDA LOTEAMENTO (LOTEAR)",
+    1023: "APROVAÇÃO EXPANSÃO (LOTEAR)",
+    1016: "CONFECÇÃO DE CONTRATO (LOTEAR)",
   };
 
   const SIT_COLORS = {
@@ -165,8 +172,27 @@ const App = () => {
     30: { text: '#3b6b2f', bg: '#edf7e7' },
     84: { text: '#1f6b5f', bg: '#e2f3ef' },
     16: { text: '#7a6632', bg: '#faf5e2' },
-    31: { text: '#8a5a2b', bg: '#fbeee3' }
+    31: { text: '#8a5a2b', bg: '#fbeee3' },
+    1012: { text: '#0b7285', bg: '#e3f4f7' },
+    1023: { text: '#5f3dc4', bg: '#ede9fe' },
+    1016: { text: '#9c36b5', bg: '#f8ecfc' },
   };
+
+  const parseReservaRef = useCallback((reservaId) => {
+    const normalized = String(reservaId || '').trim();
+    if (!normalized) {
+      return { source: 'cvcrm', externalId: '', fullId: '' };
+    }
+    const [prefix, ...rest] = normalized.split(':');
+    if (rest.length > 0 && Object.prototype.hasOwnProperty.call(CRM_BASE_BY_SOURCE, prefix)) {
+      return { source: prefix, externalId: rest.join(':'), fullId: normalized };
+    }
+    return { source: 'cvcrm', externalId: normalized, fullId: normalized };
+  }, []);
+
+  const getReservaDisplayId = useCallback((reservaId) => {
+    return parseReservaRef(reservaId).externalId || String(reservaId || '');
+  }, [parseReservaRef]);
 
   useEffect(() => {
     const handleClickOutside = () => {};
@@ -236,6 +262,16 @@ const App = () => {
   const calculatedStats = useMemo(() => {
     const breakdown = {};
     Object.keys(SITUACOES_MAP).forEach(id => breakdown[id] = 0);
+
+    const syncBySituationName = managerSyncStatus?.por_situacao || {};
+    const hasSyncBreakdown = Object.keys(syncBySituationName).length > 0;
+
+    if (hasSyncBreakdown) {
+      Object.entries(SITUACOES_MAP).forEach(([id, nome]) => {
+        const total = Number(syncBySituationName[nome]);
+        breakdown[id] = Number.isFinite(total) && total > 0 ? total : 0;
+      });
+    }
     
     const analistasMapa = {};
     dashData.equipe.forEach(a => {
@@ -243,7 +279,7 @@ const App = () => {
     });
 
     dashData.distribuicao_atual?.forEach(item => {
-      if (breakdown[item.situacao_id] !== undefined) breakdown[item.situacao_id]++;
+      if (!hasSyncBreakdown && breakdown[item.situacao_id] !== undefined) breakdown[item.situacao_id]++;
       if (analistasMapa[item.analista_id]) analistasMapa[item.analista_id].naMesa++;
     });
 
@@ -252,7 +288,7 @@ const App = () => {
     });
 
     return { breakdown, analistasMapa };
-  }, [dashData]);
+  }, [dashData, managerSyncStatus?.por_situacao, SITUACOES_MAP]);
 
   // Extração das variáveis para uso direto no JSX e evitar ReferenceError
   const calculatedBreakdown = calculatedStats.breakdown;
@@ -303,6 +339,7 @@ const App = () => {
         if (resSync.ok) {
           const s = await resSync.json();
           setManagerSyncStatus({
+            por_situacao: s.por_situacao || {},
             situacoes_falharam: s.situacoes_falharam || [],
             limpeza_escopo: s.limpeza_escopo || null,
             removidas_na_limpeza: s.removidas_na_limpeza || 0,
@@ -443,7 +480,9 @@ const App = () => {
 
   const openReservaInCRM = (reservaId) => {
     if (!reservaId) return;
-    const crmUrl = `${CRM_BASE}/${reservaId}/administrar`;
+    const parsed = parseReservaRef(reservaId);
+    const base = CRM_BASE_BY_SOURCE[parsed.source] || CRM_BASE_BY_SOURCE.cvcrm;
+    const crmUrl = `${base}/${parsed.externalId}/administrar`;
     window.open(crmUrl, '_blank', 'noopener,noreferrer');
   };
 
@@ -724,13 +763,14 @@ const App = () => {
 
   const filteredTasks = useMemo(() => {
     return (myTasks || []).filter(task => {
+      const reservaDisplayId = getReservaDisplayId(task.reserva_id);
       const matchesSearch = task.cliente.toLowerCase().includes(taskSearch.toLowerCase()) || 
                           task.empreendimento.toLowerCase().includes(taskSearch.toLowerCase()) ||
-                          task.reserva_id.toString().includes(taskSearch);
+                          reservaDisplayId.toString().includes(taskSearch);
       const matchesSit = filterSit === "all" || task.situacao_id.toString() === filterSit;
       return matchesSearch && matchesSit;
     });
-  }, [myTasks, taskSearch, filterSit]);
+  }, [myTasks, taskSearch, filterSit, getReservaDisplayId]);
 
   const transferTargetOptions = useMemo(() => {
     if (!currentUser) return [];
@@ -1147,6 +1187,7 @@ const App = () => {
               SIT_COLORS={SIT_COLORS}
               toggleTaskSelection={toggleTaskSelection}
               openReservaInCRM={openReservaInCRM}
+              getReservaDisplayId={getReservaDisplayId}
               openTransferModal={openTransferModal}
               handleFinish={handleFinish}
               metrics={metrics}
