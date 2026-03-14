@@ -38,6 +38,7 @@ export const api = {
   getMetrics: (analystId) => request(`/api/metricas/${analystId}`),
   getAnalystDashboard: (analystId) => request(`/api/analista/dashboard/${analystId}`),
   getManagerOverview: () => request("/api/gestor/overview", { headers: getManagerAuthHeaders() }),
+  getManagerSyncStatus: () => request("/api/gestor/sync-status", { headers: getManagerAuthHeaders() }),
 
   login: (analystId, password) =>
     request("/api/login", {

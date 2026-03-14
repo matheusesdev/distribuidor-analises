@@ -392,6 +392,7 @@ _LAST_SYNC_STATE: Dict[str, Any] = {
     "erros": [],
     "duracao_segundos": None,
 }
+_SYNC_LOCK = asyncio.Lock()
 
 
 async def fetch_cvcrm_reservas(sit_id: int, timeout_seconds: int, pagina: int = 1):
@@ -779,127 +780,167 @@ async def perform_sync():
     - Trata robustamente diferentes formatos de resposta do CRM
     - Registra resultado em _LAST_SYNC_STATE para auditoria
     """
-    ids_no_crm: List[str] = []
-    erros_sync: List[str] = []
-    por_situacao: Dict[str, int] = {}
-    inicio = datetime.datetime.now(datetime.timezone.utc)
+    async with _SYNC_LOCK:
+        ids_no_crm: set[str] = set()
+        erros_sync: List[str] = []
+        por_situacao: Dict[str, int] = {}
+        situacoes_ok: set[int] = set()
+        situacoes_falharam: List[Dict[str, Any]] = []
+        removidas_na_limpeza = 0
+        limpeza_aplicada = False
+        limpeza_escopo = "nenhuma"
+        inicio = datetime.datetime.now(datetime.timezone.utc)
 
-    for sit_id in SITUACOES_IDS:
-        sit_nome = SITUACOES_NOMES.get(sit_id, str(sit_id))
-        try:
-            reservas = await fetch_all_reservas_for_situacao(sit_id)
-            por_situacao[sit_nome] = len(reservas)
-            print(f"[SYNC] Situacao '{sit_nome}' ({sit_id}): {len(reservas)} reservas encontradas")
+        for sit_id in SITUACOES_IDS:
+            sit_nome = SITUACOES_NOMES.get(sit_id, str(sit_id))
+            try:
+                reservas = await fetch_all_reservas_for_situacao(sit_id)
+                por_situacao[sit_nome] = len(reservas)
+                situacoes_ok.add(int(sit_id))
+                print(f"[SYNC] Situacao '{sit_nome}' ({sit_id}): {len(reservas)} reservas encontradas")
 
-            for info in reservas:
-                res_id = str(info.get("_reserva_id_normalizado") or "").strip()
-                if not res_id or res_id == "None":
-                    continue
-                ids_no_crm.append(res_id)
+                for info in reservas:
+                    res_id = str(info.get("_reserva_id_normalizado") or "").strip()
+                    if not res_id or res_id == "None":
+                        continue
+                    ids_no_crm.add(res_id)
 
-                try:
-                    # Busca se já existe distribuição para esta reserva
-                    ativa = supabase.table("distribuicoes").select("*").eq("reserva_id", res_id).execute()
+                    try:
+                        # Busca se já existe distribuição para esta reserva
+                        ativa = supabase.table("distribuicoes").select("*").eq("reserva_id", res_id).execute()
 
-                    if not ativa.data:
-                        # NOVA DISTRIBUIÇÃO
-                        analista = await get_next_analyst(sit_id)
-                        if analista:
-                            now = datetime.datetime.now().isoformat()
-                            titular = info.get("titular") or {}
-                            unidade = info.get("unidade") or {}
-                            supabase.table("distribuicoes").insert({
-                                "reserva_id": res_id,
-                                "cliente": titular.get("nome", "Desconhecido") if isinstance(titular, dict) else "Desconhecido",
-                                "empreendimento": unidade.get("empreendimento", "N/A") if isinstance(unidade, dict) else "N/A",
-                                "unidade": unidade.get("unidade", "N/A") if isinstance(unidade, dict) else "N/A",
-                                "situacao_id": sit_id,
-                                "situacao_nome": SITUACOES_NOMES.get(sit_id, "Geral"),
-                                "analista_id": analista["id"],
-                                "data_atribuicao": now
-                            }).execute()
-
-                            supabase.table("analistas").update({
-                                "ultima_atribuicao": now,
-                                "total_hoje": (analista.get("total_hoje") or 0) + 1
-                            }).eq("id", analista["id"]).execute()
-                    else:
-                        # RESERVA JÁ EXISTE — verifica reassign e mudança de situação
-                        dist_db = ativa.data[0]
-                        analista_atual_id = dist_db.get("analista_id")
-
-                        # AUTO-REASSIGN: se está sem analista ou com analista inativo/offline
-                        deve_reatribuir = not analista_atual_id
-                        if analista_atual_id:
-                            analista_atual = supabase.table("analistas").select("*").eq("id", analista_atual_id).execute()
-                            if not analista_atual.data:
-                                deve_reatribuir = True
-                            else:
-                                a = analista_atual.data[0]
-                                if a.get("status") != "ativo" or not a.get("is_online"):
-                                    deve_reatribuir = True
-
-                        if deve_reatribuir:
-                            proximo = await get_next_analyst(sit_id, exclude_ids=[analista_atual_id] if analista_atual_id else None)
-                            if proximo:
+                        if not ativa.data:
+                            # NOVA DISTRIBUIÇÃO
+                            analista = await get_next_analyst(sit_id)
+                            if analista:
                                 now = datetime.datetime.now().isoformat()
-                                supabase.table("distribuicoes").update({
-                                    "analista_id": proximo["id"],
-                                    "data_atribuicao": now,
+                                titular = info.get("titular") or {}
+                                unidade = info.get("unidade") or {}
+                                supabase.table("distribuicoes").insert({
+                                    "reserva_id": res_id,
+                                    "cliente": titular.get("nome", "Desconhecido") if isinstance(titular, dict) else "Desconhecido",
+                                    "empreendimento": unidade.get("empreendimento", "N/A") if isinstance(unidade, dict) else "N/A",
+                                    "unidade": unidade.get("unidade", "N/A") if isinstance(unidade, dict) else "N/A",
                                     "situacao_id": sit_id,
-                                    "situacao_nome": SITUACOES_NOMES.get(sit_id, "Geral")
-                                }).eq("reserva_id", res_id).execute()
+                                    "situacao_nome": SITUACOES_NOMES.get(sit_id, "Geral"),
+                                    "analista_id": analista["id"],
+                                    "data_atribuicao": now
+                                }).execute()
 
                                 supabase.table("analistas").update({
                                     "ultima_atribuicao": now,
-                                    "total_hoje": (proximo.get("total_hoje") or 0) + 1
-                                }).eq("id", proximo["id"]).execute()
-                            else:
+                                    "total_hoje": (analista.get("total_hoje") or 0) + 1
+                                }).eq("id", analista["id"]).execute()
+                        else:
+                            # RESERVA JÁ EXISTE — verifica reassign e mudança de situação
+                            dist_db = ativa.data[0]
+                            analista_atual_id = dist_db.get("analista_id")
+
+                            # AUTO-REASSIGN: se está sem analista ou com analista inativo/offline
+                            deve_reatribuir = not analista_atual_id
+                            if analista_atual_id:
+                                analista_atual = supabase.table("analistas").select("*").eq("id", analista_atual_id).execute()
+                                if not analista_atual.data:
+                                    deve_reatribuir = True
+                                else:
+                                    a = analista_atual.data[0]
+                                    if a.get("status") != "ativo" or not a.get("is_online"):
+                                        deve_reatribuir = True
+
+                            if deve_reatribuir:
+                                proximo = await get_next_analyst(sit_id, exclude_ids=[analista_atual_id] if analista_atual_id else None)
+                                if proximo:
+                                    now = datetime.datetime.now().isoformat()
+                                    supabase.table("distribuicoes").update({
+                                        "analista_id": proximo["id"],
+                                        "data_atribuicao": now,
+                                        "situacao_id": sit_id,
+                                        "situacao_nome": SITUACOES_NOMES.get(sit_id, "Geral")
+                                    }).eq("reserva_id", res_id).execute()
+
+                                    supabase.table("analistas").update({
+                                        "ultima_atribuicao": now,
+                                        "total_hoje": (proximo.get("total_hoje") or 0) + 1
+                                    }).eq("id", proximo["id"]).execute()
+                                else:
+                                    supabase.table("distribuicoes").update({
+                                        "analista_id": None,
+                                        "data_atribuicao": None,
+                                        "situacao_id": sit_id,
+                                        "situacao_nome": SITUACOES_NOMES.get(sit_id, "Geral")
+                                    }).eq("reserva_id", res_id).execute()
+
+                            if int(dist_db.get("situacao_id") or 0) != int(sit_id):
                                 supabase.table("distribuicoes").update({
-                                    "analista_id": None,
-                                    "data_atribuicao": None,
                                     "situacao_id": sit_id,
                                     "situacao_nome": SITUACOES_NOMES.get(sit_id, "Geral")
                                 }).eq("reserva_id", res_id).execute()
 
-                        if int(dist_db.get("situacao_id") or 0) != int(sit_id):
-                            supabase.table("distribuicoes").update({
-                                "situacao_id": sit_id,
-                                "situacao_nome": SITUACOES_NOMES.get(sit_id, "Geral")
-                            }).eq("reserva_id", res_id).execute()
+                    except Exception as item_err:
+                        msg = f"Reserva {res_id} (sit {sit_id}): {item_err}"
+                        print(f"[SYNC][ERRO] {msg}")
+                        erros_sync.append(msg)
 
-                except Exception as item_err:
-                    msg = f"Reserva {res_id} (sit {sit_id}): {item_err}"
-                    print(f"[SYNC][ERRO] {msg}")
-                    erros_sync.append(msg)
+            except Exception as sit_err:
+                msg = f"Situacao {sit_nome} ({sit_id}): {sit_err}"
+                print(f"[SYNC][ERRO] {msg}")
+                erros_sync.append(msg)
+                por_situacao[sit_nome] = -1  # -1 indica falha de fetch
+                situacoes_falharam.append({"situacao_id": sit_id, "situacao_nome": sit_nome})
 
-        except Exception as sit_err:
-            msg = f"Situacao {sit_nome} ({sit_id}): {sit_err}"
-            print(f"[SYNC][ERRO] {msg}")
-            erros_sync.append(msg)
-            por_situacao[sit_nome] = -1  # -1 indica falha de fetch
+        # REMOÇÃO SEGURA: remove apenas reservas realmente fora do CRM,
+        # sem apagar lotes inteiros quando houver falha parcial de coleta.
+        try:
+            locais = supabase.table("distribuicoes").select("reserva_id,situacao_id").execute().data or []
+            if locais and situacoes_ok:
+                limpeza_aplicada = True
+                if situacoes_falharam:
+                    limpeza_escopo = "parcial"
+                else:
+                    limpeza_escopo = "total"
 
-    # REMOÇÃO: se sumiu do CRM, retira da mesa local
-    try:
-        locais = supabase.table("distribuicoes").select("reserva_id").execute()
-        if locais.data:
-            for l in locais.data:
-                if l["reserva_id"] not in ids_no_crm:
-                    supabase.table("distribuicoes").delete().eq("reserva_id", l["reserva_id"]).execute()
-    except Exception as rem_err:
-        erros_sync.append(f"Remocao: {rem_err}")
+                for registro in locais:
+                    reserva_id_local = str(registro.get("reserva_id") or "").strip()
+                    if not reserva_id_local:
+                        continue
 
-    fim = datetime.datetime.now(datetime.timezone.utc)
-    _LAST_SYNC_STATE["timestamp"] = fim.isoformat()
-    _LAST_SYNC_STATE["total_no_crm"] = len(ids_no_crm)
-    _LAST_SYNC_STATE["por_situacao"] = por_situacao
-    _LAST_SYNC_STATE["erros"] = erros_sync[-50:]  # guarda os últimos 50 erros
-    _LAST_SYNC_STATE["duracao_segundos"] = round((fim - inicio).total_seconds(), 2)
+                    if situacoes_falharam:
+                        try:
+                            situacao_local = int(registro.get("situacao_id") or 0)
+                        except (TypeError, ValueError):
+                            situacao_local = 0
+                        if situacao_local not in situacoes_ok:
+                            continue
 
-    if erros_sync:
-        print(f"[SYNC] Concluido com {len(erros_sync)} erros. Total CRM: {len(ids_no_crm)}")
-    else:
-        print(f"[SYNC] OK — {len(ids_no_crm)} reservas, {_LAST_SYNC_STATE['duracao_segundos']}s")
+                    if reserva_id_local not in ids_no_crm:
+                        supabase.table("distribuicoes").delete().eq("reserva_id", reserva_id_local).execute()
+                        removidas_na_limpeza += 1
+            else:
+                limpeza_escopo = "ignorada"
+        except Exception as rem_err:
+            erros_sync.append(f"Remocao: {rem_err}")
+
+        fim = datetime.datetime.now(datetime.timezone.utc)
+        _LAST_SYNC_STATE["timestamp"] = fim.isoformat()
+        _LAST_SYNC_STATE["total_no_crm"] = len(ids_no_crm)
+        _LAST_SYNC_STATE["por_situacao"] = por_situacao
+        _LAST_SYNC_STATE["erros"] = erros_sync[-50:]  # guarda os últimos 50 erros
+        _LAST_SYNC_STATE["duracao_segundos"] = round((fim - inicio).total_seconds(), 2)
+        _LAST_SYNC_STATE["situacoes_falharam"] = situacoes_falharam
+        _LAST_SYNC_STATE["limpeza_aplicada"] = limpeza_aplicada
+        _LAST_SYNC_STATE["limpeza_escopo"] = limpeza_escopo
+        _LAST_SYNC_STATE["removidas_na_limpeza"] = removidas_na_limpeza
+
+        if erros_sync:
+            print(
+                f"[SYNC] Concluido com {len(erros_sync)} erros. "
+                f"Total CRM: {len(ids_no_crm)}. Limpeza: {limpeza_escopo}, removidas: {removidas_na_limpeza}"
+            )
+        else:
+            print(
+                f"[SYNC] OK — {len(ids_no_crm)} reservas, {_LAST_SYNC_STATE['duracao_segundos']}s. "
+                f"Limpeza: {limpeza_escopo}, removidas: {removidas_na_limpeza}"
+            )
 
 async def background_task():
     while True:

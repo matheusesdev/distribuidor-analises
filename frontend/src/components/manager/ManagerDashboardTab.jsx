@@ -5,6 +5,7 @@ const ManagerDashboardTab = ({
   SITUACOES_MAP,
   SIT_COLORS,
   isSyncing,
+  managerSyncStatus,
   calculatedBreakdown,
   dashData,
   analistasMapa,
@@ -13,12 +14,42 @@ const ManagerDashboardTab = ({
   togglingQueueIds,
   handleAdminQueueToggle,
   handleDeleteAnalyst,
-}) => (
+}) => {
+  const syncScope = managerSyncStatus?.limpeza_escopo;
+  const hasSyncFailures = Array.isArray(managerSyncStatus?.situacoes_falharam) && managerSyncStatus.situacoes_falharam.length > 0;
+
+  const monitorStyle =
+    syncScope === 'parcial' || syncScope === 'ignorada'
+      ? 'bg-amber-50 text-amber-700 border-amber-200'
+      : 'bg-emerald-50 text-emerald-700 border-emerald-200';
+
+  const monitorLabelByScope = {
+    total: 'Limpeza total',
+    parcial: 'Limpeza parcial',
+    ignorada: 'Limpeza ignorada',
+    nenhuma: 'Sem limpeza',
+  };
+
+  return (
   <>
     <section className="bg-white p-5 md:p-6 rounded-2xl border border-slate-100 shadow-sm">
       <div className="flex items-center justify-between mb-8 px-1">
         <div className="flex items-center gap-2.5"><BarChart3 size={16} className="text-blue-600" /><h3 className="text-[10px] font-black uppercase tracking-widest text-slate-700">Fluxo por Situacao</h3></div>
         <div className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase border transition-all ${isSyncing ? 'bg-blue-50 text-blue-600 border-blue-100 animate-pulse' : 'bg-green-50 text-green-600 border-green-100'}`}><RefreshCw size={10} className={isSyncing ? 'animate-spin' : ''}/> {isSyncing ? 'Sincronizando' : 'Sincronizado'}</div>
+      </div>
+      <div className="mb-4 flex flex-wrap items-center gap-2 px-1">
+        <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[9px] font-black uppercase border ${monitorStyle}`}>
+          <CheckSquare size={11} />
+          {monitorLabelByScope[syncScope] || 'Monitoramento indisponível'}
+        </span>
+        <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[9px] font-black uppercase border ${hasSyncFailures ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-slate-50 text-slate-500 border-slate-200'}`}>
+          <AlertTriangle size={11} />
+          Falhas: {managerSyncStatus?.situacoes_falharam?.length || 0}
+        </span>
+        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[9px] font-black uppercase border bg-slate-50 text-slate-600 border-slate-200">
+          <Hash size={11} />
+          Removidas: {managerSyncStatus?.removidas_na_limpeza || 0}
+        </span>
       </div>
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         {Object.entries(SITUACOES_MAP).map(([id, nome]) => {
@@ -51,7 +82,7 @@ const ManagerDashboardTab = ({
     <section className="bg-white rounded-3xl md:rounded-4xl border border-slate-100 overflow-hidden shadow-sm">
       <div className="p-5 md:p-6 border-b border-slate-50 flex justify-between items-center bg-slate-50/20">
         <div className="flex items-center gap-2"><PieChart size={18} className="text-blue-600" /><h2 className="text-[10px] font-black uppercase tracking-widest text-slate-800">Processo Analitico da Equipa</h2></div>
-        <button onClick={() => { setEditForm({id: null, nome: '', senha: '', permissoes: [62, 66, 30]}); setShowEditModal(true); }} className="bg-blue-600 text-white px-5 py-2 rounded-xl text-[9px] font-black uppercase hover:bg-blue-500 shadow-lg active:scale-95 flex items-center gap-2"><UserPlus size={14}/> Novo Analista</button>
+        <button onClick={() => { setEditForm({id: null, nome: '', email: '', senha: '', permissoes: [62, 66, 30], status: 'ativo'}); setShowEditModal(true); }} className="bg-blue-600 text-white px-5 py-2 rounded-xl text-[9px] font-black uppercase hover:bg-blue-500 shadow-lg active:scale-95 flex items-center gap-2"><UserPlus size={14}/> Novo Analista</button>
       </div>
       <div className="overflow-x-auto w-full">
         <table className="w-full text-left text-[11px] min-w-212.5">
@@ -63,14 +94,14 @@ const ManagerDashboardTab = ({
               const stats = analistasMapa[a.id] || { naMesa: 0, feitosHoje: 0 };
               return (
                 <tr key={a.id} className="hover:bg-slate-50/50 transition-colors group text-[11px] text-center">
-                  <td className="p-4 text-left"><div className="flex flex-col"><span className="font-bold text-slate-700 uppercase truncate max-w-37.5">{a.nome}</span><span className={`text-[7px] font-black uppercase ${a.is_online ? 'text-green-500' : 'text-slate-300'}`}>{a.is_online ? 'FILA ATIVA' : 'OFFLINE'}</span></div></td>
+                  <td className="p-4 text-left"><div className="flex flex-col"><span className="font-bold text-slate-700 uppercase truncate max-w-37.5">{a.nome}</span><span className="text-[8px] font-medium text-slate-400 truncate max-w-37.5">{a.email || 'Sem e-mail'}</span><span className={`text-[7px] font-black uppercase ${a.is_online ? 'text-green-500' : 'text-slate-300'}`}>{a.is_online ? 'FILA ATIVA' : 'OFFLINE'}</span></div></td>
                   <td className="p-4"><div className="flex flex-wrap gap-1 justify-center max-w-37.5 mx-auto">{(a.permissoes || []).slice(0, 3).map(p => <span key={p} className="bg-slate-50 text-slate-400 px-1.5 py-0.5 rounded text-[7px] border border-slate-200 font-bold">{p}</span>)}</div></td>
                   <td className="p-4 font-black text-slate-900 text-sm">{a.total_hoje || 0}</td>
                   <td className="p-4 font-black text-green-600 text-sm">{stats.feitosHoje}</td>
                   <td className="p-4 font-black text-blue-600 text-sm">{stats.naMesa}</td>
                   <td className="p-4 text-right space-x-1 whitespace-nowrap">
                     <button disabled={togglingQueueIds.includes(a.id)} onClick={() => handleAdminQueueToggle(a)} className={`p-2 rounded-lg border transition-all inline-flex items-center justify-center ${togglingQueueIds.includes(a.id) ? 'animate-pulse opacity-80 cursor-wait' : ''} ${a.is_online ? 'bg-red-50 text-red-600 border-red-100 hover:bg-red-100' : 'bg-green-600 text-white border-green-600 hover:bg-green-500'}`} title={a.is_online ? 'Desligar fila' : 'Ligar fila'}>{togglingQueueIds.includes(a.id) ? <RefreshCw size={14} className="animate-spin" /> : <Power size={14}/>}</button>
-                    <button onClick={() => { setEditForm({id: a.id, nome: a.nome, senha: a.senha, permissoes: a.permissoes || []}); setShowEditModal(true); }} className="text-slate-300 hover:text-blue-500 p-2 transition-all inline-block"><Edit3 size={14}/></button>
+                    <button onClick={() => { setEditForm({id: a.id, nome: a.nome || '', email: a.email || '', senha: '', permissoes: a.permissoes || [], status: a.status || 'ativo'}); setShowEditModal(true); }} className="text-slate-300 hover:text-blue-500 p-2 transition-all inline-block"><Edit3 size={14}/></button>
                     <button onClick={() => handleDeleteAnalyst(a.id)} className="text-slate-300 hover:text-red-500 p-2 transition-all inline-block"><Trash2 size={14}/></button>
                   </td>
                 </tr>
@@ -81,6 +112,7 @@ const ManagerDashboardTab = ({
       </div>
     </section>
   </>
-);
+  );
+};
 
 export default ManagerDashboardTab;

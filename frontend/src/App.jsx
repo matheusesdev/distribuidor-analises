@@ -89,6 +89,12 @@ const App = () => {
     total_pendente_cvcrm: 0,
     pastas_sem_destino: 0
   });
+  const [managerSyncStatus, setManagerSyncStatus] = useState({
+    situacoes_falharam: [],
+    limpeza_escopo: null,
+    removidas_na_limpeza: 0,
+    timestamp: null,
+  });
 
   // --- ESTADOS DE UI E INTERATIVIDADE ---
   const [isGlobalLoading, setIsGlobalLoading] = useState(false);
@@ -272,11 +278,15 @@ const App = () => {
       }
 
       if (view === 'manager') {
-        const resD = await api.getManagerOverview();
+        const [resD, resSync] = await Promise.all([
+          api.getManagerOverview(),
+          api.getManagerSyncStatus(),
+        ]);
+
         if (resD.ok) {
           const d = await resD.json();
-          setDashData({ 
-            equipe: d.equipe || [], 
+          setDashData({
+            equipe: d.equipe || [],
             distribuicao_atual: d.distribuicao_atual || [],
             historico_recente: d.historico_recente || [],
             logs_transferencias: d.logs_transferencias || [],
@@ -284,6 +294,19 @@ const App = () => {
             pastas_sem_destino: d.pastas_sem_destino || 0
           });
         } else if (resD.status === 401) {
+          handleManagerUnauthorized();
+          return;
+        }
+
+        if (resSync.ok) {
+          const s = await resSync.json();
+          setManagerSyncStatus({
+            situacoes_falharam: s.situacoes_falharam || [],
+            limpeza_escopo: s.limpeza_escopo || null,
+            removidas_na_limpeza: s.removidas_na_limpeza || 0,
+            timestamp: s.timestamp || null,
+          });
+        } else if (resSync.status === 401) {
           handleManagerUnauthorized();
           return;
         }
@@ -873,6 +896,7 @@ const App = () => {
             SITUACOES_MAP={SITUACOES_MAP}
             SIT_COLORS={SIT_COLORS}
             isSyncing={isSyncing}
+            managerSyncStatus={managerSyncStatus}
             calculatedBreakdown={calculatedBreakdown}
             dashData={dashData}
             analistasMapa={analistasMapa}
