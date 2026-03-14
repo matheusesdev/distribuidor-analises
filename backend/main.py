@@ -1535,7 +1535,7 @@ async def transferir_pasta(req: TransferirPastaRequest):
             ):
                 raise HTTPException(
                     status_code=500,
-                    detail="Tabela de log não encontrada na API do Supabase. Execute o SQL em backend/logs_transferencias_schema.sql e tente novamente."
+                    detail="Tabela de log não encontrada na API do Supabase. Execute o SQL em backend/db/migrations/002_logs_transferencias_schema.sql e tente novamente."
                 )
 
             raise HTTPException(

@@ -7,7 +7,7 @@ As credenciais do administrador agora são armazenadas na tabela `administradore
 1. Acesse o Supabase Dashboard
 2. Vá para **SQL Editor**
 3. Crie uma nova query
-4. Copie o conteúdo de `administradores_schema.sql` e execute
+4. Copie o conteúdo de `db/migrations/003_administradores_schema.sql` e execute
 
 Isso irá:
 - ✅ Criar a tabela `administradores`
