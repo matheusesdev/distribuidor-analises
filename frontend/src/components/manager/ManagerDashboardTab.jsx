@@ -44,6 +44,17 @@ const AnalystDetailModal = ({ analyst, currentTasks, recentCompletions, onClose 
   if (!analyst) return null;
 
   const situationEntries = Object.entries(analyst.mesa_por_situacao || {});
+  const analytics = analyst.analytics || { total_periodo: 0, por_dia: [], por_mes: [], por_situacao: [] };
+  const dailySeries = analytics.por_dia || [];
+  const monthlySeries = analytics.por_mes || [];
+  const situationSeries = analytics.por_situacao || [];
+  const situationDailySeries = analytics.por_situacao_por_dia || [];
+  const situationMonthlySeries = analytics.por_situacao_por_mes || [];
+  const maxDaily = Math.max(...dailySeries.map((item) => Number(item.total || 0)), 1);
+  const maxMonthly = Math.max(...monthlySeries.map((item) => Number(item.total || 0)), 1);
+  const maxSituation = Math.max(...situationSeries.map((item) => Number(item.total || 0)), 1);
+
+  const barWidth = (value, maxValue) => `${Math.max(8, Math.round((Number(value || 0) / Math.max(maxValue, 1)) * 100))}%`;
 
   return (
     <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-250 flex items-center justify-center p-2 sm:p-4" onClick={onClose}>
@@ -123,6 +134,159 @@ const AnalystDetailModal = ({ analyst, currentTasks, recentCompletions, onClose 
                     Nenhuma pasta na mesa neste momento.
                   </div>
                 )}
+              </div>
+            </div>
+          </section>
+
+          <section className="rounded-3xl border border-blue-100 bg-[linear-gradient(135deg,#eff6ff_0%,#f8fafc_100%)] p-5 sm:p-6">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.24em] text-blue-600">Painel Analítico</p>
+                <h4 className="mt-1 text-sm font-black uppercase tracking-wide text-slate-900">Produção detalhada do analista</h4>
+              </div>
+              <span className="inline-flex items-center rounded-full border border-blue-200 bg-white px-3 py-1 text-[10px] font-black uppercase text-blue-700">
+                Total no período: {analytics.total_periodo || 0}
+              </span>
+            </div>
+
+            <div className="mt-5 grid grid-cols-1 xl:grid-cols-3 gap-4">
+              <div className="rounded-2xl border border-blue-100 bg-white p-4">
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Realizadas por Dia</p>
+                <div className="mt-3 space-y-2 max-h-72 overflow-y-auto pr-1">
+                  {dailySeries.length > 0 ? dailySeries.map((item) => (
+                    <div key={item.key} className="space-y-1">
+                      <div className="flex items-center justify-between text-[10px] font-bold uppercase text-slate-600">
+                        <span>{item.label}</span>
+                        <span>{item.total}</span>
+                      </div>
+                      <div className="h-2.5 rounded-full bg-blue-50 overflow-hidden border border-blue-100">
+                        <div className="h-full rounded-full bg-blue-500" style={{ width: barWidth(item.total, maxDaily) }} />
+                      </div>
+                    </div>
+                  )) : (
+                    <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-5 text-center text-[11px] font-bold text-slate-400">
+                      Sem dados diários no período analisado.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-emerald-100 bg-white p-4">
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Realizadas por Mês</p>
+                <div className="mt-3 space-y-2 max-h-72 overflow-y-auto pr-1">
+                  {monthlySeries.length > 0 ? monthlySeries.map((item) => (
+                    <div key={item.key} className="space-y-1">
+                      <div className="flex items-center justify-between text-[10px] font-bold uppercase text-slate-600">
+                        <span>{item.label}</span>
+                        <span>{item.total}</span>
+                      </div>
+                      <div className="h-2.5 rounded-full bg-emerald-50 overflow-hidden border border-emerald-100">
+                        <div className="h-full rounded-full bg-emerald-500" style={{ width: barWidth(item.total, maxMonthly) }} />
+                      </div>
+                    </div>
+                  )) : (
+                    <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-5 text-center text-[11px] font-bold text-slate-400">
+                      Sem dados mensais no período analisado.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-indigo-100 bg-white p-4">
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Realizadas por Situação</p>
+                <div className="mt-3 space-y-2 max-h-72 overflow-y-auto pr-1">
+                  {situationSeries.length > 0 ? situationSeries.map((item) => (
+                    <div key={item.label} className="space-y-1">
+                      <div className="flex items-center justify-between text-[10px] font-bold uppercase text-slate-600 gap-2">
+                        <span className="truncate">{item.label}</span>
+                        <span>{item.total}</span>
+                      </div>
+                      <div className="h-2.5 rounded-full bg-indigo-50 overflow-hidden border border-indigo-100">
+                        <div className="h-full rounded-full bg-indigo-500" style={{ width: barWidth(item.total, maxSituation) }} />
+                      </div>
+                    </div>
+                  )) : (
+                    <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-5 text-center text-[11px] font-bold text-slate-400">
+                      Sem dados de situação no período analisado.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4 grid grid-cols-1 xl:grid-cols-2 gap-4">
+              <div className="rounded-2xl border border-sky-100 bg-white p-4">
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Situação por Dia</p>
+                <div className="mt-3 space-y-3 max-h-80 overflow-y-auto pr-1">
+                  {situationDailySeries.length > 0 ? situationDailySeries.map((situation) => {
+                    const series = situation.serie || [];
+                    const localMax = Math.max(...series.map((item) => Number(item.total || 0)), 1);
+                    return (
+                      <div key={`daily-${situation.label}`} className="rounded-2xl border border-sky-100 bg-sky-50/40 p-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-[10px] font-black uppercase text-slate-700 truncate">{situation.label}</p>
+                          <span className="text-[10px] font-black uppercase text-sky-700">{situation.total}</span>
+                        </div>
+                        <div className="mt-2 space-y-1.5">
+                          {series.length > 0 ? series.map((item) => (
+                            <div key={`${situation.label}-${item.key}`} className="space-y-1">
+                              <div className="flex items-center justify-between text-[9px] font-bold uppercase text-slate-600">
+                                <span>{item.label}</span>
+                                <span>{item.total}</span>
+                              </div>
+                              <div className="h-2 rounded-full bg-sky-50 overflow-hidden border border-sky-100">
+                                <div className="h-full rounded-full bg-sky-500" style={{ width: barWidth(item.total, localMax) }} />
+                              </div>
+                            </div>
+                          )) : (
+                            <p className="text-[10px] font-bold text-slate-400">Sem registros diários.</p>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  }) : (
+                    <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-5 text-center text-[11px] font-bold text-slate-400">
+                      Sem série diária por situação no período analisado.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-violet-100 bg-white p-4">
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Situação por Mês</p>
+                <div className="mt-3 space-y-3 max-h-80 overflow-y-auto pr-1">
+                  {situationMonthlySeries.length > 0 ? situationMonthlySeries.map((situation) => {
+                    const series = situation.serie || [];
+                    const localMax = Math.max(...series.map((item) => Number(item.total || 0)), 1);
+                    return (
+                      <div key={`monthly-${situation.label}`} className="rounded-2xl border border-violet-100 bg-violet-50/40 p-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-[10px] font-black uppercase text-slate-700 truncate">{situation.label}</p>
+                          <span className="text-[10px] font-black uppercase text-violet-700">{situation.total}</span>
+                        </div>
+                        <div className="mt-2 space-y-1.5">
+                          {series.length > 0 ? series.map((item) => (
+                            <div key={`${situation.label}-${item.key}`} className="space-y-1">
+                              <div className="flex items-center justify-between text-[9px] font-bold uppercase text-slate-600">
+                                <span>{item.label}</span>
+                                <span>{item.total}</span>
+                              </div>
+                              <div className="h-2 rounded-full bg-violet-50 overflow-hidden border border-violet-100">
+                                <div className="h-full rounded-full bg-violet-500" style={{ width: barWidth(item.total, localMax) }} />
+                              </div>
+                            </div>
+                          )) : (
+                            <p className="text-[10px] font-bold text-slate-400">Sem registros mensais.</p>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  }) : (
+                    <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-5 text-center text-[11px] font-bold text-slate-400">
+                      Sem série mensal por situação no período analisado.
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </section>
@@ -227,6 +391,14 @@ const ManagerDashboardTab = ({
         situacoes_ids: situationIds,
         situacoes_nomes: situationIds.map((id) => SITUACOES_MAP[String(id)] || String(id)),
         mesa_por_situacao: {},
+        analytics: {
+          total_periodo: 0,
+          por_dia: [],
+          por_mes: [],
+          por_situacao: [],
+          por_situacao_por_dia: [],
+          por_situacao_por_mes: [],
+        },
       };
     });
   }, [dashData?.resumo_equipe, dashData?.equipe, analistasMapa, SITUACOES_MAP]);

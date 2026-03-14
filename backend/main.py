@@ -12,6 +12,7 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from typing import Any, Dict, List, Optional
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from supabase import create_client, Client
 from pydantic import BaseModel
 from postgrest.exceptions import APIError
@@ -315,6 +316,12 @@ CVCRM_EMAIL = get_required_env("CVCRM_EMAIL")
 CVCRM_TOKEN = get_required_env("CVCRM_TOKEN")
 ADMIN_AUTH_SECRET = (os.getenv("ADMIN_AUTH_SECRET") or SUPABASE_KEY).strip()
 MANAGER_TOKEN_TTL_SECONDS = int(os.getenv("MANAGER_TOKEN_TTL_SECONDS", "43200"))
+APP_TIMEZONE_NAME = (os.getenv("APP_TIMEZONE") or "America/Sao_Paulo").strip() or "America/Sao_Paulo"
+try:
+    APP_TIMEZONE = ZoneInfo(APP_TIMEZONE_NAME)
+except ZoneInfoNotFoundError:
+    APP_TIMEZONE = datetime.timezone.utc
+    APP_TIMEZONE_NAME = "UTC"
 
 # --- CONFIGURAÇÕES DE E-MAIL PARA RESET DE SENHA ---
 SMTP_HOST = os.getenv("SMTP_HOST", "")
@@ -656,7 +663,14 @@ def get_local_today(reference: Optional[datetime.datetime] = None) -> datetime.d
     base = reference or datetime.datetime.now(datetime.timezone.utc)
     if base.tzinfo is None:
         return base.date()
-    return base.astimezone().date()
+    return base.astimezone(APP_TIMEZONE).date()
+
+
+def get_app_now(reference: Optional[datetime.datetime] = None) -> datetime.datetime:
+    base = reference or datetime.datetime.now(datetime.timezone.utc)
+    if base.tzinfo is None:
+        base = base.replace(tzinfo=datetime.timezone.utc)
+    return base.astimezone(APP_TIMEZONE)
 
 
 def get_effective_total_hoje(analyst: Dict[str, Any], reference: Optional[datetime.datetime] = None) -> int:
@@ -668,7 +682,7 @@ def get_effective_total_hoje(analyst: Dict[str, Any], reference: Optional[dateti
     if ultima_atribuicao.tzinfo is None:
         last_assignment_day = ultima_atribuicao.date()
     else:
-        last_assignment_day = ultima_atribuicao.astimezone().date()
+        last_assignment_day = ultima_atribuicao.astimezone(APP_TIMEZONE).date()
 
     if last_assignment_day != get_local_today(reference_dt):
         return 0
@@ -1696,7 +1710,9 @@ async def manager_overview(
     require_manager_auth(authorization)
     # Usa os dados do último sync para não duplicar requests ao CVCRM
     now = datetime.datetime.now(datetime.timezone.utc)
-    today_start = now.astimezone().replace(hour=0, minute=0, second=0, microsecond=0)
+    app_now = get_app_now(now)
+    today_start = app_now.replace(hour=0, minute=0, second=0, microsecond=0)
+    analytics_window_start = app_now - datetime.timedelta(days=365)
     total_crm = _LAST_SYNC_STATE.get("total_no_crm") or 0
     equipe = supabase.table("analistas").select("*").order("nome").execute().data or []
     equipe_normalizada: List[Dict[str, Any]] = []
@@ -1726,6 +1742,14 @@ async def manager_overview(
             "situacoes_ids": permissoes,
             "situacoes_nomes": [SITUACOES_NOMES.get(item, str(item)) for item in permissoes],
             "mesa_por_situacao": {},
+            "analytics": {
+                "total_periodo": 0,
+                "por_dia": [],
+                "por_mes": [],
+                "por_situacao": [],
+                "por_situacao_por_dia": [],
+                "por_situacao_por_mes": [],
+            },
         }
 
     distribuicao_atual = supabase.table("distribuicoes").select("*").execute().data or []
@@ -1742,6 +1766,65 @@ async def manager_overview(
         )
     except Exception:
         historico_hoje = []
+
+    try:
+        historico_analytics = (
+            supabase.table("historico")
+            .select("analista_id,situacao_id,situacao_nome,data_fim")
+            .gte("data_fim", analytics_window_start.astimezone(datetime.timezone.utc).isoformat())
+            .limit(50000)
+            .execute()
+            .data
+            or []
+        )
+    except Exception:
+        historico_analytics = []
+
+    analytics_map: Dict[int, Dict[str, Any]] = {}
+
+    for item in historico_analytics:
+        analista_id = item.get("analista_id")
+        if analista_id is None:
+            continue
+
+        try:
+            analista_key = int(analista_id)
+        except (TypeError, ValueError):
+            continue
+
+        finished_at = parse_history_datetime(item.get("data_fim"))
+        if not finished_at:
+            continue
+
+        if finished_at.tzinfo is None:
+            finished_local = finished_at.replace(tzinfo=APP_TIMEZONE)
+        else:
+            finished_local = finished_at.astimezone(APP_TIMEZONE)
+
+        bucket = analytics_map.setdefault(
+            analista_key,
+            {
+                "por_dia": {},
+                "por_mes": {},
+                "por_situacao": {},
+                "por_situacao_por_dia": {},
+                "por_situacao_por_mes": {},
+            },
+        )
+
+        day_key = finished_local.strftime("%Y-%m-%d")
+        month_key = finished_local.strftime("%Y-%m")
+        situacao_id = int(item.get("situacao_id") or 0)
+        situacao_nome = item.get("situacao_nome") or SITUACOES_NOMES.get(situacao_id, "Nao informado")
+
+        bucket["por_dia"][day_key] = bucket["por_dia"].get(day_key, 0) + 1
+        bucket["por_mes"][month_key] = bucket["por_mes"].get(month_key, 0) + 1
+        bucket["por_situacao"][situacao_nome] = bucket["por_situacao"].get(situacao_nome, 0) + 1
+
+        situacao_dia_bucket = bucket["por_situacao_por_dia"].setdefault(situacao_nome, {})
+        situacao_mes_bucket = bucket["por_situacao_por_mes"].setdefault(situacao_nome, {})
+        situacao_dia_bucket[day_key] = situacao_dia_bucket.get(day_key, 0) + 1
+        situacao_mes_bucket[month_key] = situacao_mes_bucket.get(month_key, 0) + 1
 
     for item in distribuicao_atual:
         analista_id = item.get("analista_id")
@@ -1762,6 +1845,53 @@ async def manager_overview(
         if not resumo:
             continue
         resumo["feitas_hoje"] += 1
+
+    for analista_id, resumo in resumo_equipe_map.items():
+        analytics = analytics_map.get(analista_id) or {
+            "por_dia": {},
+            "por_mes": {},
+            "por_situacao": {},
+            "por_situacao_por_dia": {},
+            "por_situacao_por_mes": {},
+        }
+        total_periodo = sum(analytics.get("por_dia", {}).values())
+
+        top_situacoes = [
+            label for label, _ in sorted(
+                analytics.get("por_situacao", {}).items(),
+                key=lambda item: (-item[1], item[0]),
+            )[:10]
+        ]
+
+        por_situacao_por_dia = []
+        por_situacao_por_mes = []
+
+        for label in top_situacoes:
+            daily_counter = analytics.get("por_situacao_por_dia", {}).get(label, {})
+            monthly_counter = analytics.get("por_situacao_por_mes", {}).get(label, {})
+            por_situacao_por_dia.append(
+                {
+                    "label": label,
+                    "total": sum(daily_counter.values()),
+                    "serie": build_daily_series(daily_counter, limit=30),
+                }
+            )
+            por_situacao_por_mes.append(
+                {
+                    "label": label,
+                    "total": sum(monthly_counter.values()),
+                    "serie": build_monthly_series(monthly_counter, limit=12),
+                }
+            )
+
+        resumo["analytics"] = {
+            "total_periodo": total_periodo,
+            "por_dia": build_daily_series(analytics.get("por_dia", {}), limit=30),
+            "por_mes": build_monthly_series(analytics.get("por_mes", {}), limit=12),
+            "por_situacao": build_sorted_counter(analytics.get("por_situacao", {}), limit=20),
+            "por_situacao_por_dia": por_situacao_por_dia,
+            "por_situacao_por_mes": por_situacao_por_mes,
+        }
 
     resumo_equipe = sorted(
         resumo_equipe_map.values(),
