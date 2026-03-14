@@ -351,14 +351,14 @@ const LoginView = ({
                 <div className="relative">
                   <Mail size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-300 pointer-events-none" />
                   <input
-                    type="text"
+                    type="email"
                     value={managerUsername}
                     onChange={(e) => setManagerUsername(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleManagerLogin()}
                     className="w-full bg-slate-50 border border-slate-100 rounded-xl py-3.5 pl-10 pr-4 text-slate-800 font-bold outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm transition-all duration-200"
-                    placeholder="Usuário admin"
+                    placeholder="E-mail admin"
                     autoFocus
-                    autoComplete="username"
+                    autoComplete="email"
                   />
                 </div>
                 <div className="relative">

@@ -18,9 +18,14 @@ import AnalystSettingsTab from './components/analyst/AnalystSettingsTab';
 import ManagerHeader from './components/manager/ManagerHeader';
 import ManagerDashboardTab from './components/manager/ManagerDashboardTab';
 import ManagerTransfersTab from './components/manager/ManagerTransfersTab';
+import ManagerAdminsTab from './components/manager/ManagerAdminsTab';
 import EditAnalystModal from './components/manager/EditAnalystModal';
 
 const AUTO_REFRESH_SECONDS = 15;
+const ADMIN_IDLE_TIMEOUT_MS = 30 * 60 * 1000;
+const ADMIN_IDLE_WARNING_MS = 2 * 60 * 1000;
+const ANALYST_IDLE_TIMEOUT_MS = 4 * 60 * 60 * 1000;
+const ANALYST_IDLE_WARNING_MS = 5 * 60 * 1000;
 const ALL_FILTER = 'all';
 const LEGACY_MANAGER_TOKEN = 'legacy-admin-session';
 const EMPTY_ANALYTICS = {
@@ -59,10 +64,26 @@ const createTransferOptions = (logs, idField, nameField) => {
   return Array.from(map.values()).sort((a, b) => a.label.localeCompare(b.label));
 };
 
+const formatIdleCountdown = (secondsLeft) => {
+  const safeSeconds = Math.max(0, Number(secondsLeft) || 0);
+  const minutes = Math.floor(safeSeconds / 60);
+  const seconds = safeSeconds % 60;
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+};
+
 const App = () => {
   // --- ESTADOS DE NAVEGAÇÃO ---
   const [view, setView] = useState('login'); 
-  const [currentUser, setCurrentUser] = useState(null);
+  const [currentUser, setCurrentUser] = useState(() => {
+    if (typeof window === 'undefined') return null;
+    const rawSession = window.sessionStorage.getItem('analystSession');
+    if (!rawSession) return null;
+    try {
+      return JSON.parse(rawSession);
+    } catch {
+      return null;
+    }
+  });
   const [analystTab, setAnalystTab] = useState('mesa'); 
   const [managerTab, setManagerTab] = useState('dashboard');
   const [transferMonthFilter, setTransferMonthFilter] = useState(ALL_FILTER);
@@ -115,14 +136,14 @@ const App = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editForm, setEditForm] = useState({ id: null, nome: "", email: "", senha: "", permissoes: [], status: "ativo" });
   const [showManagerLoginModal, setShowManagerLoginModal] = useState(false);
-  const [managerUsername, setManagerUsername] = useState(() => {
-    if (typeof window === 'undefined') return 'admin';
+  const [managerIdentifier, setManagerIdentifier] = useState(() => {
+    if (typeof window === 'undefined') return '';
     const rawSession = window.sessionStorage.getItem('managerSession');
-    if (!rawSession) return 'admin';
+    if (!rawSession) return '';
     try {
-      return JSON.parse(rawSession)?.usuario || 'admin';
+      return JSON.parse(rawSession)?.email || JSON.parse(rawSession)?.usuario || '';
     } catch {
-      return 'admin';
+      return '';
     }
   });
   const [managerPassword, setManagerPassword] = useState("");
@@ -137,6 +158,13 @@ const App = () => {
       return null;
     }
   });
+  const [adminUsers, setAdminUsers] = useState([]);
+  const [adminForm, setAdminForm] = useState({
+    email: '',
+    username: '',
+    senha: '',
+    ativo: true,
+  });
   const [confirmAction, setConfirmAction] = useState({ open: false, title: "", message: "", confirmLabel: "Confirmar", tone: "warning" });
   const [togglingQueueIds, setTogglingQueueIds] = useState([]);
   const [showTransferModal, setShowTransferModal] = useState(false);
@@ -147,7 +175,10 @@ const App = () => {
   const [showBulkTransferModal, setShowBulkTransferModal] = useState(false);
   const [bulkTransferToId, setBulkTransferToId] = useState("");
   const [bulkTransferReason, setBulkTransferReason] = useState("");
+  const [idlePrompt, setIdlePrompt] = useState({ visible: false, role: null, secondsLeft: 0 });
   const confirmResolverRef = useRef(null);
+  const sessionActivityPersistRef = useRef({ manager: 0, analyst: 0 });
+  const sessionExpiryGuardRef = useRef(false);
 
   const CRM_BASE_BY_SOURCE = {
     cvcrm: "https://vca.cvcrm.com.br/gestor/comercial/reservas",
@@ -205,12 +236,43 @@ const App = () => {
     setTimeout(() => setToast({ show: false, message: "", type: "success" }), 3500);
   }, []);
 
-  const persistManagerSession = useCallback((session) => {
-    setManagerSession(session);
+  const persistAnalystSession = useCallback((session) => {
+    const normalizedSession = session
+      ? {
+          ...session,
+          lastActivityAt: session.lastActivityAt || Date.now(),
+        }
+      : null;
+
+    setCurrentUser(normalizedSession);
     if (typeof window === 'undefined') return;
 
-    if (session) {
-      window.sessionStorage.setItem('managerSession', JSON.stringify(session));
+    if (normalizedSession) {
+      window.sessionStorage.setItem('analystSession', JSON.stringify(normalizedSession));
+      return;
+    }
+
+    window.sessionStorage.removeItem('analystSession');
+  }, []);
+
+  const clearAnalystSession = useCallback(() => {
+    persistAnalystSession(null);
+    setAnalystTab('mesa');
+  }, [persistAnalystSession]);
+
+  const persistManagerSession = useCallback((session) => {
+    const normalizedSession = session
+      ? {
+          ...session,
+          lastActivityAt: session.lastActivityAt || Date.now(),
+        }
+      : null;
+
+    setManagerSession(normalizedSession);
+    if (typeof window === 'undefined') return;
+
+    if (normalizedSession) {
+      window.sessionStorage.setItem('managerSession', JSON.stringify(normalizedSession));
       return;
     }
 
@@ -221,15 +283,90 @@ const App = () => {
     persistManagerSession(null);
   }, [persistManagerSession]);
 
+  const touchAnalystActivity = useCallback(() => {
+    const now = Date.now();
+    if (now - sessionActivityPersistRef.current.analyst < 15000) return;
+    sessionActivityPersistRef.current.analyst = now;
+    setCurrentUser((prev) => {
+      if (!prev?.id) return prev;
+      const next = { ...prev, lastActivityAt: now };
+      if (typeof window !== 'undefined') {
+        window.sessionStorage.setItem('analystSession', JSON.stringify(next));
+      }
+      return next;
+    });
+  }, []);
+
+  const touchManagerActivity = useCallback(() => {
+    const now = Date.now();
+    if (now - sessionActivityPersistRef.current.manager < 15000) return;
+    sessionActivityPersistRef.current.manager = now;
+    setManagerSession((prev) => {
+      if (!prev?.token) return prev;
+      const next = { ...prev, lastActivityAt: now };
+      if (typeof window !== 'undefined') {
+        window.sessionStorage.setItem('managerSession', JSON.stringify(next));
+      }
+      return next;
+    });
+  }, []);
+
+  const handleAnalystLogout = useCallback(async ({ reason = 'manual' } = {}) => {
+    if (!currentUser?.id) {
+      clearAnalystSession();
+      setView('login');
+      return;
+    }
+
+    let redistribuiuPastas = false;
+    try {
+      const response = await api.setQueueStatus(currentUser.id, false);
+      if (response?.ok) {
+        const payload = await response.json();
+        redistribuiuPastas = Number(payload?.redistribuidas || 0) > 0;
+      }
+    } catch {
+      // Continua o logout local mesmo em falha de rede.
+    }
+
+    clearAnalystSession();
+    setIdlePrompt({ visible: false, role: null, secondsLeft: 0 });
+    setView('login');
+
+    if (reason === 'idle') {
+      notify('Sessão encerrada por inatividade. Suas pastas foram redistribuídas automaticamente.', 'error');
+      return;
+    }
+
+    if (reason === 'password-change') {
+      notify('Senha alterada. Por segurança, faça login novamente.', 'success');
+      return;
+    }
+
+    if (redistribuiuPastas) {
+      notify('Sessão encerrada. Suas pastas foram redistribuídas.', 'success');
+    } else {
+      notify('Sessão encerrada.', 'success');
+    }
+  }, [currentUser, clearAnalystSession, notify]);
+
   const handleManagerUnauthorized = useCallback(() => {
     clearManagerSession();
     setShowManagerLoginModal(false);
+    setManagerIdentifier('');
     setManagerPassword('');
     setShowManagerPassword(false);
     setManagerTab('dashboard');
     setView('login');
     notify('Sessão do admin expirada. Faça login novamente.', 'error');
   }, [clearManagerSession, notify]);
+
+  const handleAnalystUnauthorized = useCallback(() => {
+    clearAnalystSession();
+    setIdlePrompt({ visible: false, role: null, secondsLeft: 0 });
+    setView('login');
+    notify('Sua sessão foi encerrada ou revogada. Faça login novamente.', 'error');
+  }, [clearAnalystSession, notify]);
 
   const getApiErrorMessage = async (response, fallbackMessage) => {
     try {
@@ -303,12 +440,25 @@ const App = () => {
 
       if (view === 'analyst' && currentUser) {
         const resM = await api.getMesa(currentUser.id);
-        if (resM.ok) setMyTasks(await resM.json());
+        if (resM.ok) {
+          setMyTasks(await resM.json());
+        } else if (resM.status === 401) {
+          handleAnalystUnauthorized();
+          return;
+        }
         const resMet = await api.getMetrics(currentUser.id);
-        if (resMet.ok) setMetrics(await resMet.json());
+        if (resMet.ok) {
+          setMetrics(await resMet.json());
+        } else if (resMet.status === 401) {
+          handleAnalystUnauthorized();
+          return;
+        }
         const resAnalytics = await api.getAnalystDashboard(currentUser.id);
         if (resAnalytics.ok) {
           setAnalyticsData(await resAnalytics.json());
+        } else if (resAnalytics.status === 401) {
+          handleAnalystUnauthorized();
+          return;
         } else {
           setAnalyticsData(EMPTY_ANALYTICS);
         }
@@ -358,7 +508,7 @@ const App = () => {
       if (!silent) setIsGlobalLoading(false);
       setNextRefreshAt(Date.now() + (AUTO_REFRESH_SECONDS * 1000));
     }
-  }, [currentUser, handleManagerUnauthorized, view]);
+  }, [currentUser, handleManagerUnauthorized, handleAnalystUnauthorized, view]);
 
   useEffect(() => {
     fetchData();
@@ -376,6 +526,18 @@ const App = () => {
   }, [nextRefreshAt]);
 
   useEffect(() => {
+    if (managerSession?.token) {
+      setView('manager');
+    }
+  }, [managerSession?.token]);
+
+  useEffect(() => {
+    if (view === 'login' && !managerSession?.token && currentUser?.id) {
+      setView('analyst');
+    }
+  }, [view, managerSession?.token, currentUser?.id]);
+
+  useEffect(() => {
     if (view === 'manager' && !managerSession?.token) {
       setView('login');
     }
@@ -389,7 +551,7 @@ const App = () => {
       const res = await api.loginEmail(email, senha);
       if (res.ok) {
         const userData = await res.json();
-        setCurrentUser(userData);
+        persistAnalystSession(userData);
         setAnalystTab('mesa');
         setView('analyst');
         notify(`Olá, ${userData.nome}!`);
@@ -401,11 +563,11 @@ const App = () => {
   };
 
   const handleManagerLogin = async () => {
-    if (!managerUsername.trim() || !managerPassword.trim()) return;
+    if (!managerIdentifier.trim() || !managerPassword.trim()) return;
 
     setIsGlobalLoading(true);
     try {
-      const res = await api.managerLogin(managerUsername.trim(), managerPassword);
+      const res = await api.managerLogin(managerIdentifier.trim().toLowerCase(), managerPassword);
       if (res.ok) {
         const session = await res.json();
         persistManagerSession(session);
@@ -420,7 +582,7 @@ const App = () => {
 
         if (legacyOverview.ok) {
           persistManagerSession({
-            usuario: managerUsername.trim(),
+            usuario: managerIdentifier.trim(),
             email: null,
             token: LEGACY_MANAGER_TOKEN,
             legacyMode: true,
@@ -447,18 +609,276 @@ const App = () => {
   const handleManagerLogout = useCallback(() => {
     clearManagerSession();
     setShowManagerLoginModal(false);
+    setManagerIdentifier('');
     setManagerPassword('');
     setShowManagerPassword(false);
     setManagerTab('dashboard');
     setView('login');
   }, [clearManagerSession]);
 
+  const fetchAdminUsers = useCallback(async () => {
+    if (!managerSession?.token) return;
+    try {
+      const res = await api.getManagerAdmins();
+      if (res.status === 401) {
+        handleManagerUnauthorized();
+        return;
+      }
+      if (res.ok) {
+        setAdminUsers(await res.json());
+      }
+    } catch {
+      // Silencioso: listado auxiliar do painel.
+    }
+  }, [managerSession?.token, handleManagerUnauthorized]);
+
+  const handleCreateAdminUser = async (event) => {
+    event?.preventDefault?.();
+
+    let emailRaw = adminForm.email || '';
+    let senhaRaw = adminForm.senha || '';
+    let usernameRaw = adminForm.username || '';
+    let ativoRaw = adminForm.ativo;
+
+    const form = event?.currentTarget;
+    if (typeof FormData !== 'undefined' && form instanceof HTMLFormElement) {
+      const formData = new FormData(form);
+      emailRaw = String(formData.get('email') ?? emailRaw);
+      senhaRaw = String(formData.get('senha') ?? senhaRaw);
+      usernameRaw = String(formData.get('username') ?? usernameRaw);
+      ativoRaw = formData.has('ativo');
+    }
+
+    const email = (emailRaw || '').trim().toLowerCase();
+    const senha = (senhaRaw || '').trim();
+    const username = (usernameRaw || '').trim().toLowerCase();
+
+    setAdminForm((prev) => ({
+      ...prev,
+      email,
+      senha,
+      username,
+      ativo: Boolean(ativoRaw),
+    }));
+
+    if (!email || !senha) {
+      notify('Informe e-mail e senha do administrador.', 'error');
+      return;
+    }
+
+    setIsGlobalLoading(true);
+    try {
+      const res = await api.createManagerAdmin({
+        email,
+        senha,
+        username: username || null,
+        ativo: Boolean(ativoRaw),
+      });
+
+      if (res.status === 401) {
+        handleManagerUnauthorized();
+        return;
+      }
+
+      if (res.ok) {
+        notify('Administrador criado com sucesso.');
+        setAdminForm({ email: '', username: '', senha: '', ativo: true });
+        fetchAdminUsers();
+      } else {
+        notify(await getApiErrorMessage(res, 'Erro ao criar administrador'), 'error');
+      }
+    } catch {
+      notify('Erro de conexão ao criar administrador.', 'error');
+    } finally {
+      setIsGlobalLoading(false);
+    }
+  };
+
+  const handleRevokeAdminSession = async (admin) => {
+    if (!admin?.id) return;
+    const confirmed = await requestConfirmation({
+      title: 'Revogar sessão do admin',
+      message: `Deseja revogar todas as sessões ativas de ${admin.username || admin.email || 'admin'}?`,
+      confirmLabel: 'Revogar Sessões',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
+
+    setIsGlobalLoading(true);
+    try {
+      const res = await api.revokeUserSessions({
+        role: 'admin',
+        user_id: Number(admin.id),
+        reason: 'manager-panel',
+      });
+
+      if (res.status === 401) {
+        handleManagerUnauthorized();
+        return;
+      }
+
+      if (res.ok) {
+        notify('Sessões do administrador revogadas com sucesso.');
+        fetchAdminUsers();
+      } else {
+        notify(await getApiErrorMessage(res, 'Erro ao revogar sessão do admin'), 'error');
+      }
+    } catch {
+      notify('Erro de conexão ao revogar sessão do admin.', 'error');
+    } finally {
+      setIsGlobalLoading(false);
+    }
+  };
+
+  const handleRevokeAnalystSession = async (analyst) => {
+    if (!analyst?.id) return;
+    const confirmed = await requestConfirmation({
+      title: 'Revogar sessão do analista',
+      message: `Deseja revogar as sessões de ${analyst.nome || `Analista ${analyst.id}`} e colocá-lo offline?`,
+      confirmLabel: 'Revogar e Desconectar',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
+
+    setIsGlobalLoading(true);
+    try {
+      const res = await api.revokeUserSessions({
+        role: 'analyst',
+        user_id: Number(analyst.id),
+        reason: 'manager-panel',
+      });
+
+      if (res.status === 401) {
+        handleManagerUnauthorized();
+        return;
+      }
+
+      if (res.ok) {
+        const data = await res.json();
+        notify(`Sessões revogadas. Redistribuídas: ${data.redistribuidas || 0}. Sem destino: ${data.sem_destino || 0}.`);
+        fetchData(true);
+      } else {
+        notify(await getApiErrorMessage(res, 'Erro ao revogar sessão do analista'), 'error');
+      }
+    } catch {
+      notify('Erro de conexão ao revogar sessão do analista.', 'error');
+    } finally {
+      setIsGlobalLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (view === 'manager' && managerTab === 'admins') {
+      fetchAdminUsers();
+    }
+  }, [view, managerTab, fetchAdminUsers]);
+
+  useEffect(() => {
+    if (view === 'login') return;
+
+    const handleActivity = () => {
+      if (managerSession?.token) {
+        touchManagerActivity();
+        return;
+      }
+      if (currentUser?.id) {
+        touchAnalystActivity();
+      }
+    };
+
+    const events = ['mousedown', 'keydown', 'touchstart', 'scroll'];
+    events.forEach((eventName) => window.addEventListener(eventName, handleActivity, { passive: true }));
+
+    return () => {
+      events.forEach((eventName) => window.removeEventListener(eventName, handleActivity));
+    };
+  }, [view, managerSession?.token, currentUser?.id, touchManagerActivity, touchAnalystActivity]);
+
+  useEffect(() => {
+    if (view === 'login') {
+      setIdlePrompt({ visible: false, role: null, secondsLeft: 0 });
+      return;
+    }
+
+    const interval = setInterval(() => {
+      const now = Date.now();
+
+      if (managerSession?.token) {
+        const lastActivity = Number(managerSession.lastActivityAt || 0) || now;
+        const elapsed = now - lastActivity;
+        const remaining = ADMIN_IDLE_TIMEOUT_MS - elapsed;
+
+        if (remaining <= 0) {
+          if (sessionExpiryGuardRef.current) return;
+          sessionExpiryGuardRef.current = true;
+          clearManagerSession();
+          setIdlePrompt({ visible: false, role: null, secondsLeft: 0 });
+          setView('login');
+          notify('Sessão admin encerrada por inatividade (30 minutos).', 'error');
+          setTimeout(() => {
+            sessionExpiryGuardRef.current = false;
+          }, 500);
+          return;
+        }
+
+        if (remaining <= ADMIN_IDLE_WARNING_MS) {
+          setIdlePrompt({
+            visible: true,
+            role: 'admin',
+            secondsLeft: Math.ceil(remaining / 1000),
+          });
+        } else if (idlePrompt.visible && idlePrompt.role === 'admin') {
+          setIdlePrompt({ visible: false, role: null, secondsLeft: 0 });
+        }
+        return;
+      }
+
+      if (currentUser?.id) {
+        const lastActivity = Number(currentUser.lastActivityAt || 0) || now;
+        const elapsed = now - lastActivity;
+        const remaining = ANALYST_IDLE_TIMEOUT_MS - elapsed;
+
+        if (remaining <= 0) {
+          if (sessionExpiryGuardRef.current) return;
+          sessionExpiryGuardRef.current = true;
+          void handleAnalystLogout({ reason: 'idle' }).finally(() => {
+            setTimeout(() => {
+              sessionExpiryGuardRef.current = false;
+            }, 500);
+          });
+          return;
+        }
+
+        if (remaining <= ANALYST_IDLE_WARNING_MS) {
+          setIdlePrompt({
+            visible: true,
+            role: 'analyst',
+            secondsLeft: Math.ceil(remaining / 1000),
+          });
+        } else if (idlePrompt.visible && idlePrompt.role === 'analyst') {
+          setIdlePrompt({ visible: false, role: null, secondsLeft: 0 });
+        }
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [
+    view,
+    managerSession,
+    currentUser,
+    idlePrompt.visible,
+    idlePrompt.role,
+    clearManagerSession,
+    handleAnalystLogout,
+    notify,
+  ]);
+
   const toggleQueueStatus = async (status) => {
     setIsGlobalLoading(true);
     try {
       const res = await api.setQueueStatus(currentUser.id, status);
       if (res.ok) {
-        setCurrentUser(prev => ({ ...prev, is_online: status }));
+        persistAnalystSession({ ...currentUser, is_online: status });
         notify(status ? "Você está Online!" : "Pausado.");
         fetchData();
       }
@@ -641,7 +1061,7 @@ const App = () => {
     applyAnalystQueueStatus(analyst.id, nextStatus);
 
     try {
-      const res = await api.setQueueStatus(analyst.id, nextStatus);
+      const res = await api.setQueueStatus(analyst.id, nextStatus, { asManager: true });
       if (res.ok) {
         const data = await res.json();
         if (!nextStatus) {
@@ -747,7 +1167,15 @@ const App = () => {
       });
 
       if (res.ok) {
-        notify('Senha alterada com sucesso.');
+        try {
+          if (currentUser.is_online) {
+            await api.setQueueStatus(currentUser.id, false);
+          }
+        } catch {
+          // Segue para logout mesmo em falha de rede.
+        }
+
+        await handleAnalystLogout({ reason: 'password-change' });
         return true;
       }
 
@@ -759,7 +1187,7 @@ const App = () => {
     } finally {
       setIsGlobalLoading(false);
     }
-  };
+  }; 
 
   const filteredTasks = useMemo(() => {
     return (myTasks || []).filter(task => {
@@ -879,6 +1307,62 @@ const App = () => {
     setTransferDestinationFilter(ALL_FILTER);
   };
 
+  const idlePromptModal = idlePrompt.visible ? (
+    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-500 flex items-center justify-center p-4">
+      <div className="w-full max-w-md rounded-2xl border border-slate-100 bg-white p-6 shadow-2xl">
+        <div className="flex items-start gap-3">
+          <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center shrink-0">
+            <Clock size={18} />
+          </div>
+          <div>
+            <h3 className="text-sm font-black uppercase tracking-wide text-slate-800">
+              {idlePrompt.role === 'admin' ? 'Sessão admin quase expirada' : 'Hora de um check-in rápido'}
+            </h3>
+            <p className="text-[11px] font-bold text-slate-500 mt-1 leading-relaxed">
+              {idlePrompt.role === 'admin'
+                ? 'Sem atividade por um tempo. Confirme presença para manter o painel aberto.'
+                : 'Seu plantão está em modo soneca. Toque em continuar para manter sua sessão ativa.'}
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-5 rounded-xl bg-slate-50 border border-slate-100 px-4 py-3 flex items-center justify-between">
+          <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Tempo restante</span>
+          <span className="text-lg font-black text-slate-800 tracking-wider">{formatIdleCountdown(idlePrompt.secondsLeft)}</span>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 mt-5">
+          <button
+            type="button"
+            onClick={() => {
+              if (idlePrompt.role === 'admin') {
+                clearManagerSession();
+                setView('login');
+                notify('Sessão admin encerrada manualmente.', 'success');
+              } else {
+                void handleAnalystLogout({ reason: 'idle' });
+              }
+            }}
+            className="py-2.5 rounded-xl border border-slate-100 bg-slate-50 text-slate-500 text-[10px] font-black uppercase"
+          >
+            Encerrar agora
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              if (idlePrompt.role === 'admin') touchManagerActivity();
+              if (idlePrompt.role === 'analyst') touchAnalystActivity();
+              setIdlePrompt({ visible: false, role: null, secondsLeft: 0 });
+            }}
+            className="py-2.5 rounded-xl bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-blue-500"
+          >
+            Continuar sessão
+          </button>
+        </div>
+      </div>
+    </div>
+  ) : null;
+
   // --- TELA DE RESET DE SENHA (URL com ?reset_token=...) ---
   if (resetToken) return (
     <ResetPasswordView
@@ -904,8 +1388,8 @@ const App = () => {
       isGlobalLoading={isGlobalLoading}
       showManagerLoginModal={showManagerLoginModal}
       setShowManagerLoginModal={setShowManagerLoginModal}
-      managerUsername={managerUsername}
-      setManagerUsername={setManagerUsername}
+      managerUsername={managerIdentifier}
+      setManagerUsername={setManagerIdentifier}
       managerPassword={managerPassword}
       setManagerPassword={setManagerPassword}
       showManagerPassword={showManagerPassword}
@@ -920,6 +1404,7 @@ const App = () => {
     <div className="min-h-screen font-sans bg-[#f8fafc] text-slate-800 flex flex-col overflow-x-hidden">
       <StatusToast toast={toast} />
       <ConfirmActionModal confirmAction={confirmAction} onClose={closeConfirmation} />
+      {idlePromptModal}
       {isGlobalLoading && <LoadingOverlay />}
       <ManagerHeader
         handleRedistribute={handleRedistribute}
@@ -931,6 +1416,7 @@ const App = () => {
         <section className="bg-white border border-slate-100 rounded-2xl p-2 shadow-sm flex gap-2 w-fit">
           <button onClick={() => setManagerTab('dashboard')} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wide transition-all ${managerTab === 'dashboard' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-500 bg-slate-50 hover:bg-slate-100'}`}>Dashboard</button>
           <button onClick={() => setManagerTab('transferencias')} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wide transition-all flex items-center gap-2 ${managerTab === 'transferencias' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-500 bg-slate-50 hover:bg-slate-100'}`}><ArrowRightLeft size={12} /> Transferências</button>
+          <button onClick={() => setManagerTab('admins')} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wide transition-all flex items-center gap-2 ${managerTab === 'admins' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-500 bg-slate-50 hover:bg-slate-100'}`}><UserPlus size={12} /> Admins</button>
         </section>
 
         {managerTab === 'dashboard' && (
@@ -966,6 +1452,19 @@ const App = () => {
             groupedTransferLogs={groupedTransferLogs}
           />
         )}
+
+        {managerTab === 'admins' && (
+          <ManagerAdminsTab
+            admins={adminUsers}
+            analysts={dashData.equipe || []}
+            adminForm={adminForm}
+            setAdminForm={setAdminForm}
+            handleCreateAdmin={handleCreateAdminUser}
+            handleRevokeAdminSession={handleRevokeAdminSession}
+            handleRevokeAnalystSession={handleRevokeAnalystSession}
+            isGlobalLoading={isGlobalLoading}
+          />
+        )}
       </main>
       <EditAnalystModal
         showEditModal={showEditModal}
@@ -983,6 +1482,7 @@ const App = () => {
     <div className="min-h-screen font-sans bg-[#f8fafc] text-slate-800 flex flex-col overflow-x-hidden">
       <StatusToast toast={toast} />
       <ConfirmActionModal confirmAction={confirmAction} onClose={closeConfirmation} />
+      {idlePromptModal}
       {showTransferModal && transferTask && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-450 flex items-center justify-center p-4" onClick={() => setShowTransferModal(false)}>
           <div className="bg-white border border-slate-100 rounded-2xl shadow-2xl w-full max-w-md p-6 animate-in zoom-in-95" onClick={(e) => e.stopPropagation()}>
@@ -1148,7 +1648,7 @@ const App = () => {
                 <button onClick={() => setAnalystTab('analytics')} className={`p-1.5 md:p-2 rounded-lg transition-all ${analystTab === 'analytics' ? 'bg-white text-blue-600 shadow-sm border border-slate-100' : 'text-slate-300 hover:text-slate-400'}`} title="Dashboard analítico"><BarChart3 size={18}/></button>
                 <button onClick={() => setAnalystTab('settings')} className={`p-1.5 md:p-2 rounded-lg transition-all ${analystTab === 'settings' ? 'bg-white text-blue-600 shadow-sm border border-slate-100' : 'text-slate-300 hover:text-slate-400'}`} title="Configurações"><Settings size={18}/></button>
             </div>
-            <button onClick={() => { setView('login'); setCurrentUser(null); setAnalystTab('mesa'); }} className="bg-white text-slate-300 p-1.5 md:p-2 rounded-lg hover:text-red-500 transition-all border border-slate-100 active:scale-95 shadow-sm ml-1 shrink-0"><LogOut size={18}/></button>
+            <button onClick={() => { void handleAnalystLogout({ reason: 'manual' }); }} className="bg-white text-slate-300 p-1.5 md:p-2 rounded-lg hover:text-red-500 transition-all border border-slate-100 active:scale-95 shadow-sm ml-1 shrink-0"><LogOut size={18}/></button>
         </div>
       </nav>
 
