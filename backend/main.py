@@ -736,7 +736,7 @@ def parse_history_datetime(value: Optional[str]) -> Optional[datetime.datetime]:
 def get_local_today(reference: Optional[datetime.datetime] = None) -> datetime.date:
     base = reference or datetime.datetime.now(datetime.timezone.utc)
     if base.tzinfo is None:
-        return base.date()
+        base = base.replace(tzinfo=datetime.timezone.utc)
     return base.astimezone(APP_TIMEZONE).date()
 
 
@@ -754,7 +754,8 @@ def get_effective_total_hoje(analyst: Dict[str, Any], reference: Optional[dateti
         return 0
 
     if ultima_atribuicao.tzinfo is None:
-        last_assignment_day = ultima_atribuicao.date()
+        # Compatibilidade: timestamps antigos sem timezone são interpretados como UTC.
+        last_assignment_day = ultima_atribuicao.replace(tzinfo=datetime.timezone.utc).astimezone(APP_TIMEZONE).date()
     else:
         last_assignment_day = ultima_atribuicao.astimezone(APP_TIMEZONE).date()
 
@@ -1849,6 +1850,28 @@ async def manager_overview(
 
     distribuicao_atual = supabase.table("distribuicoes").select("*").execute().data or []
     historico_recente = supabase.table("historico").select("*").order("data_fim", desc=True).limit(100).execute().data or []
+    atribuicoes_hoje_map: Dict[int, int] = {}
+
+    for item in distribuicao_atual:
+        analista_id = item.get("analista_id")
+        if analista_id is None:
+            continue
+
+        assigned_at = parse_history_datetime(item.get("data_atribuicao"))
+        if not assigned_at:
+            continue
+
+        if assigned_at.tzinfo is None:
+            assigned_local = assigned_at.replace(tzinfo=datetime.timezone.utc).astimezone(APP_TIMEZONE)
+        else:
+            assigned_local = assigned_at.astimezone(APP_TIMEZONE)
+
+        if assigned_local >= today_start:
+            try:
+                key = int(analista_id)
+            except (TypeError, ValueError):
+                continue
+            atribuicoes_hoje_map[key] = atribuicoes_hoje_map.get(key, 0) + 1
     try:
         historico_hoje = (
             supabase.table("historico")
@@ -1861,6 +1884,30 @@ async def manager_overview(
         )
     except Exception:
         historico_hoje = []
+
+    try:
+        transferencias_hoje = (
+            supabase.table("logs_transferencias")
+            .select("analista_destino_id,data_transferencia")
+            .gte("data_transferencia", today_start.astimezone(datetime.timezone.utc).isoformat())
+            .limit(10000)
+            .execute()
+            .data
+            or []
+        )
+    except Exception:
+        transferencias_hoje = []
+
+    transferencias_hoje_map: Dict[int, int] = {}
+    for item in transferencias_hoje:
+        analista_destino_id = item.get("analista_destino_id")
+        if analista_destino_id is None:
+            continue
+        try:
+            key = int(analista_destino_id)
+        except (TypeError, ValueError):
+            continue
+        transferencias_hoje_map[key] = transferencias_hoje_map.get(key, 0) + 1
 
     try:
         historico_analytics = (
@@ -1940,6 +1987,18 @@ async def manager_overview(
         if not resumo:
             continue
         resumo["feitas_hoje"] += 1
+
+    for analista_id, resumo in resumo_equipe_map.items():
+        raw_total = int(resumo.get("recebidas_hoje") or 0)
+        atribuicoes_hoje = int(atribuicoes_hoje_map.get(analista_id) or 0)
+        transferencias_hoje_total = int(transferencias_hoje_map.get(analista_id) or 0)
+
+        # "Recebidas hoje" = pastas que entraram na fila do atendente no dia.
+        entradas_na_fila_hoje = atribuicoes_hoje + transferencias_hoje_total
+        if raw_total > entradas_na_fila_hoje + 20:
+            resumo["recebidas_hoje"] = entradas_na_fila_hoje
+        else:
+            resumo["recebidas_hoje"] = max(raw_total, entradas_na_fila_hoje)
 
     for analista_id, resumo in resumo_equipe_map.items():
         analytics = analytics_map.get(analista_id) or {
