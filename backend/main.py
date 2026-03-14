@@ -94,23 +94,44 @@ def evaluate_password_strength(password: str) -> Dict[str, Any]:
     return {"level": "verystrong", "label": "Muito forte", "is_acceptable": True}
 
 
-def verify_admin_credentials(username: str, password: str) -> Optional[Dict[str, Any]]:
+def verify_admin_credentials(identifier: str, password: str) -> Optional[Dict[str, Any]]:
     """
     Verifica credenciais do admin consultando a tabela administradores no Supabase.
     Retorna os dados do admin se válido, None caso contrário.
     """
-    normalized_username = (username or "").strip()
+    normalized_identifier = (identifier or "").strip().lower()
     normalized_password = (password or "").strip()
 
-    if not normalized_username or not normalized_password:
+    if not normalized_identifier or not normalized_password:
         return None
 
     try:
-        res = supabase.table("administradores").select("*").eq("username", normalized_username).execute()
-        if not res.data:
-            return None
+        admin = None
 
-        admin = res.data[0]
+        if "@" in normalized_identifier:
+            by_email = (
+                supabase.table("administradores")
+                .select("*")
+                .eq("email", normalized_identifier)
+                .limit(1)
+                .execute()
+            )
+            if by_email.data:
+                admin = by_email.data[0]
+
+        if not admin:
+            by_username = (
+                supabase.table("administradores")
+                .select("*")
+                .eq("username", normalized_identifier)
+                .limit(1)
+                .execute()
+            )
+            if by_username.data:
+                admin = by_username.data[0]
+
+        if not admin:
+            return None
         
         # Verifica se está ativo
         if not admin.get("ativo", True):
@@ -126,63 +147,236 @@ def verify_admin_credentials(username: str, password: str) -> Optional[Dict[str,
         return None
 
 
-def create_manager_token(username: str) -> str:
+def username_from_email(email: str) -> str:
+    normalized_email = (email or "").strip().lower()
+    local_part = normalized_email.split("@", 1)[0]
+    safe = "".join(char if (char.isalnum() or char in "._-") else "_" for char in local_part).strip("._-")
+    if not safe:
+        safe = "admin"
+    return safe[:32]
+
+
+def ensure_unique_admin_username(base_username: str) -> str:
+    candidate = (base_username or "admin").strip().lower()
+    if not candidate:
+        candidate = "admin"
+
+    for suffix in range(0, 10000):
+        current = candidate if suffix == 0 else f"{candidate}{suffix}"
+        existing = (
+            supabase.table("administradores")
+            .select("id")
+            .eq("username", current)
+            .limit(1)
+            .execute()
+        )
+        if not existing.data:
+            return current
+
+    raise RuntimeError("Não foi possível gerar username único para o novo admin")
+
+
+def create_signed_session_token(role: str, user_id: int, session_version: int, ttl_seconds: int, secret: str) -> str:
     issued_at = str(int(datetime.datetime.now(datetime.timezone.utc).timestamp()))
     nonce = os.urandom(8).hex()
-    payload = f"{username}:{issued_at}:{nonce}"
-    signature = hmac.new(ADMIN_AUTH_SECRET.encode("utf-8"), payload.encode("utf-8"), hashlib.sha256).hexdigest()
+    payload = f"{role}:{int(user_id)}:{int(session_version)}:{issued_at}:{nonce}:{int(ttl_seconds)}"
+    signature = hmac.new(secret.encode("utf-8"), payload.encode("utf-8"), hashlib.sha256).hexdigest()
     raw_token = f"{payload}:{signature}"
     return base64.urlsafe_b64encode(raw_token.encode("utf-8")).decode("ascii").rstrip("=")
 
 
-def verify_manager_token(token: str) -> bool:
-    """
-    Valida token do gerenciador.
-    Verifica assinatura, expiração e validade.
-    """
+def decode_signed_session_token(token: str, secret: str) -> Optional[Dict[str, Any]]:
     normalized_token = (token or "").strip()
     if not normalized_token:
-        return False
+        return None
 
     padding = "=" * (-len(normalized_token) % 4)
     try:
         decoded = base64.urlsafe_b64decode(f"{normalized_token}{padding}".encode("ascii")).decode("utf-8")
-        username, issued_at, nonce, signature = decoded.split(":", 3)
+        role, user_id, session_version, issued_at, nonce, ttl_seconds, signature = decoded.split(":", 6)
     except (ValueError, binascii.Error, UnicodeDecodeError):
-        return False
+        return None
 
-    payload = f"{username}:{issued_at}:{nonce}"
-    expected_signature = hmac.new(ADMIN_AUTH_SECRET.encode("utf-8"), payload.encode("utf-8"), hashlib.sha256).hexdigest()
+    payload = f"{role}:{user_id}:{session_version}:{issued_at}:{nonce}:{ttl_seconds}"
+    expected_signature = hmac.new(secret.encode("utf-8"), payload.encode("utf-8"), hashlib.sha256).hexdigest()
     if not hmac.compare_digest(signature, expected_signature):
-        return False
-
-    # Verifica se o admin ainda existe e está ativo
-    try:
-        res = supabase.table("administradores").select("ativo").eq("username", username).execute()
-        if not res.data or not res.data[0].get("ativo", True):
-            return False
-    except Exception:
-        return False
+        return None
 
     try:
+        user_id_int = int(user_id)
+        version_int = int(session_version)
         issued_at_ts = int(issued_at)
+        ttl_seconds_int = int(ttl_seconds)
     except ValueError:
-        return False
+        return None
 
     now_ts = int(datetime.datetime.now(datetime.timezone.utc).timestamp())
-    if now_ts - issued_at_ts > MANAGER_TOKEN_TTL_SECONDS:
-        return False
+    if now_ts - issued_at_ts > ttl_seconds_int:
+        return None
 
-    return True
+    return {
+        "role": role,
+        "user_id": user_id_int,
+        "session_version": version_int,
+        "issued_at": issued_at_ts,
+        "ttl_seconds": ttl_seconds_int,
+    }
 
 
-def require_manager_auth(authorization: Optional[str]) -> None:
+def get_admin_session_version(admin: Dict[str, Any]) -> int:
+    try:
+        return int(admin.get("session_version") or 1)
+    except Exception:
+        return 1
+
+
+def get_analyst_session_version(analyst: Dict[str, Any]) -> int:
+    try:
+        return int(analyst.get("session_version") or 1)
+    except Exception:
+        return 1
+
+
+def create_manager_token(admin: Dict[str, Any]) -> str:
+    return create_signed_session_token(
+        role="admin",
+        user_id=int(admin.get("id")),
+        session_version=get_admin_session_version(admin),
+        ttl_seconds=MANAGER_TOKEN_TTL_SECONDS,
+        secret=ADMIN_AUTH_SECRET,
+    )
+
+
+def create_analyst_token(analyst: Dict[str, Any]) -> str:
+    return create_signed_session_token(
+        role="analyst",
+        user_id=int(analyst.get("id")),
+        session_version=get_analyst_session_version(analyst),
+        ttl_seconds=ANALYST_TOKEN_TTL_SECONDS,
+        secret=ANALYST_AUTH_SECRET,
+    )
+
+
+def verify_manager_token(token: str) -> Optional[Dict[str, Any]]:
+    payload = decode_signed_session_token(token, ADMIN_AUTH_SECRET)
+    if not payload or payload.get("role") != "admin":
+        return None
+
+    try:
+        res = (
+            supabase.table("administradores")
+            .select("*")
+            .eq("id", payload["user_id"])
+            .limit(1)
+            .execute()
+        )
+        if not res.data:
+            return None
+        admin = res.data[0]
+        if not admin.get("ativo", True):
+            return None
+        session_version = int(admin.get("session_version") or 1)
+        if session_version != int(payload["session_version"]):
+            return None
+        return payload
+    except Exception:
+        return None
+
+
+def verify_analyst_token(token: str) -> Optional[Dict[str, Any]]:
+    payload = decode_signed_session_token(token, ANALYST_AUTH_SECRET)
+    if not payload or payload.get("role") != "analyst":
+        return None
+
+    try:
+        res = (
+            supabase.table("analistas")
+            .select("*")
+            .eq("id", payload["user_id"])
+            .limit(1)
+            .execute()
+        )
+        if not res.data:
+            return None
+        analyst = res.data[0]
+        if (analyst.get("status") or "ativo") == "inativo":
+            return None
+        session_version = int(analyst.get("session_version") or 1)
+        if session_version != int(payload["session_version"]):
+            return None
+        return payload
+    except Exception:
+        return None
+
+
+def require_manager_auth(authorization: Optional[str]) -> Dict[str, Any]:
     if not authorization:
         raise HTTPException(status_code=401, detail="Acesso restrito. Faça login no painel admin.")
 
     scheme, _, token = authorization.partition(" ")
-    if scheme.lower() != "bearer" or not verify_manager_token(token):
+    payload = verify_manager_token(token) if scheme.lower() == "bearer" else None
+    if not payload:
         raise HTTPException(status_code=401, detail="Sessão do admin inválida ou expirada.")
+    return payload
+
+
+def require_analyst_auth(authorization: Optional[str], expected_analyst_id: Optional[int] = None) -> Dict[str, Any]:
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Sessão do analista ausente. Faça login novamente.")
+
+    scheme, _, token = authorization.partition(" ")
+    payload = verify_analyst_token(token) if scheme.lower() == "bearer" else None
+    if not payload:
+        raise HTTPException(status_code=401, detail="Sessão do analista inválida ou expirada.")
+
+    if expected_analyst_id is not None and int(payload.get("user_id")) != int(expected_analyst_id):
+        raise HTTPException(status_code=403, detail="Token do analista não autorizado para este usuário.")
+
+    return payload
+
+
+def bump_session_version(role: str, user_id: int) -> int:
+    table_name = "administradores" if role == "admin" else "analistas"
+
+    try:
+        row = (
+            supabase.table(table_name)
+            .select("id,session_version")
+            .eq("id", user_id)
+            .limit(1)
+            .execute()
+            .data
+            or []
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "Revogação remota indisponível: coluna session_version ausente. "
+                "Execute a migration 005_session_version_security.sql. "
+                f"Detalhe: {exc}"
+            ),
+        )
+
+    if not row:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado para revogação")
+
+    current_version = int(row[0].get("session_version") or 1)
+    next_version = current_version + 1
+
+    try:
+        supabase.table(table_name).update({"session_version": next_version}).eq("id", user_id).execute()
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "Não foi possível revogar sessão remotamente. "
+                "Confirme a migration de session_version em analistas/administradores. "
+                f"Detalhe: {exc}"
+            ),
+        )
+
+    return next_version
 
 
 def generate_reset_token() -> tuple:
@@ -318,7 +512,9 @@ CVCRM_BASE_URL = (os.getenv("CVCRM_BASE_URL") or "https://vca.cvcrm.com.br/api/v
 CVCRM_LOTEAR_BASE_URL = (os.getenv("CVCRM_LOTEAR_BASE_URL") or "https://vcalotear.cvcrm.com.br/api/v1/comercial/reservas").strip()
 CVCRM_LOTEAR_TOKEN = (os.getenv("CVCRM_LOTEAR_TOKEN") or "").strip()
 ADMIN_AUTH_SECRET = (os.getenv("ADMIN_AUTH_SECRET") or SUPABASE_KEY).strip()
-MANAGER_TOKEN_TTL_SECONDS = int(os.getenv("MANAGER_TOKEN_TTL_SECONDS", "43200"))
+MANAGER_TOKEN_TTL_SECONDS = int(os.getenv("MANAGER_TOKEN_TTL_SECONDS", "1800"))
+ANALYST_AUTH_SECRET = (os.getenv("ANALYST_AUTH_SECRET") or ADMIN_AUTH_SECRET).strip()
+ANALYST_TOKEN_TTL_SECONDS = int(os.getenv("ANALYST_TOKEN_TTL_SECONDS", "43200"))
 APP_TIMEZONE_NAME = (os.getenv("APP_TIMEZONE") or "America/Sao_Paulo").strip() or "America/Sao_Paulo"
 try:
     APP_TIMEZONE = ZoneInfo(APP_TIMEZONE_NAME)
@@ -846,6 +1042,19 @@ class ManagerLoginRequest(BaseModel):
     usuario: str
     senha: str
 
+
+class AdminCreateRequest(BaseModel):
+    email: str
+    senha: str
+    username: Optional[str] = None
+    ativo: bool = True
+
+
+class SessionRevokeRequest(BaseModel):
+    role: str
+    user_id: int
+    reason: Optional[str] = None
+
 class AnalystCreate(BaseModel):
     nome: str
     email: str
@@ -1202,9 +1411,147 @@ async def manager_login(req: ManagerLoginRequest):
         raise HTTPException(status_code=401, detail="Usuário ou senha do admin inválidos")
 
     return {
+        "id": admin.get("id"),
         "usuario": admin.get("username"),
         "email": admin.get("email"),
-        "token": create_manager_token(admin.get("username"))
+        "token": create_manager_token(admin),
+        "session_version": get_admin_session_version(admin),
+    }
+
+
+@app.get("/api/gestor/admins")
+async def list_admin_users(authorization: Optional[str] = Header(default=None)):
+    require_manager_auth(authorization)
+    try:
+        try:
+            res = (
+                supabase.table("administradores")
+                .select("id,username,email,ativo,data_criacao,updated_at,session_version")
+                .order("data_criacao", desc=True)
+                .execute()
+            )
+        except Exception:
+            res = (
+                supabase.table("administradores")
+                .select("id,username,email,ativo,data_criacao,updated_at")
+                .order("data_criacao", desc=True)
+                .execute()
+            )
+        return res.data or []
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/gestor/admins")
+async def create_admin_user(req: AdminCreateRequest, authorization: Optional[str] = Header(default=None)):
+    require_manager_auth(authorization)
+
+    email = (req.email or "").strip().lower()
+    senha = (req.senha or "").strip()
+    username_input = (req.username or "").strip().lower()
+
+    if not email or "@" not in email:
+        raise HTTPException(status_code=400, detail="Informe um e-mail válido")
+    if not senha:
+        raise HTTPException(status_code=400, detail="Senha é obrigatória")
+
+    strength = evaluate_password_strength(senha)
+    if not strength["is_acceptable"]:
+        raise HTTPException(status_code=400, detail=f"Senha fraca: {strength['label']}")
+
+    try:
+        existing_email = (
+            supabase.table("administradores")
+            .select("id")
+            .eq("email", email)
+            .limit(1)
+            .execute()
+        )
+        if existing_email.data:
+            raise HTTPException(status_code=409, detail="Já existe administrador com este e-mail")
+
+        base_username = username_input or username_from_email(email)
+        username = ensure_unique_admin_username(base_username)
+
+        insert_payload = {
+            "username": username,
+            "email": email,
+            "senha": hash_password(senha),
+            "ativo": bool(req.ativo),
+            "session_version": 1,
+        }
+        try:
+            created = (
+                supabase.table("administradores")
+                .insert(insert_payload)
+                .execute()
+                .data
+                or []
+            )
+        except Exception as insert_exc:
+            if "session_version" in str(insert_exc):
+                insert_payload.pop("session_version", None)
+                created = (
+                    supabase.table("administradores")
+                    .insert(insert_payload)
+                    .execute()
+                    .data
+                    or []
+                )
+            else:
+                raise
+
+        if not created:
+            raise HTTPException(status_code=500, detail="Falha ao criar administrador")
+
+        row = created[0]
+        return {
+            "id": row.get("id"),
+            "username": row.get("username"),
+            "email": row.get("email"),
+            "ativo": row.get("ativo", True),
+            "data_criacao": row.get("data_criacao"),
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/gestor/sessoes/revogar")
+async def revoke_user_sessions(req: SessionRevokeRequest, authorization: Optional[str] = Header(default=None)):
+    require_manager_auth(authorization)
+
+    role = (req.role or "").strip().lower()
+    if role not in {"admin", "analyst"}:
+        raise HTTPException(status_code=400, detail="Role inválida. Use 'admin' ou 'analyst'.")
+
+    user_id = int(req.user_id)
+    next_version = bump_session_version(role, user_id)
+
+    redistribuidas = 0
+    sem_destino = 0
+
+    if role == "analyst":
+        try:
+            offline_result = await set_online_status(
+                StatusFilaRequest(analista_id=user_id, online=False),
+                authorization=authorization,
+            )
+            redistribuidas = int(offline_result.get("redistribuidas") or 0)
+            sem_destino = int(offline_result.get("sem_destino") or 0)
+        except Exception:
+            # revogação de sessão continua válida mesmo sem conseguir ajustar fila.
+            pass
+
+    return {
+        "status": "ok",
+        "role": role,
+        "user_id": user_id,
+        "session_version": next_version,
+        "redistribuidas": redistribuidas,
+        "sem_destino": sem_destino,
+        "reason": (req.reason or "manual").strip() or "manual",
     }
 
 
@@ -1221,7 +1568,10 @@ async def login(req: LoginRequest):
 
         if not validate_analyst_password(req.analista_id, senha_recebida, senha_cadastrada):
             raise HTTPException(status_code=401, detail="Senha incorreta")
-        return analista
+        analyst_payload = dict(analista)
+        analyst_payload["token"] = create_analyst_token(analista)
+        analyst_payload["session_version"] = get_analyst_session_version(analista)
+        return analyst_payload
     except HTTPException:
         raise
     except Exception as e:
@@ -1251,7 +1601,10 @@ async def login_email(req: LoginEmailRequest):
         if not validate_analyst_password(analista["id"], senha_recebida, senha_cadastrada):
             raise HTTPException(status_code=401, detail="E-mail ou senha incorretos")
 
-        return analista
+        analyst_payload = dict(analista)
+        analyst_payload["token"] = create_analyst_token(analista)
+        analyst_payload["session_version"] = get_analyst_session_version(analista)
+        return analyst_payload
     except HTTPException:
         raise
     except Exception as e:
@@ -1351,6 +1704,8 @@ async def reset_password(req: ResetPasswordRequest):
             "reset_token_expires": None,
         }).eq("id", analista["id"]).execute()
 
+        bump_session_version("analyst", int(analista["id"]))
+
         return {"status": "ok", "message": "Senha redefinida com sucesso. Faça login com sua nova senha."}
     except HTTPException:
         raise
@@ -1358,8 +1713,9 @@ async def reset_password(req: ResetPasswordRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/analista/alterar-senha")
-async def change_password(req: ChangePasswordRequest):
+async def change_password(req: ChangePasswordRequest, authorization: Optional[str] = Header(default=None)):
     try:
+        require_analyst_auth(authorization, expected_analyst_id=req.analista_id)
         res = supabase.table("analistas").select("id,nome,senha").eq("id", req.analista_id).execute()
         if not res.data:
             raise HTTPException(status_code=404, detail="Usuário não encontrado")
@@ -1382,6 +1738,7 @@ async def change_password(req: ChangePasswordRequest):
             raise HTTPException(status_code=400, detail="A nova senha está fraca. Use pelo menos 8 caracteres com combinação de letras, números e símbolos.")
 
         supabase.table("analistas").update({"senha": hash_password(new_password)}).eq("id", req.analista_id).execute()
+        bump_session_version("analyst", int(req.analista_id))
         return {"status": "ok", "message": "Senha alterada com sucesso"}
     except HTTPException:
         raise
@@ -1390,8 +1747,16 @@ async def change_password(req: ChangePasswordRequest):
 
 
 @app.post("/api/analista/status-fila")
-async def set_online_status(req: StatusFilaRequest):
+async def set_online_status(req: StatusFilaRequest, authorization: Optional[str] = Header(default=None)):
     try:
+        if not authorization:
+            raise HTTPException(status_code=401, detail="Autenticação obrigatória para alterar status da fila")
+
+        scheme, _, token = authorization.partition(" ")
+        authorized_as_admin = scheme.lower() == "bearer" and bool(verify_manager_token(token))
+
+        if not authorized_as_admin:
+            require_analyst_auth(authorization, expected_analyst_id=req.analista_id)
         supabase.table("analistas").update({"is_online": req.online}).eq("id", req.analista_id).execute()
 
         redistribuidas = 0
@@ -1443,12 +1808,14 @@ async def listar_analistas():
         return []
 
 @app.get("/api/mesa/{analista_id}")
-async def get_mesa(analista_id: int):
+async def get_mesa(analista_id: int, authorization: Optional[str] = Header(default=None)):
+    require_analyst_auth(authorization, expected_analyst_id=analista_id)
     res = supabase.table("distribuicoes").select("*").eq("analista_id", analista_id).execute()
     return res.data or []
 
 @app.get("/api/metricas/{analista_id}")
-async def get_metrics(analista_id: int):
+async def get_metrics(analista_id: int, authorization: Optional[str] = Header(default=None)):
+    require_analyst_auth(authorization, expected_analyst_id=analista_id)
     now = datetime.datetime.now()
     hoje_str = now.strftime("%Y-%m-%d")
     def count_period(since):
@@ -1460,7 +1827,8 @@ async def get_metrics(analista_id: int):
     }
 
 @app.get("/api/analista/dashboard/{analista_id}")
-async def get_analyst_dashboard(analista_id: int):
+async def get_analyst_dashboard(analista_id: int, authorization: Optional[str] = Header(default=None)):
+    require_analyst_auth(authorization, expected_analyst_id=analista_id)
     history_fields = ["reserva_id", "cliente", "empreendimento", "unidade", "resultado", "data_fim"]
     if HISTORICO_HAS_SITUACAO_ID:
         history_fields.append("situacao_id")
@@ -1571,7 +1939,8 @@ async def get_analyst_dashboard(analista_id: int):
     }
 
 @app.post("/api/concluir")
-async def concluir(reserva_id: str, resultado: str):
+async def concluir(reserva_id: str, resultado: str, authorization: Optional[str] = Header(default=None)):
+    require_analyst_auth(authorization)
     dist = supabase.table("distribuicoes").select("*").eq("reserva_id", reserva_id).execute()
     if not dist.data:
         raise HTTPException(status_code=404, detail="Reserva não encontrada na mesa atual")
@@ -1612,8 +1981,9 @@ async def backfill_historico(
     return await backfill_historico_metadata(limit=limit)
 
 @app.post("/api/analista/transferir")
-async def transferir_pasta(req: TransferirPastaRequest):
+async def transferir_pasta(req: TransferirPastaRequest, authorization: Optional[str] = Header(default=None)):
     try:
+        require_analyst_auth(authorization, expected_analyst_id=req.analista_origem_id)
         if int(req.analista_origem_id) == int(req.analista_destino_id):
             raise HTTPException(status_code=400, detail="Escolha outro analista para transferir")
 
@@ -1704,9 +2074,10 @@ async def transferir_pasta(req: TransferirPastaRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/analista/transferir-massa")
-async def transferir_pasta_massa(req: TransferirMassaRequest):
+async def transferir_pasta_massa(req: TransferirMassaRequest, authorization: Optional[str] = Header(default=None)):
     """Transfere múltiplas pastas de uma vez para o analista destino."""
     try:
+        require_analyst_auth(authorization, expected_analyst_id=req.analista_origem_id)
         if int(req.analista_origem_id) == int(req.analista_destino_id):
             raise HTTPException(status_code=400, detail="Escolha outro analista para transferir")
 
@@ -2108,15 +2479,24 @@ async def create_analyst(req: AnalystCreate, authorization: Optional[str] = Head
         if status not in {"ativo", "inativo"}:
             raise HTTPException(status_code=400, detail="Status inválido")
 
-        res = supabase.table("analistas").insert({
+        insert_payload = {
             "nome": nome,
             "email": email,
             "senha": hash_password(senha),
             "permissoes": permissoes,
             "status": status,
             "is_online": False,
-            "total_hoje": 0
-        }).execute()
+            "total_hoje": 0,
+            "session_version": 1,
+        }
+        try:
+            res = supabase.table("analistas").insert(insert_payload).execute()
+        except Exception as insert_exc:
+            if "session_version" in str(insert_exc):
+                insert_payload.pop("session_version", None)
+                res = supabase.table("analistas").insert(insert_payload).execute()
+            else:
+                raise
         return res.data[0]
     except HTTPException:
         raise
@@ -2132,6 +2512,7 @@ async def update_analyst(id: int, req: AnalystUpdate, authorization: Optional[st
     try:
         require_manager_auth(authorization)
         data = {k: v for k, v in req.dict().items() if v is not None}
+        password_changed = False
 
         if "nome" in data:
             data["nome"] = str(data["nome"] or "").strip()
@@ -2147,6 +2528,7 @@ async def update_analyst(id: int, req: AnalystUpdate, authorization: Optional[st
             senha_limpa = str(data["senha"] or "").strip()
             if senha_limpa:
                 data["senha"] = hash_password(senha_limpa)
+                password_changed = True
             else:
                 data.pop("senha")
 
@@ -2164,6 +2546,10 @@ async def update_analyst(id: int, req: AnalystUpdate, authorization: Optional[st
             raise HTTPException(status_code=400, detail="Nenhum campo válido para atualizar")
 
         res = supabase.table("analistas").update(data).eq("id", id).execute()
+
+        if password_changed:
+            bump_session_version("analyst", int(id))
+
         return res.data[0]
     except HTTPException:
         raise
