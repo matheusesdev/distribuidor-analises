@@ -816,16 +816,20 @@ async def perform_sync():
                                 now = datetime.datetime.now().isoformat()
                                 titular = info.get("titular") or {}
                                 unidade = info.get("unidade") or {}
-                                supabase.table("distribuicoes").insert({
-                                    "reserva_id": res_id,
-                                    "cliente": titular.get("nome", "Desconhecido") if isinstance(titular, dict) else "Desconhecido",
-                                    "empreendimento": unidade.get("empreendimento", "N/A") if isinstance(unidade, dict) else "N/A",
-                                    "unidade": unidade.get("unidade", "N/A") if isinstance(unidade, dict) else "N/A",
-                                    "situacao_id": sit_id,
-                                    "situacao_nome": SITUACOES_NOMES.get(sit_id, "Geral"),
-                                    "analista_id": analista["id"],
-                                    "data_atribuicao": now
-                                }).execute()
+                                supabase.table("distribuicoes").upsert(
+                                    {
+                                        "reserva_id": res_id,
+                                        "cliente": titular.get("nome", "Desconhecido") if isinstance(titular, dict) else "Desconhecido",
+                                        "empreendimento": unidade.get("empreendimento", "N/A") if isinstance(unidade, dict) else "N/A",
+                                        "unidade": unidade.get("unidade", "N/A") if isinstance(unidade, dict) else "N/A",
+                                        "situacao_id": sit_id,
+                                        "situacao_nome": SITUACOES_NOMES.get(sit_id, "Geral"),
+                                        "analista_id": analista["id"],
+                                        "data_atribuicao": now,
+                                    },
+                                    on_conflict="reserva_id",
+                                    ignore_duplicates=True,
+                                ).execute()
 
                                 supabase.table("analistas").update({
                                     "ultima_atribuicao": now,
