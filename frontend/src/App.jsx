@@ -83,6 +83,7 @@ const App = () => {
   const [analyticsData, setAnalyticsData] = useState(EMPTY_ANALYTICS);
   const [dashData, setDashData] = useState({ 
     equipe: [], 
+    resumo_equipe: [],
     distribuicao_atual: [],
     historico_recente: [],
     logs_transferencias: [],
@@ -287,6 +288,7 @@ const App = () => {
           const d = await resD.json();
           setDashData({
             equipe: d.equipe || [],
+            resumo_equipe: d.resumo_equipe || [],
             distribuicao_atual: d.distribuicao_atual || [],
             historico_recente: d.historico_recente || [],
             logs_transferencias: d.logs_transferencias || [],

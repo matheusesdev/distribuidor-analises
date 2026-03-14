@@ -652,6 +652,52 @@ def parse_history_datetime(value: Optional[str]) -> Optional[datetime.datetime]:
         return None
 
 
+def get_local_today(reference: Optional[datetime.datetime] = None) -> datetime.date:
+    base = reference or datetime.datetime.now(datetime.timezone.utc)
+    if base.tzinfo is None:
+        return base.date()
+    return base.astimezone().date()
+
+
+def get_effective_total_hoje(analyst: Dict[str, Any], reference: Optional[datetime.datetime] = None) -> int:
+    reference_dt = reference or datetime.datetime.now(datetime.timezone.utc)
+    ultima_atribuicao = parse_history_datetime(str(analyst.get("ultima_atribuicao") or ""))
+    if not ultima_atribuicao:
+        return 0
+
+    if ultima_atribuicao.tzinfo is None:
+        last_assignment_day = ultima_atribuicao.date()
+    else:
+        last_assignment_day = ultima_atribuicao.astimezone().date()
+
+    if last_assignment_day != get_local_today(reference_dt):
+        return 0
+
+    return int(analyst.get("total_hoje") or 0)
+
+
+def build_next_total_hoje(analyst: Dict[str, Any], increment: int = 1, reference: Optional[datetime.datetime] = None) -> int:
+    return get_effective_total_hoje(analyst, reference=reference) + increment
+
+
+def sort_analysts_for_queue(analysts: List[Dict[str, Any]], reference: Optional[datetime.datetime] = None) -> List[Dict[str, Any]]:
+    reference_dt = reference or datetime.datetime.now(datetime.timezone.utc)
+
+    def analyst_sort_key(analyst: Dict[str, Any]):
+        total_hoje = get_effective_total_hoje(analyst, reference=reference_dt)
+        ultima_atribuicao = parse_history_datetime(str(analyst.get("ultima_atribuicao") or ""))
+        if ultima_atribuicao is None:
+            last_assignment_key = datetime.datetime.min.replace(tzinfo=datetime.timezone.utc)
+        elif ultima_atribuicao.tzinfo is None:
+            last_assignment_key = ultima_atribuicao.replace(tzinfo=datetime.timezone.utc)
+        else:
+            last_assignment_key = ultima_atribuicao.astimezone(datetime.timezone.utc)
+
+        return (total_hoje, last_assignment_key, (analyst.get("nome") or "").lower())
+
+    return sorted(analysts, key=analyst_sort_key)
+
+
 def build_sorted_counter(counter_map: Dict[str, int], *, limit: Optional[int] = None) -> List[Dict[str, Any]]:
     items = [
         {"label": label, "total": total}
@@ -756,14 +802,12 @@ async def get_next_analyst(sit_id: int, exclude_ids: Optional[List[int]] = None)
             .select("*") \
             .eq("status", "ativo") \
             .eq("is_online", True) \
-            .order("total_hoje", desc=False) \
-            .order("ultima_atribuicao", desc=False) \
             .execute()
         
         if not response.data:
             return None
 
-        for analista in response.data:
+        for analista in sort_analysts_for_queue(response.data):
             if int(analista.get("id")) in [int(x) for x in exclude_ids]:
                 continue
             permissoes = analista.get("permissoes") or []
@@ -833,7 +877,7 @@ async def perform_sync():
 
                                 supabase.table("analistas").update({
                                     "ultima_atribuicao": now,
-                                    "total_hoje": (analista.get("total_hoje") or 0) + 1
+                                    "total_hoje": build_next_total_hoje(analista)
                                 }).eq("id", analista["id"]).execute()
                         else:
                             # RESERVA JÁ EXISTE — verifica reassign e mudança de situação
@@ -864,7 +908,7 @@ async def perform_sync():
 
                                     supabase.table("analistas").update({
                                         "ultima_atribuicao": now,
-                                        "total_hoje": (proximo.get("total_hoje") or 0) + 1
+                                        "total_hoje": build_next_total_hoje(proximo)
                                     }).eq("id", proximo["id"]).execute()
                                 else:
                                     supabase.table("distribuicoes").update({
@@ -1267,7 +1311,7 @@ async def set_online_status(req: StatusFilaRequest):
 
                 supabase.table("analistas").update({
                     "ultima_atribuicao": now,
-                    "total_hoje": (proximo.get("total_hoje") or 0) + 1
+                    "total_hoje": build_next_total_hoje(proximo)
                 }).eq("id", proximo["id"]).execute()
 
                 redistribuidas += 1
@@ -1500,7 +1544,7 @@ async def transferir_pasta(req: TransferirPastaRequest):
 
         supabase.table("analistas").update({
             "ultima_atribuicao": now,
-            "total_hoje": (destino.get("total_hoje") or 0) + 1
+            "total_hoje": build_next_total_hoje(destino)
         }).eq("id", destino["id"]).execute()
 
         try:
@@ -1629,7 +1673,7 @@ async def transferir_pasta_massa(req: TransferirMassaRequest):
         if sucesso:
             supabase.table("analistas").update({
                 "ultima_atribuicao": now,
-                "total_hoje": (destino.get("total_hoje") or 0) + len(sucesso)
+                "total_hoje": build_next_total_hoje(destino, increment=len(sucesso))
             }).eq("id", destino["id"]).execute()
 
         return {
@@ -1651,10 +1695,85 @@ async def manager_overview(
 ):
     require_manager_auth(authorization)
     # Usa os dados do último sync para não duplicar requests ao CVCRM
+    now = datetime.datetime.now(datetime.timezone.utc)
+    today_start = now.astimezone().replace(hour=0, minute=0, second=0, microsecond=0)
     total_crm = _LAST_SYNC_STATE.get("total_no_crm") or 0
     equipe = supabase.table("analistas").select("*").order("nome").execute().data or []
+    equipe_normalizada: List[Dict[str, Any]] = []
+    resumo_equipe_map: Dict[int, Dict[str, Any]] = {}
+
+    for analista in equipe:
+        analista_normalizado = dict(analista)
+        total_hoje = get_effective_total_hoje(analista, reference=now)
+        analista_normalizado["total_hoje"] = total_hoje
+        equipe_normalizada.append(analista_normalizado)
+
+        analista_id = analista.get("id")
+        if analista_id is None:
+            continue
+
+        permissoes = [int(item) for item in (analista.get("permissoes") or []) if item is not None]
+        resumo_equipe_map[int(analista_id)] = {
+            "analista_id": int(analista_id),
+            "nome": analista.get("nome") or f"Analista {analista_id}",
+            "email": analista.get("email") or "",
+            "status": analista.get("status") or "ativo",
+            "is_online": bool(analista.get("is_online")),
+            "recebidas_hoje": total_hoje,
+            "feitas_hoje": 0,
+            "na_mesa": 0,
+            "ultima_atribuicao": analista.get("ultima_atribuicao"),
+            "situacoes_ids": permissoes,
+            "situacoes_nomes": [SITUACOES_NOMES.get(item, str(item)) for item in permissoes],
+            "mesa_por_situacao": {},
+        }
+
     distribuicao_atual = supabase.table("distribuicoes").select("*").execute().data or []
     historico_recente = supabase.table("historico").select("*").order("data_fim", desc=True).limit(100).execute().data or []
+    try:
+        historico_hoje = (
+            supabase.table("historico")
+            .select("analista_id,situacao_id,situacao_nome,data_fim")
+            .gte("data_fim", today_start.isoformat())
+            .limit(10000)
+            .execute()
+            .data
+            or []
+        )
+    except Exception:
+        historico_hoje = []
+
+    for item in distribuicao_atual:
+        analista_id = item.get("analista_id")
+        if analista_id is None:
+            continue
+        resumo = resumo_equipe_map.get(int(analista_id))
+        if not resumo:
+            continue
+        resumo["na_mesa"] += 1
+        situacao_nome = item.get("situacao_nome") or SITUACOES_NOMES.get(int(item.get("situacao_id") or 0), "Não informado")
+        resumo["mesa_por_situacao"][situacao_nome] = resumo["mesa_por_situacao"].get(situacao_nome, 0) + 1
+
+    for item in historico_hoje:
+        analista_id = item.get("analista_id")
+        if analista_id is None:
+            continue
+        resumo = resumo_equipe_map.get(int(analista_id))
+        if not resumo:
+            continue
+        resumo["feitas_hoje"] += 1
+
+    resumo_equipe = sorted(
+        resumo_equipe_map.values(),
+        key=lambda item: (
+            item["status"] != "ativo",
+            not item["is_online"],
+            -item["na_mesa"],
+            -item["recebidas_hoje"],
+            item["nome"].lower(),
+        ),
+    )
+
     try:
         logs_query = (
             supabase.table("logs_transferencias")
@@ -1671,7 +1790,8 @@ async def manager_overview(
     pastas_sem_destino = sum(1 for item in distribuicao_atual if not item.get("analista_id"))
 
     return {
-        "equipe": equipe, 
+        "equipe": equipe_normalizada,
+        "resumo_equipe": resumo_equipe,
         "total_pendente_cvcrm": total_crm,
         "distribuicao_atual": distribuicao_atual,
         "historico_recente": historico_recente,
