@@ -455,19 +455,19 @@ async def fetch_all_reservas_for_situacao(sit_id: int) -> List[Dict[str, Any]]:
             response = await fetch_cvcrm_reservas(sit_id, timeout_seconds=15, pagina=page)
         except Exception as exc:
             print(f"[SYNC] Timeout/erro na situacao {sit_id} pagina {page}: {exc}")
-            break
+            raise RuntimeError(f"Falha ao consultar CVCRM na situacao {sit_id}, pagina {page}: {exc}") from exc
 
         if response.status_code == 204:
             break
         if response.status_code != 200:
             print(f"[SYNC] Situacao {sit_id} pagina {page}: HTTP {response.status_code}")
-            break
+            raise RuntimeError(f"CVCRM retornou HTTP {response.status_code} para situacao {sit_id}, pagina {page}")
 
         try:
             data = response.json()
-        except Exception:
+        except Exception as exc:
             print(f"[SYNC] Situacao {sit_id} pagina {page}: resposta nao e JSON valido")
-            break
+            raise RuntimeError(f"Resposta invalida do CVCRM na situacao {sit_id}, pagina {page}") from exc
 
         pairs, total_pages = extract_reservas_from_response(data)
         print(f"[SYNC] Situacao {sit_id} pagina {page}/{total_pages}: {len(pairs)} reservas")
