@@ -6,7 +6,8 @@ import {
   UserPlus, Trash2, Power, Settings, CheckSquare, Square, 
   Edit3, UserCheck, Users, ShieldCheck, Save,
   Layout, ChevronDown, Search, User as UserIcon,
-  Tag, BarChart3, PieChart, RotateCcw, ArrowRightLeft
+  Tag, BarChart3, PieChart, RotateCcw, ArrowRightLeft,
+  Moon, Sun
 } from 'lucide-react';
 import { api } from './services/api';
 import { ConfirmActionModal, LoadingOverlay, RevokeAccessModal, StatusToast } from './components/FeedbackOverlays';
@@ -129,7 +130,10 @@ const App = () => {
   const [toast, setToast] = useState({ show: false, message: "", type: "success" });
   const [loginNotice, setLoginNotice] = useState(null);
   const [apiError, setApiError] = useState(null);
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return window.localStorage.getItem('themeMode') === 'dark';
+  });
 
   // --- ESTADOS DE FILTROS ---
   const [taskSearch, setTaskSearch] = useState("");
@@ -213,17 +217,33 @@ const App = () => {
     1016: "CONFECÇÃO DE CONTRATO (LOTEAR)",
   };
 
-  const SIT_COLORS = {
-    62: { text: '#355e3b', bg: '#e8f3eb' },
-    66: { text: '#2f6b2f', bg: '#e4f2e4' },
-    30: { text: '#3b6b2f', bg: '#edf7e7' },
-    84: { text: '#1f6b5f', bg: '#e2f3ef' },
-    16: { text: '#7a6632', bg: '#faf5e2' },
-    31: { text: '#8a5a2b', bg: '#fbeee3' },
-    1012: { text: '#0b7285', bg: '#e3f4f7' },
-    1023: { text: '#5f3dc4', bg: '#ede9fe' },
-    1016: { text: '#9c36b5', bg: '#f8ecfc' },
-  };
+  const SIT_COLORS = useMemo(() => {
+    if (isDarkMode) {
+      return {
+        62: { text: '#bbf7d0', bg: '#14532d' },
+        66: { text: '#86efac', bg: '#166534' },
+        30: { text: '#d9f99d', bg: '#3f6212' },
+        84: { text: '#99f6e4', bg: '#115e59' },
+        16: { text: '#fde68a', bg: '#78350f' },
+        31: { text: '#fdba74', bg: '#7c2d12' },
+        1012: { text: '#67e8f9', bg: '#164e63' },
+        1023: { text: '#c4b5fd', bg: '#4c1d95' },
+        1016: { text: '#e9d5ff', bg: '#701a75' },
+      };
+    }
+
+    return {
+      62: { text: '#355e3b', bg: '#e8f3eb' },
+      66: { text: '#2f6b2f', bg: '#e4f2e4' },
+      30: { text: '#3b6b2f', bg: '#edf7e7' },
+      84: { text: '#1f6b5f', bg: '#e2f3ef' },
+      16: { text: '#7a6632', bg: '#faf5e2' },
+      31: { text: '#8a5a2b', bg: '#fbeee3' },
+      1012: { text: '#0b7285', bg: '#e3f4f7' },
+      1023: { text: '#5f3dc4', bg: '#ede9fe' },
+      1016: { text: '#9c36b5', bg: '#f8ecfc' },
+    };
+  }, [isDarkMode]);
 
   const parseReservaRef = useCallback((reservaId) => {
     const normalized = String(reservaId || '').trim();
@@ -245,6 +265,20 @@ const App = () => {
     const handleClickOutside = () => {};
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    if (typeof document === 'undefined' || typeof window === 'undefined') return;
+
+    const isAuthScreen = view === 'login' || Boolean(resetToken);
+    const activeTheme = isAuthScreen ? 'light' : (isDarkMode ? 'dark' : 'light');
+
+    document.documentElement.setAttribute('data-theme', activeTheme);
+    window.localStorage.setItem('themeMode', isDarkMode ? 'dark' : 'light');
+  }, [isDarkMode, view, resetToken]);
+
+  const toggleThemeMode = useCallback(() => {
+    setIsDarkMode((prev) => !prev);
   }, []);
 
   const notify = useCallback((message, type = "success") => {
@@ -1701,7 +1735,7 @@ const App = () => {
   // --- PAINEL GESTOR ---
   if (view === 'manager') return (
     <div
-      className="min-h-screen bg-[radial-gradient(circle_at_top,#ffffff_0%,#f4f7fb_46%,#edf2f8_100%)] text-slate-800 flex flex-col overflow-x-hidden"
+      className={`min-h-screen text-slate-800 flex flex-col overflow-x-hidden ${isDarkMode ? 'bg-[radial-gradient(circle_at_top,#0b1220_0%,#080f1c_46%,#020617_100%)]' : 'bg-[radial-gradient(circle_at_top,#ffffff_0%,#f4f7fb_46%,#edf2f8_100%)]'}`}
       style={{ fontFamily: '"SF Pro Text", "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif' }}
     >
       <StatusToast toast={toast} />
@@ -1713,6 +1747,8 @@ const App = () => {
         handleRedistribute={handleRedistribute}
         handleResetData={handleResetData}
         onExit={handleManagerLogout}
+        isDarkMode={isDarkMode}
+        onToggleDarkMode={toggleThemeMode}
       />
 
       <main className="max-w-7xl mx-auto p-4 md:p-6 space-y-6 flex-1 w-full">
@@ -1811,7 +1847,7 @@ const App = () => {
 
   // --- PAINEL DO ANALISTA ---
   return (
-    <div className="min-h-screen font-sans bg-[#f8fafc] text-slate-800 flex flex-col overflow-x-hidden">
+    <div className={`min-h-screen font-sans text-slate-800 flex flex-col overflow-x-hidden ${isDarkMode ? 'bg-[#020617]' : 'bg-[#f8fafc]'}`}>
       <StatusToast toast={toast} />
       <ConfirmActionModal confirmAction={confirmAction} onClose={closeConfirmation} />
       <RevokeAccessModal revokeAction={revokeAction} onClose={closeRevokeConfirmation} />
@@ -1957,7 +1993,11 @@ const App = () => {
         <div className="h-16 md:h-18 px-3 md:px-6 lg:px-8 flex items-center justify-between gap-2 md:gap-3">
           <div className="flex items-center gap-2 md:gap-3 min-w-0">
             <div className="logo-shimmer shrink-0">
-              <img src="/vcacloud.svg" alt="VCACloud" className="h-7 md:h-8 w-auto object-contain shrink-0 brightness-0 opacity-95" />
+              <img
+                src="/vcacloud.svg"
+                alt="VCACloud"
+                className={`h-7 md:h-8 w-auto object-contain shrink-0 opacity-95 ${isDarkMode ? 'brightness-0 invert' : 'brightness-0'}`}
+              />
             </div>
 
             <div className="hidden sm:flex items-center gap-2 rounded-2xl border border-slate-200/80 bg-slate-50/85 px-2.5 py-1.5 min-w-0">
@@ -2062,6 +2102,13 @@ const App = () => {
               title="Sair"
             >
               <LogOut size={16} />
+            </button>
+            <button
+              onClick={toggleThemeMode}
+              className="inline-flex items-center justify-center h-9 w-9 rounded-xl border border-slate-200 bg-white text-slate-500 transition-all hover:text-[#0071e3] hover:border-blue-200 hover:-translate-y-0.5 active:translate-y-0"
+              title={isDarkMode ? 'Ativar modo claro' : 'Ativar modo escuro'}
+            >
+              {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
             </button>
           </div>
         </div>

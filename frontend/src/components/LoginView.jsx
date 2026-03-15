@@ -1,5 +1,5 @@
 ﻿import React, { useEffect, useState } from 'react';
-import { BarChart4, Eye, EyeOff, Lock, Mail, ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { BarChart4, Eye, EyeOff, Lock, Mail, ArrowLeft, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { ConfirmActionModal, LoadingOverlay, StatusToast } from './FeedbackOverlays';
 import { api } from '../services/api';
 
@@ -60,6 +60,18 @@ const LoginView = ({
   }, []);
 
   useEffect(() => {
+    const previousHtmlOverflow = document.documentElement.style.overflow;
+    const previousBodyOverflow = document.body.style.overflow;
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.documentElement.style.overflow = previousHtmlOverflow;
+      document.body.style.overflow = previousBodyOverflow;
+    };
+  }, []);
+
+  useEffect(() => {
     if (!loginSuccessSplash?.visible) {
       setShowSuccessCheck(false);
       setShowSuccessMessage(false);
@@ -116,7 +128,7 @@ const LoginView = ({
   };
 
   return (
-    <div className="min-h-screen flex font-sans overflow-hidden">
+    <div className="h-[100dvh] max-h-[100dvh] w-full flex font-sans overflow-hidden">
       <StatusToast toast={toast} />
       <ConfirmActionModal confirmAction={confirmAction} onClose={closeConfirmation} />
       {isGlobalLoading && <LoadingOverlay />}
@@ -150,7 +162,7 @@ const LoginView = ({
       )}
 
       {/* ===== PAINEL ESQUERDO AZUL (desktop) ===== */}
-      <div className="hidden lg:flex flex-col justify-between w-[45%] bg-blue-600 p-12 relative overflow-hidden shrink-0">
+      <div className="hidden lg:flex h-full flex-col justify-between w-[45%] bg-blue-600 p-10 xl:p-12 relative overflow-hidden shrink-0">
         <div className="absolute inset-0 opacity-[0.07]" style={{ backgroundImage: 'radial-gradient(circle, white 1.5px, transparent 1.5px)', backgroundSize: '32px 32px' }} />
         <div className="relative z-10">
           <img src="/vcahub.svg" alt="VCAHub Logo" className="h-10 w-auto object-contain" />
@@ -174,27 +186,34 @@ const LoginView = ({
       </div>
 
       {/* ===== PAINEL DIREITO BRANCO ===== */}
-      <div className="flex-1 flex flex-col items-center justify-center p-8 bg-[#f8fafc]">
+      <div className="flex-1 h-full flex flex-col items-center justify-center px-6 py-4 md:px-8 md:py-6 bg-[#f8fafc] overflow-hidden">
         {/* Logo mobile */}
-        <div className="lg:hidden mb-10 flex flex-col items-center gap-2.5">
+        <div className="lg:hidden mb-5 md:mb-6 flex flex-col items-center gap-2">
           <img src="/vcahub.svg" alt="VCAHub Logo" className="h-9 w-auto object-contain" />
           <img src="/cvlogo.svg" alt="CV Logo" className="h-7 w-auto object-contain max-w-42.5 brightness-0 invert" />
         </div>
 
-        <div className="w-full max-w-sm space-y-8">
+        <div className="w-full max-w-sm space-y-4 md:space-y-5">
           <div>
             <h2 className="text-2xl font-black text-slate-800 tracking-tight">Bem-vindo de volta</h2>
             <p className="text-slate-400 text-sm font-bold mt-1.5">Entre com seu e-mail e senha para continuar</p>
             {loginNotice && (
-              <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2">
-                <p className="text-[10px] font-black uppercase tracking-widest text-amber-800">Aviso de sessão</p>
-                <p className="text-[11px] font-bold text-amber-700 mt-1">{loginNotice}</p>
+              <div className="mt-3 rounded-2xl border border-amber-200/80 bg-[linear-gradient(135deg,#fff8eb_0%,#fffdf7_60%,#ffffff_100%)] px-3.5 py-3 shadow-[0_12px_26px_-20px_rgba(180,83,9,0.45)] backdrop-blur-sm">
+                <div className="flex items-start gap-2.5">
+                  <span className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-amber-200 bg-white text-amber-600">
+                    <AlertTriangle size={12} />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-amber-800">Aviso de sessão</p>
+                    <p className="text-[11px] font-semibold text-amber-700 mt-1 leading-relaxed">{loginNotice}</p>
+                  </div>
+                </div>
               </div>
             )}
           </div>
 
           {/* ===== FORMULARIO DE LOGIN ===== */}
-          <form onSubmit={handleSubmitLogin} className="space-y-4" noValidate>
+          <form onSubmit={handleSubmitLogin} className="space-y-3.5 md:space-y-4" noValidate>
             {/* Campo E-mail */}
             <div>
               <label className="text-[11px] font-semibold text-slate-500 tracking-[0.01em] block mb-2">E-mail</label>
@@ -204,7 +223,7 @@ const LoginView = ({
                   type="email"
                   value={loginEmail}
                   onChange={(e) => setLoginEmail(e.target.value)}
-                  className="w-full bg-slate-50/90 border border-slate-200 rounded-[18px] py-3.5 pl-11 pr-4 text-slate-900 font-medium outline-none focus:ring-4 focus:ring-sky-100/70 focus:border-sky-400 text-[15px] transition-all duration-200 shadow-[0_10px_24px_-20px_rgba(15,23,42,0.5)] placeholder:text-slate-400"
+                  className="w-full bg-slate-50/90 border border-slate-200 rounded-[18px] py-3 pl-11 pr-4 text-slate-900 font-medium outline-none focus:ring-4 focus:ring-sky-100/70 focus:border-sky-400 text-[15px] transition-all duration-200 shadow-[0_10px_24px_-20px_rgba(15,23,42,0.5)] placeholder:text-slate-400"
                   placeholder="seu@vcaconstrutora.com.br"
                   autoComplete="email"
                   autoFocus
@@ -230,7 +249,7 @@ const LoginView = ({
                   type={showLoginPassword ? 'text' : 'password'}
                   value={loginPassword}
                   onChange={(e) => setLoginPassword(e.target.value)}
-                  className="w-full bg-slate-50/90 border border-slate-200 rounded-[18px] py-3.5 pl-11 pr-11 text-slate-900 font-medium outline-none focus:ring-4 focus:ring-sky-100/70 focus:border-sky-400 text-[15px] transition-all duration-200 shadow-[0_10px_24px_-20px_rgba(15,23,42,0.5)] placeholder:text-slate-400"
+                  className="w-full bg-slate-50/90 border border-slate-200 rounded-[18px] py-3 pl-11 pr-11 text-slate-900 font-medium outline-none focus:ring-4 focus:ring-sky-100/70 focus:border-sky-400 text-[15px] transition-all duration-200 shadow-[0_10px_24px_-20px_rgba(15,23,42,0.5)] placeholder:text-slate-400"
                   placeholder="********"
                   autoComplete="current-password"
                 />
@@ -249,7 +268,7 @@ const LoginView = ({
             <button
               type="submit"
               disabled={isGlobalLoading || !loginEmail.trim() || !loginPassword.trim()}
-              className={`w-full py-3.5 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg transition-all duration-200 flex items-center justify-center gap-2.5 ${
+              className={`w-full py-3 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg transition-all duration-200 flex items-center justify-center gap-2.5 ${
                 isGlobalLoading || !loginEmail.trim() || !loginPassword.trim()
                   ? 'bg-slate-100 text-slate-300 cursor-not-allowed shadow-none'
                   : 'bg-blue-600 text-white hover:bg-blue-700 active:scale-95 shadow-blue-500/30 hover:shadow-blue-500/50 hover:shadow-xl'
@@ -270,16 +289,16 @@ const LoginView = ({
           <button
             type="button"
             onClick={() => setShowManagerLoginModal(true)}
-            className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl border-2 border-slate-100 bg-white text-slate-400 hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50 transition-all duration-200 text-[10px] font-black uppercase tracking-widest shadow-sm hover:shadow-md"
+            className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl border-2 border-slate-100 bg-white text-slate-400 hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50 transition-all duration-200 text-[10px] font-black uppercase tracking-widest shadow-sm hover:shadow-md"
           >
             <BarChart4 size={13} /> Acesso Admin
           </button>
 
           {/* Rodape */}
-          <div className="space-y-1">
+          <div className="space-y-0.5 md:space-y-1">
             <p className="text-center text-[9px] font-bold text-slate-800 uppercase tracking-widest">VCA Construtora (c) {new Date().getFullYear()}</p>
             <p className="text-center text-[10px] font-semibold text-slate-800">Feito por Matheus Santos (c) {new Date().getFullYear()}</p>
-            <div className="pt-2 flex justify-center">
+            <div className="pt-1.5 md:pt-2 flex justify-center">
               <img src="/logo.png" alt="VCA Logo" className="h-5 w-auto object-contain" />
             </div>
           </div>
@@ -345,7 +364,9 @@ const LoginView = ({
                   </div>
 
                   {forgotError && (
-                    <p className="text-red-500 text-[10px] font-bold">{forgotError}</p>
+                    <div className="rounded-xl border border-rose-200/80 bg-[linear-gradient(135deg,#fff1f2_0%,#ffffff_100%)] px-3 py-2 shadow-[0_10px_20px_-18px_rgba(225,29,72,0.55)]">
+                      <p className="text-rose-700 text-[10px] font-semibold leading-relaxed">{forgotError}</p>
+                    </div>
                   )}
 
                   <button
