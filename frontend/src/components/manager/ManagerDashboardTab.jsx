@@ -1,15 +1,22 @@
 import React, { useMemo, useState } from 'react';
 import {
+  Activity,
   AlertTriangle,
+  ArrowLeft,
   BarChart3,
+  CalendarClock,
   CheckSquare,
+  ClipboardList,
   Edit3,
   Hash,
+  Layers3,
+  LineChart,
   Mail,
   PieChart,
   Power,
   RefreshCw,
   ShieldCheck,
+  Sparkles,
   Trash2,
   UserPlus,
   Users,
@@ -40,7 +47,9 @@ const getInitials = (name) => {
   return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
 };
 
-const AnalystDetailModal = ({ analyst, currentTasks, recentCompletions, onClose }) => {
+const AnalystDetailModal = ({ analyst, currentTasks, recentCompletions, onClose, asInline = false }) => {
+  const [isCompact, setIsCompact] = useState(false);
+
   if (!analyst) return null;
 
   const situationEntries = Object.entries(analyst.mesa_por_situacao || {});
@@ -53,84 +62,110 @@ const AnalystDetailModal = ({ analyst, currentTasks, recentCompletions, onClose 
   const maxDaily = Math.max(...dailySeries.map((item) => Number(item.total || 0)), 1);
   const maxMonthly = Math.max(...monthlySeries.map((item) => Number(item.total || 0)), 1);
   const maxSituation = Math.max(...situationSeries.map((item) => Number(item.total || 0)), 1);
+  const analystInitials = getInitials(analyst.nome);
 
   const barWidth = (value, maxValue) => `${Math.max(8, Math.round((Number(value || 0) / Math.max(maxValue, 1)) * 100))}%`;
+  const sectionRevealStyle = (index) => ({ animationDelay: `${index * 70}ms` });
 
   return (
-    <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-250 flex items-center justify-center p-2 sm:p-4" onClick={onClose}>
-      <div className="w-full max-w-275 max-h-[92vh] bg-white border border-slate-100 rounded-3xl md:rounded-4xl shadow-2xl overflow-hidden" onClick={(event) => event.stopPropagation()}>
-        <div className="px-4 py-4 sm:px-6 sm:py-5 md:px-8 md:py-6 border-b border-slate-100 flex items-start justify-between gap-4 bg-[linear-gradient(135deg,#eff6ff_0%,#ffffff_45%,#f8fafc_100%)]">
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.28em] text-blue-600">Analista</p>
-            <h3 className="mt-2 text-lg sm:text-2xl font-black tracking-tight text-slate-900 uppercase">{analyst.nome}</h3>
-            <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] font-bold text-slate-500">
-              <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1">
+    <div className={asInline ? 'w-full animate-in fade-in duration-300' : 'fixed inset-0 bg-slate-950/55 backdrop-blur-md z-250 flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-200'} onClick={asInline ? undefined : onClose}>
+      <div className={asInline ? 'w-full bg-white/92 border border-white/75 rounded-3xl md:rounded-[2.2rem] shadow-[0_42px_90px_-34px_rgba(15,23,42,0.72)] overflow-hidden backdrop-blur-xl' : 'w-full max-w-[1120px] max-h-[92vh] bg-white/92 border border-white/75 rounded-3xl md:rounded-[2.2rem] shadow-[0_42px_90px_-34px_rgba(15,23,42,0.72)] overflow-hidden backdrop-blur-xl animate-in zoom-in-95 duration-200'} onClick={(event) => event.stopPropagation()}>
+        <div className={`${isCompact ? 'px-4 py-3 sm:px-5 sm:py-4 md:px-6 md:py-4' : 'px-4 py-4 sm:px-6 sm:py-5 md:px-8 md:py-6'} border-b border-slate-100/90 flex items-start justify-between gap-4 bg-[radial-gradient(circle_at_top_left,#dbeafe_0%,#f8fbff_40%,#ffffff_100%)]`}>
+          <div className="flex items-start gap-3.5 min-w-0">
+            <div className="h-12 w-12 rounded-2xl bg-white/90 border border-slate-200 text-[#0071e3] shadow-[0_14px_28px_-22px_rgba(0,113,227,0.9)] flex items-center justify-center text-[13px] font-semibold shrink-0">
+              {analystInitials}
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] font-semibold tracking-[0.18em] text-[#0071e3]">Analista</p>
+              <h3 className={`${isCompact ? 'mt-0.5 text-base sm:text-[1.35rem]' : 'mt-1 text-lg sm:text-[1.65rem]'} font-semibold tracking-[-0.015em] text-slate-900 truncate`}>{analyst.nome}</h3>
+              <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] font-medium text-slate-600">
+                <span className="inline-flex items-center gap-1 rounded-full bg-slate-100/90 border border-slate-200 px-2.5 py-1">
                 <Mail size={12} />
                 {analyst.email || 'Sem e-mail'}
               </span>
-              <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 ${analyst.is_online ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
+                <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 border ${analyst.is_online ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
                 <ShieldCheck size={12} />
                 {analyst.is_online ? 'Fila ativa' : 'Offline'}
               </span>
-              <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 ${analyst.status === 'ativo' ? 'bg-blue-50 text-blue-700' : 'bg-amber-50 text-amber-700'}`}>
+                <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 border ${analyst.status === 'ativo' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
                 {analyst.status === 'ativo' ? 'Ativo' : 'Inativo'}
               </span>
+              </div>
             </div>
           </div>
-          <button onClick={onClose} className="rounded-xl border border-slate-200 p-2 text-slate-400 transition hover:text-slate-700 hover:border-slate-300">
-            <X size={18} />
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => setIsCompact((prev) => !prev)}
+              className="rounded-xl border border-slate-200 bg-white/80 px-3 py-1.5 text-[10px] font-semibold text-slate-600 transition-all hover:bg-white hover:-translate-y-0.5"
+            >
+              {isCompact ? 'Padrão' : 'Compacto'}
+            </button>
+            <button onClick={onClose} className="rounded-2xl border border-slate-200 bg-white/80 px-3 py-2 text-slate-500 transition-all hover:text-slate-700 hover:border-slate-300 hover:bg-white inline-flex items-center gap-1.5">
+              {asInline ? <ArrowLeft size={16} /> : <X size={18} />}
+              {asInline ? <span className="text-[11px] font-semibold">Voltar</span> : null}
+            </button>
+          </div>
         </div>
 
-        <div className="p-4 sm:p-6 md:p-8 space-y-5 sm:space-y-6 overflow-y-auto max-h-[calc(92vh-86px)]">
-          <section className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-4">
-              <p className="text-[10px] font-black uppercase tracking-[0.24em] text-slate-400">Recebidas Hoje</p>
-              <div className="mt-2 text-3xl font-black text-slate-900">{analyst.recebidas_hoje}</div>
+        <div className={`${isCompact ? 'p-3 sm:p-4 md:p-5 space-y-4 sm:space-y-4' : 'p-4 sm:p-6 md:p-8 space-y-5 sm:space-y-6'} ${asInline ? '' : 'overflow-y-auto max-h-[calc(92vh-86px)]'}`}>
+          <section className="grid grid-cols-1 md:grid-cols-3 gap-3 animate-in fade-in duration-500" style={sectionRevealStyle(1)}>
+            <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-[0_16px_26px_-22px_rgba(15,23,42,0.65)] transition-all hover:-translate-y-0.5 hover:shadow-[0_20px_30px_-22px_rgba(15,23,42,0.75)]">
+              <div className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 text-slate-600 mb-3">
+                <ClipboardList size={14} />
+              </div>
+              <p className="text-[10px] font-semibold tracking-[0.12em] text-slate-500">Recebidas Hoje</p>
+              <div className="mt-1.5 text-3xl font-semibold tracking-[-0.02em] text-slate-900">{analyst.recebidas_hoje}</div>
             </div>
-            <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-4">
-              <p className="text-[10px] font-black uppercase tracking-[0.24em] text-emerald-600">Feitas Hoje</p>
-              <div className="mt-2 text-3xl font-black text-emerald-700">{analyst.feitas_hoje}</div>
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 px-4 py-4 shadow-[0_16px_26px_-22px_rgba(6,95,70,0.55)] transition-all hover:-translate-y-0.5">
+              <div className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700 mb-3">
+                <Sparkles size={14} />
+              </div>
+              <p className="text-[10px] font-semibold tracking-[0.12em] text-emerald-700">Feitas Hoje</p>
+              <div className="mt-1.5 text-3xl font-semibold tracking-[-0.02em] text-emerald-700">{analyst.feitas_hoje}</div>
             </div>
-            <div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-4">
-              <p className="text-[10px] font-black uppercase tracking-[0.24em] text-blue-600">Na Mesa</p>
-              <div className="mt-2 text-3xl font-black text-blue-700">{analyst.na_mesa}</div>
+            <div className="rounded-2xl border border-blue-200 bg-blue-50/70 px-4 py-4 shadow-[0_16px_26px_-22px_rgba(0,113,227,0.58)] transition-all hover:-translate-y-0.5">
+              <div className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-blue-100 text-blue-700 mb-3">
+                <Layers3 size={14} />
+              </div>
+              <p className="text-[10px] font-semibold tracking-[0.12em] text-blue-700">Na Mesa</p>
+              <div className="mt-1.5 text-3xl font-semibold tracking-[-0.02em] text-blue-700">{analyst.na_mesa}</div>
             </div>
           </section>
 
-          <section className="grid grid-cols-1 xl:grid-cols-[1.1fr_0.9fr] gap-6">
-            <div className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm">
+          <section className={`${isCompact ? 'grid grid-cols-1 xl:grid-cols-[1.15fr_0.85fr] gap-4' : 'grid grid-cols-1 xl:grid-cols-[1.1fr_0.9fr] gap-6'} animate-in fade-in duration-500`} style={sectionRevealStyle(2)}>
+            <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_18px_32px_-28px_rgba(15,23,42,0.7)]">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.24em] text-slate-400">Situações designadas</p>
-                  <h4 className="mt-1 text-sm font-black uppercase tracking-wide text-slate-800">Responsabilidades do analista</h4>
+                  <p className="text-[10px] font-semibold tracking-[0.12em] text-slate-500">Situações designadas</p>
+                  <h4 className="mt-1 text-sm font-semibold tracking-[0.01em] text-slate-800 inline-flex items-center gap-1.5"><Activity size={13} className="text-[#0071e3]" /> Responsabilidades do analista</h4>
                 </div>
-                <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-black uppercase text-slate-500">{analyst.situacoes_nomes?.length || 0} situações</span>
+                <span className="rounded-full bg-slate-100 border border-slate-200 px-2.5 py-1 text-[10px] font-semibold text-slate-600">{analyst.situacoes_nomes?.length || 0} situações</span>
               </div>
               <div className="mt-4 flex flex-wrap gap-2">
                 {(analyst.situacoes_nomes || []).map((situacao) => (
-                  <span key={situacao} className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-[10px] font-black uppercase tracking-wide text-slate-600">
+                  <span key={situacao} className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-[10px] font-medium tracking-[0.01em] text-slate-700 transition-all hover:bg-white hover:-translate-y-0.5">
                     {situacao}
                   </span>
                 ))}
               </div>
-              <div className="mt-5 border-t border-slate-100 pt-4 text-[11px] font-bold text-slate-500">
+              <div className="mt-5 border-t border-slate-100 pt-4 text-[11px] font-medium text-slate-500 inline-flex items-center gap-1.5">
+                <CalendarClock size={13} className="text-slate-400" />
                 Última atribuição: {formatDateTime(analyst.ultima_atribuicao)}
               </div>
             </div>
 
-            <div className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm">
-              <p className="text-[10px] font-black uppercase tracking-[0.24em] text-slate-400">Mesa Atual por Situação</p>
+            <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_18px_32px_-28px_rgba(15,23,42,0.7)]">
+              <p className="text-[10px] font-semibold tracking-[0.12em] text-slate-500 inline-flex items-center gap-1.5"><Layers3 size={12} className="text-sky-600" /> Mesa Atual por Situação</p>
               <div className="mt-4 space-y-2">
                 {situationEntries.length > 0 ? (
                   situationEntries.map(([label, total]) => (
-                    <div key={label} className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3 border border-slate-100">
-                      <span className="text-[11px] font-black uppercase tracking-wide text-slate-700">{label}</span>
-                      <span className="text-sm font-black text-blue-600">{total}</span>
+                    <div key={label} className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3 border border-slate-200 transition-all hover:bg-white hover:-translate-y-0.5">
+                      <span className="text-[11px] font-semibold tracking-[0.01em] text-slate-700">{label}</span>
+                      <span className="text-sm font-semibold text-blue-700">{total}</span>
                     </div>
                   ))
                 ) : (
-                  <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-5 text-center text-[11px] font-bold text-slate-400">
+                  <div className="rounded-2xl border border-dashed border-slate-300 px-4 py-5 text-center text-[11px] font-medium text-slate-500">
                     Nenhuma pasta na mesa neste momento.
                   </div>
                 )}
@@ -138,75 +173,75 @@ const AnalystDetailModal = ({ analyst, currentTasks, recentCompletions, onClose 
             </div>
           </section>
 
-          <section className="rounded-3xl border border-blue-100 bg-[linear-gradient(135deg,#eff6ff_0%,#f8fafc_100%)] p-5 sm:p-6">
+          <section className={`${isCompact ? 'rounded-3xl border border-blue-200 bg-[linear-gradient(135deg,#eff6ff_0%,#f8fbff_48%,#f8fafc_100%)] p-4 sm:p-4 shadow-[0_20px_38px_-30px_rgba(0,113,227,0.6)]' : 'rounded-3xl border border-blue-200 bg-[linear-gradient(135deg,#eff6ff_0%,#f8fbff_48%,#f8fafc_100%)] p-5 sm:p-6 shadow-[0_20px_38px_-30px_rgba(0,113,227,0.6)]'} animate-in fade-in duration-500`} style={sectionRevealStyle(3)}>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.24em] text-blue-600">Painel Analítico</p>
-                <h4 className="mt-1 text-sm font-black uppercase tracking-wide text-slate-900">Produção detalhada do analista</h4>
+                <p className="text-[10px] font-semibold tracking-[0.12em] text-blue-700 inline-flex items-center gap-1.5"><LineChart size={12} /> Painel Analítico</p>
+                <h4 className="mt-1 text-sm font-semibold tracking-[0.01em] text-slate-900">Produção detalhada do analista</h4>
               </div>
-              <span className="inline-flex items-center rounded-full border border-blue-200 bg-white px-3 py-1 text-[10px] font-black uppercase text-blue-700">
+              <span className="inline-flex items-center rounded-full border border-blue-200 bg-white/90 px-3 py-1 text-[10px] font-semibold text-blue-700 shadow-[0_12px_22px_-18px_rgba(0,113,227,0.75)]">
                 Total no período: {analytics.total_periodo || 0}
               </span>
             </div>
 
-            <div className="mt-5 grid grid-cols-1 xl:grid-cols-3 gap-4">
-              <div className="rounded-2xl border border-blue-100 bg-white p-4">
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Realizadas por Dia</p>
-                <div className="mt-3 space-y-2 max-h-72 overflow-y-auto pr-1">
+            <div className={`${isCompact ? 'mt-4 grid grid-cols-1 xl:grid-cols-3 gap-3' : 'mt-5 grid grid-cols-1 xl:grid-cols-3 gap-4'}`}>
+              <div className="rounded-2xl border border-blue-100 bg-white p-4 transition-all hover:-translate-y-0.5">
+                <p className="text-[10px] font-semibold tracking-[0.1em] text-slate-600">Realizadas por Dia</p>
+                <div className={`${isCompact ? 'mt-2.5 space-y-1.5 max-h-60 overflow-y-auto pr-1' : 'mt-3 space-y-2 max-h-72 overflow-y-auto pr-1'}`}>
                   {dailySeries.length > 0 ? dailySeries.map((item) => (
                     <div key={item.key} className="space-y-1">
-                      <div className="flex items-center justify-between text-[10px] font-bold uppercase text-slate-600">
+                      <div className="flex items-center justify-between text-[10px] font-medium text-slate-600">
                         <span>{item.label}</span>
                         <span>{item.total}</span>
                       </div>
                       <div className="h-2.5 rounded-full bg-blue-50 overflow-hidden border border-blue-100">
-                        <div className="h-full rounded-full bg-blue-500" style={{ width: barWidth(item.total, maxDaily) }} />
+                        <div className="h-full rounded-full bg-blue-500 transition-all duration-700 ease-out" style={{ width: barWidth(item.total, maxDaily) }} />
                       </div>
                     </div>
                   )) : (
-                    <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-5 text-center text-[11px] font-bold text-slate-400">
+                    <div className="rounded-2xl border border-dashed border-slate-300 px-4 py-5 text-center text-[11px] font-medium text-slate-500">
                       Sem dados diários no período analisado.
                     </div>
                   )}
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-emerald-100 bg-white p-4">
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Realizadas por Mês</p>
-                <div className="mt-3 space-y-2 max-h-72 overflow-y-auto pr-1">
+              <div className="rounded-2xl border border-emerald-100 bg-white p-4 transition-all hover:-translate-y-0.5">
+                <p className="text-[10px] font-semibold tracking-[0.1em] text-slate-600">Realizadas por Mês</p>
+                <div className={`${isCompact ? 'mt-2.5 space-y-1.5 max-h-60 overflow-y-auto pr-1' : 'mt-3 space-y-2 max-h-72 overflow-y-auto pr-1'}`}>
                   {monthlySeries.length > 0 ? monthlySeries.map((item) => (
                     <div key={item.key} className="space-y-1">
-                      <div className="flex items-center justify-between text-[10px] font-bold uppercase text-slate-600">
+                      <div className="flex items-center justify-between text-[10px] font-medium text-slate-600">
                         <span>{item.label}</span>
                         <span>{item.total}</span>
                       </div>
                       <div className="h-2.5 rounded-full bg-emerald-50 overflow-hidden border border-emerald-100">
-                        <div className="h-full rounded-full bg-emerald-500" style={{ width: barWidth(item.total, maxMonthly) }} />
+                        <div className="h-full rounded-full bg-emerald-500 transition-all duration-700 ease-out" style={{ width: barWidth(item.total, maxMonthly) }} />
                       </div>
                     </div>
                   )) : (
-                    <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-5 text-center text-[11px] font-bold text-slate-400">
+                    <div className="rounded-2xl border border-dashed border-slate-300 px-4 py-5 text-center text-[11px] font-medium text-slate-500">
                       Sem dados mensais no período analisado.
                     </div>
                   )}
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-indigo-100 bg-white p-4">
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Realizadas por Situação</p>
-                <div className="mt-3 space-y-2 max-h-72 overflow-y-auto pr-1">
+              <div className="rounded-2xl border border-indigo-100 bg-white p-4 transition-all hover:-translate-y-0.5">
+                <p className="text-[10px] font-semibold tracking-[0.1em] text-slate-600">Realizadas por Situação</p>
+                <div className={`${isCompact ? 'mt-2.5 space-y-1.5 max-h-60 overflow-y-auto pr-1' : 'mt-3 space-y-2 max-h-72 overflow-y-auto pr-1'}`}>
                   {situationSeries.length > 0 ? situationSeries.map((item) => (
                     <div key={item.label} className="space-y-1">
-                      <div className="flex items-center justify-between text-[10px] font-bold uppercase text-slate-600 gap-2">
+                      <div className="flex items-center justify-between text-[10px] font-medium text-slate-600 gap-2">
                         <span className="truncate">{item.label}</span>
                         <span>{item.total}</span>
                       </div>
                       <div className="h-2.5 rounded-full bg-indigo-50 overflow-hidden border border-indigo-100">
-                        <div className="h-full rounded-full bg-indigo-500" style={{ width: barWidth(item.total, maxSituation) }} />
+                        <div className="h-full rounded-full bg-indigo-500 transition-all duration-700 ease-out" style={{ width: barWidth(item.total, maxSituation) }} />
                       </div>
                     </div>
                   )) : (
-                    <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-5 text-center text-[11px] font-bold text-slate-400">
+                    <div className="rounded-2xl border border-dashed border-slate-300 px-4 py-5 text-center text-[11px] font-medium text-slate-500">
                       Sem dados de situação no período analisado.
                     </div>
                   )}
@@ -214,75 +249,75 @@ const AnalystDetailModal = ({ analyst, currentTasks, recentCompletions, onClose 
               </div>
             </div>
 
-            <div className="mt-4 grid grid-cols-1 xl:grid-cols-2 gap-4">
-              <div className="rounded-2xl border border-sky-100 bg-white p-4">
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Situação por Dia</p>
-                <div className="mt-3 space-y-3 max-h-80 overflow-y-auto pr-1">
+            <div className={`${isCompact ? 'mt-3 grid grid-cols-1 xl:grid-cols-2 gap-3' : 'mt-4 grid grid-cols-1 xl:grid-cols-2 gap-4'}`}>
+              <div className="rounded-2xl border border-sky-100 bg-white p-4 transition-all hover:-translate-y-0.5">
+                <p className="text-[10px] font-semibold tracking-[0.1em] text-slate-600">Situação por Dia</p>
+                <div className={`${isCompact ? 'mt-2.5 space-y-2.5 max-h-72 overflow-y-auto pr-1' : 'mt-3 space-y-3 max-h-80 overflow-y-auto pr-1'}`}>
                   {situationDailySeries.length > 0 ? situationDailySeries.map((situation) => {
                     const series = situation.serie || [];
                     const localMax = Math.max(...series.map((item) => Number(item.total || 0)), 1);
                     return (
-                      <div key={`daily-${situation.label}`} className="rounded-2xl border border-sky-100 bg-sky-50/40 p-3">
+                      <div key={`daily-${situation.label}`} className="rounded-2xl border border-sky-100 bg-sky-50/40 p-3 transition-all hover:bg-white">
                         <div className="flex items-center justify-between gap-2">
-                          <p className="text-[10px] font-black uppercase text-slate-700 truncate">{situation.label}</p>
-                          <span className="text-[10px] font-black uppercase text-sky-700">{situation.total}</span>
+                          <p className="text-[10px] font-semibold text-slate-700 truncate">{situation.label}</p>
+                          <span className="text-[10px] font-semibold text-sky-700">{situation.total}</span>
                         </div>
                         <div className="mt-2 space-y-1.5">
                           {series.length > 0 ? series.map((item) => (
                             <div key={`${situation.label}-${item.key}`} className="space-y-1">
-                              <div className="flex items-center justify-between text-[9px] font-bold uppercase text-slate-600">
+                              <div className="flex items-center justify-between text-[9px] font-medium text-slate-600">
                                 <span>{item.label}</span>
                                 <span>{item.total}</span>
                               </div>
                               <div className="h-2 rounded-full bg-sky-50 overflow-hidden border border-sky-100">
-                                <div className="h-full rounded-full bg-sky-500" style={{ width: barWidth(item.total, localMax) }} />
+                                <div className="h-full rounded-full bg-sky-500 transition-all duration-700 ease-out" style={{ width: barWidth(item.total, localMax) }} />
                               </div>
                             </div>
                           )) : (
-                            <p className="text-[10px] font-bold text-slate-400">Sem registros diários.</p>
+                            <p className="text-[10px] font-medium text-slate-500">Sem registros diários.</p>
                           )}
                         </div>
                       </div>
                     );
                   }) : (
-                    <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-5 text-center text-[11px] font-bold text-slate-400">
+                    <div className="rounded-2xl border border-dashed border-slate-300 px-4 py-5 text-center text-[11px] font-medium text-slate-500">
                       Sem série diária por situação no período analisado.
                     </div>
                   )}
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-violet-100 bg-white p-4">
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Situação por Mês</p>
-                <div className="mt-3 space-y-3 max-h-80 overflow-y-auto pr-1">
+              <div className="rounded-2xl border border-violet-100 bg-white p-4 transition-all hover:-translate-y-0.5">
+                <p className="text-[10px] font-semibold tracking-[0.1em] text-slate-600">Situação por Mês</p>
+                <div className={`${isCompact ? 'mt-2.5 space-y-2.5 max-h-72 overflow-y-auto pr-1' : 'mt-3 space-y-3 max-h-80 overflow-y-auto pr-1'}`}>
                   {situationMonthlySeries.length > 0 ? situationMonthlySeries.map((situation) => {
                     const series = situation.serie || [];
                     const localMax = Math.max(...series.map((item) => Number(item.total || 0)), 1);
                     return (
-                      <div key={`monthly-${situation.label}`} className="rounded-2xl border border-violet-100 bg-violet-50/40 p-3">
+                      <div key={`monthly-${situation.label}`} className="rounded-2xl border border-violet-100 bg-violet-50/40 p-3 transition-all hover:bg-white">
                         <div className="flex items-center justify-between gap-2">
-                          <p className="text-[10px] font-black uppercase text-slate-700 truncate">{situation.label}</p>
-                          <span className="text-[10px] font-black uppercase text-violet-700">{situation.total}</span>
+                          <p className="text-[10px] font-semibold text-slate-700 truncate">{situation.label}</p>
+                          <span className="text-[10px] font-semibold text-violet-700">{situation.total}</span>
                         </div>
                         <div className="mt-2 space-y-1.5">
                           {series.length > 0 ? series.map((item) => (
                             <div key={`${situation.label}-${item.key}`} className="space-y-1">
-                              <div className="flex items-center justify-between text-[9px] font-bold uppercase text-slate-600">
+                              <div className="flex items-center justify-between text-[9px] font-medium text-slate-600">
                                 <span>{item.label}</span>
                                 <span>{item.total}</span>
                               </div>
                               <div className="h-2 rounded-full bg-violet-50 overflow-hidden border border-violet-100">
-                                <div className="h-full rounded-full bg-violet-500" style={{ width: barWidth(item.total, localMax) }} />
+                                <div className="h-full rounded-full bg-violet-500 transition-all duration-700 ease-out" style={{ width: barWidth(item.total, localMax) }} />
                               </div>
                             </div>
                           )) : (
-                            <p className="text-[10px] font-bold text-slate-400">Sem registros mensais.</p>
+                            <p className="text-[10px] font-medium text-slate-500">Sem registros mensais.</p>
                           )}
                         </div>
                       </div>
                     );
                   }) : (
-                    <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-5 text-center text-[11px] font-bold text-slate-400">
+                    <div className="rounded-2xl border border-dashed border-slate-300 px-4 py-5 text-center text-[11px] font-medium text-slate-500">
                       Sem série mensal por situação no período analisado.
                     </div>
                   )}
@@ -291,43 +326,43 @@ const AnalystDetailModal = ({ analyst, currentTasks, recentCompletions, onClose 
             </div>
           </section>
 
-          <section className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-            <div className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm">
-              <p className="text-[10px] font-black uppercase tracking-[0.24em] text-slate-400">Pastas em andamento</p>
-              <div className="mt-4 space-y-2 max-h-72 overflow-y-auto pr-1">
+          <section className={`${isCompact ? 'grid grid-cols-1 xl:grid-cols-2 gap-4' : 'grid grid-cols-1 xl:grid-cols-2 gap-6'} animate-in fade-in duration-500`} style={sectionRevealStyle(4)}>
+            <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_18px_32px_-28px_rgba(15,23,42,0.7)]">
+              <p className="text-[10px] font-semibold tracking-[0.12em] text-slate-600 inline-flex items-center gap-1.5"><Layers3 size={12} className="text-slate-500" /> Pastas em andamento</p>
+              <div className={`${isCompact ? 'mt-3 space-y-1.5 max-h-60 overflow-y-auto pr-1' : 'mt-4 space-y-2 max-h-72 overflow-y-auto pr-1'}`}>
                 {currentTasks.length > 0 ? (
                   currentTasks.map((task) => (
-                    <div key={task.reserva_id} className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
+                    <div key={task.reserva_id} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 transition-all hover:bg-white hover:-translate-y-0.5">
                       <div className="flex items-start justify-between gap-4">
                         <div className="min-w-0">
-                          <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">Reserva {task.reserva_id}</p>
-                          <p className="mt-1 truncate text-[12px] font-black uppercase text-slate-800">{task.cliente || 'Cliente não informado'}</p>
-                          <p className="mt-1 text-[10px] font-bold uppercase tracking-wide text-slate-500">{task.situacao_nome || 'Não informado'}</p>
+                          <p className="text-[10px] font-semibold tracking-[0.06em] text-slate-500">Reserva {task.reserva_id}</p>
+                          <p className="mt-1 truncate text-[12px] font-semibold text-slate-800">{task.cliente || 'Cliente não informado'}</p>
+                          <p className="mt-1 text-[10px] font-medium tracking-[0.01em] text-slate-600">{task.situacao_nome || 'Não informado'}</p>
                         </div>
                       </div>
                     </div>
                   ))
                 ) : (
-                  <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-5 text-center text-[11px] font-bold text-slate-400">
+                  <div className="rounded-2xl border border-dashed border-slate-300 px-4 py-5 text-center text-[11px] font-medium text-slate-500">
                     Nenhuma pasta em andamento.
                   </div>
                 )}
               </div>
             </div>
 
-            <div className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm">
-              <p className="text-[10px] font-black uppercase tracking-[0.24em] text-slate-400">Concluídas recentemente</p>
-              <div className="mt-4 space-y-2 max-h-72 overflow-y-auto pr-1">
+            <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_18px_32px_-28px_rgba(15,23,42,0.7)]">
+              <p className="text-[10px] font-semibold tracking-[0.12em] text-slate-600 inline-flex items-center gap-1.5"><Sparkles size={12} className="text-emerald-600" /> Concluídas recentemente</p>
+              <div className={`${isCompact ? 'mt-3 space-y-1.5 max-h-60 overflow-y-auto pr-1' : 'mt-4 space-y-2 max-h-72 overflow-y-auto pr-1'}`}>
                 {recentCompletions.length > 0 ? (
                   recentCompletions.map((task, index) => (
-                    <div key={`${task.reserva_id}-${task.data_fim || index}`} className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3">
-                      <p className="text-[10px] font-black uppercase tracking-wide text-emerald-600">{task.data_fim ? formatDateTime(task.data_fim) : 'Hoje'}</p>
-                      <p className="mt-1 text-[12px] font-black uppercase text-emerald-900">{task.cliente || `Reserva ${task.reserva_id}`}</p>
-                      <p className="mt-1 text-[10px] font-bold uppercase tracking-wide text-emerald-700">{task.situacao_nome || task.resultado || 'Concluída'}</p>
+                    <div key={`${task.reserva_id}-${task.data_fim || index}`} className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 transition-all hover:bg-white hover:-translate-y-0.5">
+                      <p className="text-[10px] font-semibold tracking-[0.04em] text-emerald-700">{task.data_fim ? formatDateTime(task.data_fim) : 'Hoje'}</p>
+                      <p className="mt-1 text-[12px] font-semibold text-emerald-900">{task.cliente || `Reserva ${task.reserva_id}`}</p>
+                      <p className="mt-1 text-[10px] font-medium tracking-[0.01em] text-emerald-700">{task.situacao_nome || task.resultado || 'Concluída'}</p>
                     </div>
                   ))
                 ) : (
-                  <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-5 text-center text-[11px] font-bold text-slate-400">
+                  <div className="rounded-2xl border border-dashed border-slate-300 px-4 py-5 text-center text-[11px] font-medium text-slate-500">
                     Nenhuma conclusão recente no histórico carregado.
                   </div>
                 )}
@@ -355,6 +390,7 @@ const ManagerDashboardTab = ({
   handleDeleteAnalyst,
 }) => {
   const [selectedAnalystId, setSelectedAnalystId] = useState(null);
+  const [detailViewDirection, setDetailViewDirection] = useState('forward');
   const syncScope = managerSyncStatus?.limpeza_escopo;
   const hasSyncFailures = Array.isArray(managerSyncStatus?.situacoes_falharam) && managerSyncStatus.situacoes_falharam.length > 0;
 
@@ -428,15 +464,38 @@ const ManagerDashboardTab = ({
   const selectedAnalyst = teamProcessData.find((item) => String(item.analista_id) === String(selectedAnalystId)) || null;
   const totalOnline = teamProcessData.filter((item) => item.is_online).length;
 
+  const openAnalystDetail = (analystId) => {
+    setDetailViewDirection('forward');
+    setSelectedAnalystId(analystId);
+  };
+
+  const closeAnalystDetail = () => {
+    setDetailViewDirection('backward');
+    setSelectedAnalystId(null);
+  };
+
   return (
     <>
-      <AnalystDetailModal
-        analyst={selectedAnalyst}
-        currentTasks={selectedAnalyst ? (currentTasksByAnalyst[selectedAnalyst.analista_id] || []) : []}
-        recentCompletions={selectedAnalyst ? (recentCompletionsByAnalyst[selectedAnalyst.analista_id] || []).slice(0, 6) : []}
-        onClose={() => setSelectedAnalystId(null)}
-      />
-
+      <div
+        key={selectedAnalyst ? `detail-${selectedAnalyst.analista_id}` : 'list-view'}
+        className={`analyst-detail-transition ${detailViewDirection === 'forward' ? 'is-forward' : 'is-backward'}`}
+      >
+      {selectedAnalyst ? (
+        <div className="space-y-4 md:space-y-5 animate-in fade-in duration-300">
+          <div className="rounded-2xl border border-slate-200/80 bg-white/80 px-4 py-3 text-[11px] font-medium text-slate-600 inline-flex items-center gap-2 shadow-[0_12px_24px_-20px_rgba(15,23,42,0.5)]">
+            <span className="text-slate-400">Processo Analítico da Equipe</span>
+            <span className="text-slate-300">/</span>
+            <span className="text-[#0071e3] font-semibold truncate max-w-[220px]">{selectedAnalyst.nome}</span>
+          </div>
+          <AnalystDetailModal
+            analyst={selectedAnalyst}
+            currentTasks={currentTasksByAnalyst[selectedAnalyst.analista_id] || []}
+            recentCompletions={(recentCompletionsByAnalyst[selectedAnalyst.analista_id] || []).slice(0, 6)}
+            onClose={closeAnalystDetail}
+            asInline
+          />
+        </div>
+      ) : (
       <div className="space-y-5 md:space-y-6">
 
       <section className="rounded-[1.6rem] border border-slate-200/80 bg-white/85 p-5 md:p-6 shadow-[0_20px_45px_-30px_rgba(15,23,42,0.45)] backdrop-blur-sm">
@@ -518,7 +577,7 @@ const ManagerDashboardTab = ({
                           {getInitials(analyst.nome)}
                         </div>
                         <div className="min-w-0 flex-1">
-                          <button onClick={() => setSelectedAnalystId(analyst.analista_id)} className="flex flex-col text-left w-full max-w-72">
+                          <button onClick={() => openAnalystDetail(analyst.analista_id)} className="flex flex-col text-left w-full max-w-72">
                             <span className="font-semibold text-slate-800 truncate hover:text-[#0071e3] transition">{analyst.nome}</span>
                             <span className="text-[10px] font-medium text-slate-500 truncate mt-0.5">{analyst.email || 'Sem e-mail'}</span>
                           </button>
@@ -584,6 +643,8 @@ const ManagerDashboardTab = ({
           </table>
         </div>
       </section>
+      </div>
+      )}
       </div>
     </>
   );
