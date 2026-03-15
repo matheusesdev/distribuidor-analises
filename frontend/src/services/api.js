@@ -47,6 +47,20 @@ const request = (path, { method = "GET", body, headers } = {}) => {
   return fetch(`${API_BASE}${path}`, config);
 };
 
+const requestWithFallbackPaths = async (paths, options = {}) => {
+  const candidates = (paths || []).filter(Boolean);
+  if (!candidates.length) {
+    throw new Error("Nenhuma rota informada para fallback");
+  }
+
+  let response = await request(candidates[0], options);
+  for (let i = 1; i < candidates.length && response.status === 404; i += 1) {
+    response = await request(candidates[i], options);
+  }
+
+  return response;
+};
+
 export const api = {
   listAnalysts: () => request("/api/analistas"),
   getMesa: (analystId) => request(`/api/mesa/${analystId}`, { headers: getAnalystAuthHeaders() }),
@@ -54,7 +68,11 @@ export const api = {
   getAnalystDashboard: (analystId) => request(`/api/analista/dashboard/${analystId}`, { headers: getAnalystAuthHeaders() }),
   getManagerOverview: () => request("/api/gestor/overview", { headers: getManagerAuthHeaders() }),
   getManagerSyncStatus: () => request("/api/gestor/sync-status", { headers: getManagerAuthHeaders() }),
-  getManagerAdmins: () => request("/api/gestor/admins", { headers: getManagerAuthHeaders() }),
+  getManagerAdmins: () =>
+    requestWithFallbackPaths([
+      "/api/gestor/admins",
+      "/gestor/admins",
+    ], { headers: getManagerAuthHeaders() }),
 
   login: (analystId, password) =>
     request("/api/login", {
@@ -87,7 +105,10 @@ export const api = {
     }),
 
   createManagerAdmin: ({ email, senha, username, ativo }) =>
-    request("/api/gestor/admins", {
+    requestWithFallbackPaths([
+      "/api/gestor/admins",
+      "/gestor/admins",
+    ], {
       method: "POST",
       body: { email, senha, username, ativo },
       headers: getManagerAuthHeaders(),
