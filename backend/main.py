@@ -498,6 +498,70 @@ def build_transfer_log_payload(
     }
 
 
+def get_admin_identity(admin_id: int) -> Dict[str, Any]:
+    try:
+        response = (
+            supabase.table("administradores")
+            .select("id,username,email")
+            .eq("id", int(admin_id))
+            .limit(1)
+            .execute()
+        )
+        row = (response.data or [None])[0] or {}
+        return {
+            "id": int(row.get("id") or admin_id),
+            "username": row.get("username"),
+            "email": row.get("email"),
+        }
+    except Exception:
+        return {"id": int(admin_id), "username": None, "email": None}
+
+
+def get_target_identity(role: str, user_id: int) -> Dict[str, Any]:
+    table_name = "administradores" if role == "admin" else "analistas"
+    select_fields = "id,username,email" if role == "admin" else "id,nome,email"
+
+    try:
+        response = (
+            supabase.table(table_name)
+            .select(select_fields)
+            .eq("id", int(user_id))
+            .limit(1)
+            .execute()
+        )
+        row = (response.data or [None])[0] or {}
+        return {
+            "id": int(row.get("id") or user_id),
+            "name": row.get("username") if role == "admin" else row.get("nome"),
+            "email": row.get("email"),
+        }
+    except Exception:
+        return {"id": int(user_id), "name": None, "email": None}
+
+
+def record_session_revoke_audit(*, actor: Dict[str, Any], role: str, user_id: int, reason: str, session_version: int) -> None:
+    timestamp = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    target = get_target_identity(role, user_id)
+
+    payload = {
+        "actor_admin_id": int(actor.get("id") or 0),
+        "actor_admin_username": actor.get("username"),
+        "actor_admin_email": actor.get("email"),
+        "target_role": role,
+        "target_user_id": int(target.get("id") or user_id),
+        "target_user_name": target.get("name"),
+        "target_user_email": target.get("email"),
+        "reason": (reason or "manual").strip() or "manual",
+        "new_session_version": int(session_version),
+        "revoked_at": timestamp,
+    }
+
+    try:
+        supabase.table("logs_sessoes_revogadas").insert(payload).execute()
+    except Exception as exc:
+        print(f"[AUDIT] Falha ao registrar logs_sessoes_revogadas: {exc} | payload={payload}")
+
+
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 
 ALLOWED_ORIGINS = parse_allowed_origins(os.getenv("ALLOWED_ORIGINS", "http://localhost:5173"))
@@ -1520,7 +1584,8 @@ async def create_admin_user(req: AdminCreateRequest, authorization: Optional[str
 
 @app.post("/api/gestor/sessoes/revogar")
 async def revoke_user_sessions(req: SessionRevokeRequest, authorization: Optional[str] = Header(default=None)):
-    require_manager_auth(authorization)
+    actor_payload = require_manager_auth(authorization)
+    actor = get_admin_identity(int(actor_payload.get("user_id") or 0))
 
     role = (req.role or "").strip().lower()
     if role not in {"admin", "analyst"}:
@@ -1543,6 +1608,14 @@ async def revoke_user_sessions(req: SessionRevokeRequest, authorization: Optiona
         except Exception:
             # revogação de sessão continua válida mesmo sem conseguir ajustar fila.
             pass
+
+    record_session_revoke_audit(
+        actor=actor,
+        role=role,
+        user_id=user_id,
+        reason=req.reason or "manual",
+        session_version=next_version,
+    )
 
     return {
         "status": "ok",

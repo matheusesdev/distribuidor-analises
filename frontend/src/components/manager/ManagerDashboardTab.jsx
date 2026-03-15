@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Activity,
   AlertTriangle,
@@ -387,10 +387,12 @@ const ManagerDashboardTab = ({
   setShowEditModal,
   togglingQueueIds,
   handleAdminQueueToggle,
+  handleAdminBulkQueueToggle,
   handleDeleteAnalyst,
 }) => {
   const [selectedAnalystId, setSelectedAnalystId] = useState(null);
   const [detailViewDirection, setDetailViewDirection] = useState('forward');
+  const [selectedQueueIds, setSelectedQueueIds] = useState(new Set());
   const syncScope = managerSyncStatus?.limpeza_escopo;
   const hasSyncFailures = Array.isArray(managerSyncStatus?.situacoes_falharam) && managerSyncStatus.situacoes_falharam.length > 0;
 
@@ -463,6 +465,21 @@ const ManagerDashboardTab = ({
 
   const selectedAnalyst = teamProcessData.find((item) => String(item.analista_id) === String(selectedAnalystId)) || null;
   const totalOnline = teamProcessData.filter((item) => item.is_online).length;
+  const selectedAnalysts = teamProcessData.filter((item) => selectedQueueIds.has(String(item.analista_id)));
+  const selectedCount = selectedAnalysts.length;
+  const allSelected = teamProcessData.length > 0 && selectedCount === teamProcessData.length;
+  const selectedOnlineCount = selectedAnalysts.filter((item) => item.is_online).length;
+  const selectedOfflineCount = selectedCount - selectedOnlineCount;
+  const hasBulkToggleInProgress = selectedAnalysts.some((item) => togglingQueueIds.includes(item.analista_id));
+
+  useEffect(() => {
+    const validIds = new Set(teamProcessData.map((item) => String(item.analista_id)));
+    setSelectedQueueIds((prev) => {
+      const filtered = new Set(Array.from(prev).filter((id) => validIds.has(String(id))));
+      if (filtered.size === prev.size) return prev;
+      return filtered;
+    });
+  }, [teamProcessData]);
 
   const openAnalystDetail = (analystId) => {
     setDetailViewDirection('forward');
@@ -472,6 +489,37 @@ const ManagerDashboardTab = ({
   const closeAnalystDetail = () => {
     setDetailViewDirection('backward');
     setSelectedAnalystId(null);
+  };
+
+  const toggleAnalystSelection = (analystId) => {
+    const normalizedId = String(analystId);
+    setSelectedQueueIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(normalizedId)) {
+        next.delete(normalizedId);
+      } else {
+        next.add(normalizedId);
+      }
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (allSelected) {
+      setSelectedQueueIds(new Set());
+      return;
+    }
+    setSelectedQueueIds(new Set(teamProcessData.map((item) => String(item.analista_id))));
+  };
+
+  const runBulkToggle = (targetOnline) => {
+    if (!selectedAnalysts.length || !handleAdminBulkQueueToggle) return;
+    handleAdminBulkQueueToggle({
+      analysts: selectedAnalysts.map((item) => ({ ...item, id: item.analista_id })),
+      targetOnline,
+      isFullSelection: allSelected,
+      totalSelected: selectedCount,
+    });
   };
 
   return (
@@ -557,12 +605,63 @@ const ManagerDashboardTab = ({
             <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-emerald-700">Fila ativa: {totalOnline}</span>
             <span className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-blue-700">Clique no nome para detalhes</span>
           </div>
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center gap-2 text-[10px] font-semibold tracking-[0.03em] text-slate-600">
+              <button
+                type="button"
+                onClick={toggleSelectAll}
+                className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-white px-3 py-1 text-slate-700 transition-all hover:border-slate-400 hover:-translate-y-0.5"
+              >
+                <CheckSquare size={11} />
+                {allSelected ? 'Limpar seleção' : 'Selecionar todos'}
+              </button>
+              <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1">
+                Selecionados: {selectedCount}
+              </span>
+              <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-emerald-700">
+                Online: {selectedOnlineCount}
+              </span>
+              <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-slate-600">
+                Offline: {selectedOfflineCount}
+              </span>
+            </div>
+
+            <div className="inline-flex items-center gap-1.5 rounded-2xl border border-slate-200 bg-white p-1 shadow-[0_10px_24px_-20px_rgba(15,23,42,0.45)]">
+              <button
+                type="button"
+                onClick={() => runBulkToggle(true)}
+                disabled={selectedCount === 0 || hasBulkToggleInProgress || selectedOfflineCount === 0}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[10px] font-semibold text-emerald-700 transition-all hover:bg-emerald-100 hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+              >
+                <Power size={12} />
+                Ligar selecionados
+              </button>
+              <button
+                type="button"
+                onClick={() => runBulkToggle(false)}
+                disabled={selectedCount === 0 || hasBulkToggleInProgress || selectedOnlineCount === 0}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-red-200 bg-red-50 px-3 py-1.5 text-[10px] font-semibold text-red-700 transition-all hover:bg-red-100 hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+              >
+                <Power size={12} />
+                Desligar selecionados
+              </button>
+            </div>
+          </div>
         </div>
 
         <div className="overflow-x-auto w-full">
           <table className="w-full text-left text-[12px] min-w-160">
             <thead className="text-[10px] text-slate-500 font-semibold border-b border-slate-100 bg-slate-50/70 text-center tracking-[0.04em]">
               <tr>
+                <th className="p-4 md:p-5 text-center w-10">
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    onChange={toggleSelectAll}
+                    className="h-4 w-4 rounded border-slate-300 text-[#0071e3] focus:ring-[#0071e3]"
+                    aria-label={allSelected ? 'Desmarcar todos os analistas' : 'Selecionar todos os analistas'}
+                  />
+                </th>
                 <th className="p-4 md:p-5 text-left">Analista</th>
                 <th className="p-4 md:p-5 text-right">Ações</th>
               </tr>
@@ -571,6 +670,15 @@ const ManagerDashboardTab = ({
               {teamProcessData.length > 0 ? teamProcessData.map((analyst) => {
                 return (
                   <tr key={analyst.analista_id} className="hover:bg-slate-50/80 transition-all group text-[12px] text-center">
+                    <td className="p-4 md:p-5 text-center align-top">
+                      <input
+                        type="checkbox"
+                        checked={selectedQueueIds.has(String(analyst.analista_id))}
+                        onChange={() => toggleAnalystSelection(analyst.analista_id)}
+                        className="mt-1 h-4 w-4 rounded border-slate-300 text-[#0071e3] focus:ring-[#0071e3]"
+                        aria-label={`Selecionar ${analyst.nome}`}
+                      />
+                    </td>
                     <td className="p-4 md:p-5 text-left">
                       <div className="flex items-start gap-3 md:gap-4">
                         <div className="h-11 w-11 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center text-[11px] font-semibold text-slate-600 shrink-0">
@@ -634,7 +742,7 @@ const ManagerDashboardTab = ({
                 );
               }) : (
                 <tr>
-                  <td colSpan={2} className="p-10 text-center text-[12px] font-bold text-slate-400">
+                  <td colSpan={3} className="p-10 text-center text-[12px] font-bold text-slate-400">
                     Nenhum analista encontrado para exibir o processo analítico da equipe.
                   </td>
                 </tr>

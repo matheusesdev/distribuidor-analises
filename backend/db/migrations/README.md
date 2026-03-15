@@ -24,8 +24,12 @@ Esta pasta concentra os scripts SQL do projeto em ordem de execucao.
    - Adiciona `session_version` em `analistas` e `administradores`.
    - Necessario para revogacao remota de sessao (multi-dispositivo).
 
+6. `006_logs_sessoes_revogadas_schema.sql`
+   - Cria a tabela `logs_sessoes_revogadas` e indices de consulta.
+   - Necessario para persistir auditoria oficial de revogacoes de sessao.
+
 ## Quando rodar
 
-- Ambiente novo: execute 001 -> 002 -> 003 -> 004 -> 005.
+- Ambiente novo: execute 001 -> 002 -> 003 -> 004 -> 005 -> 006.
 - Ambiente existente: execute somente o script necessario (todos usam `if not exists` quando aplicavel).
 - Se um endpoint reclamar de tabela ausente, rode o script correspondente e teste novamente.

@@ -9,7 +9,7 @@ import {
   Tag, BarChart3, PieChart, RotateCcw, ArrowRightLeft
 } from 'lucide-react';
 import { api } from './services/api';
-import { ConfirmActionModal, LoadingOverlay, StatusToast } from './components/FeedbackOverlays';
+import { ConfirmActionModal, LoadingOverlay, RevokeAccessModal, StatusToast } from './components/FeedbackOverlays';
 import LoginView from './components/LoginView';
 import ResetPasswordView from './components/ResetPasswordView';
 import MesaView from './components/analyst/MesaView';
@@ -169,6 +169,16 @@ const App = () => {
     ativo: true,
   });
   const [confirmAction, setConfirmAction] = useState({ open: false, title: "", message: "", confirmLabel: "Confirmar", tone: "warning" });
+  const [revokeAction, setRevokeAction] = useState({
+    open: false,
+    role: 'admin',
+    targetName: '',
+    targetId: null,
+    step: 1,
+    acknowledged: false,
+    confirmPhrase: '',
+    reason: '',
+  });
   const [togglingQueueIds, setTogglingQueueIds] = useState([]);
   const [showTransferModal, setShowTransferModal] = useState(false);
   const [transferTask, setTransferTask] = useState(null);
@@ -434,6 +444,43 @@ const App = () => {
     }
     setConfirmAction(prev => ({ ...prev, open: false }));
   };
+
+  const requestRevokeConfirmation = useCallback(({ role, targetName, targetId }) => {
+    return new Promise((resolve) => {
+      confirmResolverRef.current = resolve;
+      setRevokeAction({
+        open: true,
+        role,
+        targetName,
+        targetId,
+        step: 1,
+        acknowledged: false,
+        confirmPhrase: '',
+        reason: '',
+      });
+    });
+  }, []);
+
+  const closeRevokeConfirmation = useCallback((payload) => {
+    if (payload?.updateOnly) {
+      setRevokeAction((prev) => ({ ...prev, ...(payload.patch || {}) }));
+      return;
+    }
+
+    if (confirmResolverRef.current) {
+      confirmResolverRef.current(payload || { confirmed: false });
+      confirmResolverRef.current = null;
+    }
+
+    setRevokeAction((prev) => ({
+      ...prev,
+      open: false,
+      step: 1,
+      acknowledged: false,
+      confirmPhrase: '',
+      reason: '',
+    }));
+  }, []);
 
   // --- CÁLCULOS ANALÍTICOS (FRONTEND PARA EVITAR ZEROS) ---
   const calculatedStats = useMemo(() => {
@@ -740,20 +787,19 @@ const App = () => {
 
   const handleRevokeAdminSession = async (admin) => {
     if (!admin?.id) return;
-    const confirmed = await requestConfirmation({
-      title: 'Encerrar acessos do administrador',
-      message: `Deseja encerrar todas as sessões ativas de ${admin.username || admin.email || 'admin'}?`,
-      confirmLabel: 'Encerrar Sessões',
-      tone: 'danger',
+    const decision = await requestRevokeConfirmation({
+      role: 'admin',
+      targetName: admin.username || admin.email || 'admin',
+      targetId: Number(admin.id),
     });
-    if (!confirmed) return;
+    if (!decision?.confirmed) return;
 
     setIsGlobalLoading(true);
     try {
       const res = await api.revokeUserSessions({
         role: 'admin',
         user_id: Number(admin.id),
-        reason: 'manager-panel',
+        reason: `[manager-panel][admin-revocation] ${decision.reason}`,
       });
 
       if (res.status === 401) {
@@ -776,20 +822,19 @@ const App = () => {
 
   const handleRevokeAnalystSession = async (analyst) => {
     if (!analyst?.id) return;
-    const confirmed = await requestConfirmation({
-      title: 'Encerrar acessos do analista',
-      message: `Deseja encerrar as sessões de ${analyst.nome || `Analista ${analyst.id}`} e colocá-lo em pausa na fila? As pastas em atendimento serão redistribuídas.`,
-      confirmLabel: 'Encerrar e Pausar',
-      tone: 'danger',
+    const decision = await requestRevokeConfirmation({
+      role: 'analyst',
+      targetName: analyst.nome || `Analista ${analyst.id}`,
+      targetId: Number(analyst.id),
     });
-    if (!confirmed) return;
+    if (!decision?.confirmed) return;
 
     setIsGlobalLoading(true);
     try {
       const res = await api.revokeUserSessions({
         role: 'analyst',
         user_id: Number(analyst.id),
-        reason: 'manager-panel',
+        reason: `[manager-panel][analyst-revocation] ${decision.reason}`,
       });
 
       if (res.status === 401) {
@@ -1140,6 +1185,117 @@ const App = () => {
     } finally {
       setTogglingQueueIds(prev => prev.filter(id => id !== analyst.id));
     }
+  };
+
+  const handleAdminBulkQueueToggle = async ({ analysts, targetOnline, isFullSelection = false, totalSelected = 0 }) => {
+    const targetStatus = Boolean(targetOnline);
+    const uniqueCandidates = Array.isArray(analysts)
+      ? analysts.filter(
+          (analyst, index, list) =>
+            analyst?.id &&
+            list.findIndex((item) => Number(item?.id) === Number(analyst.id)) === index
+        )
+      : [];
+
+    const actionable = uniqueCandidates.filter(
+      (analyst) =>
+        Boolean(analyst?.is_online) !== targetStatus &&
+        !togglingQueueIds.includes(Number(analyst.id))
+    );
+
+    if (!actionable.length) {
+      notify(
+        targetStatus
+          ? 'Nenhum analista elegível para ligar a fila.'
+          : 'Nenhum analista elegível para desligar a fila.',
+        'error'
+      );
+      return;
+    }
+
+    if (!targetStatus && isFullSelection) {
+      const firstConfirmation = await requestConfirmation({
+        title: 'Desligar fila de toda a equipe?',
+        message: `Você selecionou todos os ${totalSelected || uniqueCandidates.length} analistas. Essa ação pode interromper novas atribuições até que alguém volte a ficar online.`,
+        confirmLabel: 'Continuar',
+        tone: 'danger',
+      });
+
+      if (!firstConfirmation) return;
+
+      const secondConfirmation = await requestConfirmation({
+        title: 'Confirmação final obrigatória',
+        message: 'Confirma desligar a fila de TODOS os analistas selecionados agora?',
+        confirmLabel: 'Desligar todos',
+        tone: 'danger',
+      });
+
+      if (!secondConfirmation) return;
+    }
+
+    const ids = actionable.map((analyst) => Number(analyst.id));
+    setTogglingQueueIds((prev) => [...new Set([...prev, ...ids])]);
+    actionable.forEach((analyst) => applyAnalystQueueStatus(Number(analyst.id), targetStatus));
+
+    const settledResults = await Promise.all(
+      actionable.map(async (analyst) => {
+        try {
+          const response = await api.setQueueStatus(Number(analyst.id), targetStatus, { asManager: true });
+          if (!response.ok) {
+            return { ok: false, analyst, payload: {} };
+          }
+
+          let payload = {};
+          try {
+            payload = await response.json();
+          } catch {
+            payload = {};
+          }
+
+          return { ok: true, analyst, payload };
+        } catch {
+          return { ok: false, analyst, payload: {} };
+        }
+      })
+    );
+
+    const failures = [];
+    const successes = [];
+    let totalRedistribuidas = 0;
+    let totalSemDestino = 0;
+
+    settledResults.forEach((result) => {
+      if (result.ok) {
+        successes.push(result.analyst);
+        totalRedistribuidas += Number(result.payload?.redistribuidas || 0);
+        totalSemDestino += Number(result.payload?.sem_destino || 0);
+        return;
+      }
+      failures.push(result.analyst);
+    });
+
+    if (failures.length) {
+      failures.forEach((analyst) => {
+        applyAnalystQueueStatus(Number(analyst.id), Boolean(analyst.is_online));
+      });
+    }
+
+    if (successes.length) {
+      if (targetStatus) {
+        notify(`${successes.length} analista(s) ligado(s) na fila${failures.length ? `, ${failures.length} falha(s).` : '.'}`);
+      } else {
+        notify(
+          `${successes.length} analista(s) desligado(s). Redistribuídas: ${totalRedistribuidas}. Sem destino: ${totalSemDestino}${
+            failures.length ? `. Falhas: ${failures.length}.` : '.'
+          }`
+        );
+      }
+      fetchData(true);
+    } else {
+      notify('Não foi possível concluir a operação em massa.', 'error');
+    }
+
+    setTogglingQueueIds((prev) => prev.filter((id) => !ids.includes(Number(id))));
   };
 
   const handleSaveAnalyst = async () => {
@@ -1550,6 +1706,7 @@ const App = () => {
     >
       <StatusToast toast={toast} />
       <ConfirmActionModal confirmAction={confirmAction} onClose={closeConfirmation} />
+      <RevokeAccessModal revokeAction={revokeAction} onClose={closeRevokeConfirmation} />
       {idlePromptModal}
       {isGlobalLoading && <LoadingOverlay />}
       <ManagerHeader
@@ -1605,6 +1762,7 @@ const App = () => {
               setShowEditModal={setShowEditModal}
               togglingQueueIds={togglingQueueIds}
               handleAdminQueueToggle={handleAdminQueueToggle}
+              handleAdminBulkQueueToggle={handleAdminBulkQueueToggle}
               handleDeleteAnalyst={handleDeleteAnalyst}
             />
           )}
@@ -1656,6 +1814,7 @@ const App = () => {
     <div className="min-h-screen font-sans bg-[#f8fafc] text-slate-800 flex flex-col overflow-x-hidden">
       <StatusToast toast={toast} />
       <ConfirmActionModal confirmAction={confirmAction} onClose={closeConfirmation} />
+      <RevokeAccessModal revokeAction={revokeAction} onClose={closeRevokeConfirmation} />
       {idlePromptModal}
       {showTransferModal && transferTask && (
         <div className="fixed inset-0 bg-slate-950/55 backdrop-blur-md z-450 flex items-center justify-center p-3 sm:p-4" onClick={() => setShowTransferModal(false)}>

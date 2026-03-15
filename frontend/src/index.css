@@ -11,10 +11,20 @@
 
 @keyframes logo-light-pass {
   0% {
-    transform: skewX(-20deg) translateX(-240%);
+    background-position: -180% 50%;
   }
   100% {
-    transform: skewX(-20deg) translateX(320%);
+    background-position: 220% 50%;
+  }
+}
+
+@keyframes logo-breathe {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-1px);
   }
 }
 
@@ -22,23 +32,40 @@
   position: relative;
   display: inline-flex;
   overflow: hidden;
+  isolation: isolate;
+}
+
+.logo-shimmer img {
+  animation: logo-breathe 4.8s ease-in-out infinite;
 }
 
 .logo-shimmer::after {
   content: "";
   position: absolute;
-  inset: -40% auto -40% -55%;
-  width: 42%;
+  inset: 0;
+  width: 100%;
   background: linear-gradient(
     110deg,
     rgba(255, 255, 255, 0) 0%,
-    rgba(147, 197, 253, 0.18) 35%,
-    rgba(255, 255, 255, 0.7) 50%,
-    rgba(147, 197, 253, 0.18) 65%,
+    rgba(147, 197, 253, 0.18) 40%,
+    rgba(255, 255, 255, 0.64) 50%,
+    rgba(147, 197, 253, 0.18) 60%,
     rgba(255, 255, 255, 0) 100%
   );
+  background-size: 190% 100%;
+  background-repeat: no-repeat;
+  background-position: -180% 50%;
+  -webkit-mask-image: url('/vcacloud.svg');
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  -webkit-mask-size: contain;
+  mask-image: url('/vcacloud.svg');
+  mask-repeat: no-repeat;
+  mask-position: center;
+  mask-size: contain;
   pointer-events: none;
-  animation: logo-light-pass 3.8s linear infinite;
+  mix-blend-mode: screen;
+  animation: logo-light-pass 4.5s cubic-bezier(0.22, 1, 0.36, 1) infinite;
 }
 
 @keyframes manager-tab-slide-forward {
@@ -107,6 +134,66 @@
 
 .analyst-detail-transition.is-backward {
   animation: analyst-detail-slide-backward 360ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes apple-section-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.995);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.apple-section-reveal {
+  animation: apple-section-fade-up 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes queue-presence-ping {
+  0% {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.55);
+    transform: scale(1);
+  }
+  70% {
+    box-shadow: 0 0 0 7px rgba(34, 197, 94, 0);
+    transform: scale(1.05);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0);
+    transform: scale(1);
+  }
+}
+
+.queue-presence-dot {
+  animation: queue-presence-ping 1.8s ease-out infinite;
+}
+
+@keyframes queue-panel-shift {
+  0% {
+    transform: translateX(-18%);
+    opacity: 0.35;
+  }
+  100% {
+    transform: translateX(155%);
+    opacity: 0;
+  }
+}
+
+.queue-animated-panel::after {
+  content: "";
+  position: absolute;
+  inset: -28% auto -28% -45%;
+  width: 38%;
+  background: linear-gradient(
+    110deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.26) 48%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  animation: queue-panel-shift 3.6s linear infinite;
+  pointer-events: none;
 }
 
 body {
