@@ -211,6 +211,8 @@ const AnalystAnalyticsTab = ({ analyticsData, currentUser, notify }) => {
     return `dashboard-analitico-${analyst}-${stamp}`;
   }, [currentUser]);
 
+  const revealStyle = (index) => ({ animationDelay: `${index * 70}ms` });
+
   const handleExportExcel = () => {
     if (!records.length) {
       notify('Não há dados para exportar.', 'error');
@@ -382,15 +384,15 @@ const AnalystAnalyticsTab = ({ analyticsData, currentUser, notify }) => {
 
   return (
     <div className="space-y-6 md:space-y-8">
-      <section className="relative overflow-hidden rounded-[2.5rem] border border-slate-100 bg-white shadow-sm">
+      <section className="apple-section-reveal relative overflow-hidden rounded-[2.5rem] border border-slate-200/80 bg-white shadow-[0_24px_45px_-30px_rgba(15,23,42,0.65)]" style={revealStyle(1)}>
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(37,99,235,0.12),transparent_32%),linear-gradient(135deg,rgba(241,245,249,0.9),rgba(255,255,255,0.96))]" />
         <div className="relative p-6 md:p-8 flex flex-col xl:flex-row xl:items-end xl:justify-between gap-6">
           <div className="max-w-2xl">
-            <div className="inline-flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-[9px] font-black uppercase tracking-[0.24em] text-blue-700">
+            <div className="inline-flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-[10px] font-semibold tracking-[0.12em] text-blue-700">
               <BarChart3 size={12} /> Painel analítico
             </div>
-            <h2 className="mt-4 text-2xl md:text-4xl font-black text-slate-900 uppercase tracking-[-0.04em] leading-none">Leitura rápida da sua produção</h2>
-            <p className="mt-3 text-sm md:text-[15px] font-bold text-slate-500 leading-relaxed">
+            <h2 className="mt-4 text-2xl md:text-4xl font-semibold text-slate-900 tracking-[-0.03em] leading-none">Leitura rápida da sua produção</h2>
+            <p className="mt-3 text-sm md:text-[15px] font-medium text-slate-500 leading-relaxed">
               Veja volume concluído por dia, por mês, por tipo de pasta, por empreendimento e exporte os relatórios em Excel ou PDF.
             </p>
           </div>
@@ -399,14 +401,14 @@ const AnalystAnalyticsTab = ({ analyticsData, currentUser, notify }) => {
             <button
               onClick={handleExportExcel}
               disabled={!records.length}
-              className="px-5 py-3 rounded-2xl bg-emerald-600 text-white text-[10px] font-black uppercase tracking-[0.2em] shadow-lg shadow-emerald-500/20 disabled:bg-emerald-200 disabled:shadow-none flex items-center justify-center gap-2"
+              className="px-5 py-3 rounded-2xl bg-emerald-600 text-white text-[11px] font-semibold shadow-[0_16px_28px_-18px_rgba(5,150,105,0.8)] disabled:bg-emerald-200 disabled:shadow-none flex items-center justify-center gap-2 transition-all hover:-translate-y-0.5 active:translate-y-0"
             >
               <FileSpreadsheet size={16} /> Exportar Excel
             </button>
             <button
               onClick={handleExportPdf}
               disabled={!records.length}
-              className="px-5 py-3 rounded-2xl bg-slate-900 text-white text-[10px] font-black uppercase tracking-[0.2em] shadow-lg shadow-slate-900/10 disabled:bg-slate-200 disabled:shadow-none flex items-center justify-center gap-2"
+              className="px-5 py-3 rounded-2xl bg-slate-900 text-white text-[11px] font-semibold shadow-[0_16px_28px_-18px_rgba(15,23,42,0.8)] disabled:bg-slate-200 disabled:shadow-none flex items-center justify-center gap-2 transition-all hover:-translate-y-0.5 active:translate-y-0"
             >
               <FileText size={16} /> Exportar PDF
             </button>
@@ -414,36 +416,36 @@ const AnalystAnalyticsTab = ({ analyticsData, currentUser, notify }) => {
         </div>
       </section>
 
-      <section className="grid grid-cols-2 xl:grid-cols-5 gap-4">
-        <div className="bg-white border border-slate-100 rounded-4xl p-5 shadow-sm">
+      <section className="apple-section-reveal grid grid-cols-2 xl:grid-cols-5 gap-4" style={revealStyle(2)}>
+        <div className="bg-white border border-slate-200/80 rounded-4xl p-5 shadow-[0_16px_28px_-22px_rgba(15,23,42,0.7)] transition-all hover:-translate-y-0.5">
           <div className="w-10 h-10 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mb-4"><TrendingUp size={18} /></div>
-          <p className="text-[9px] font-black uppercase tracking-[0.24em] text-slate-400">Hoje</p>
-          <div className="mt-2 text-3xl font-black text-slate-900 leading-none">{formatNumber(summary.hoje)}</div>
+          <p className="text-[10px] font-semibold tracking-[0.12em] text-slate-500">Hoje</p>
+          <div className="mt-2 text-3xl font-semibold text-slate-900 leading-none">{formatNumber(summary.hoje)}</div>
         </div>
-        <div className="bg-white border border-slate-100 rounded-4xl p-5 shadow-sm">
+        <div className="bg-white border border-slate-200/80 rounded-4xl p-5 shadow-[0_16px_28px_-22px_rgba(15,23,42,0.7)] transition-all hover:-translate-y-0.5">
           <div className="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-4"><CalendarDays size={18} /></div>
-          <p className="text-[9px] font-black uppercase tracking-[0.24em] text-slate-400">Mês</p>
-          <div className="mt-2 text-3xl font-black text-slate-900 leading-none">{formatNumber(summary.mes)}</div>
+          <p className="text-[10px] font-semibold tracking-[0.12em] text-slate-500">Mês</p>
+          <div className="mt-2 text-3xl font-semibold text-slate-900 leading-none">{formatNumber(summary.mes)}</div>
         </div>
-        <div className="bg-white border border-slate-100 rounded-4xl p-5 shadow-sm">
+        <div className="bg-white border border-slate-200/80 rounded-4xl p-5 shadow-[0_16px_28px_-22px_rgba(15,23,42,0.7)] transition-all hover:-translate-y-0.5">
           <div className="w-10 h-10 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mb-4"><Layers3 size={18} /></div>
-          <p className="text-[9px] font-black uppercase tracking-[0.24em] text-slate-400">Ano</p>
-          <div className="mt-2 text-3xl font-black text-slate-900 leading-none">{formatNumber(summary.ano)}</div>
+          <p className="text-[10px] font-semibold tracking-[0.12em] text-slate-500">Ano</p>
+          <div className="mt-2 text-3xl font-semibold text-slate-900 leading-none">{formatNumber(summary.ano)}</div>
         </div>
-        <div className="bg-white border border-slate-100 rounded-4xl p-5 shadow-sm">
+        <div className="bg-white border border-slate-200/80 rounded-4xl p-5 shadow-[0_16px_28px_-22px_rgba(15,23,42,0.7)] transition-all hover:-translate-y-0.5">
           <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-4"><Download size={18} /></div>
-          <p className="text-[9px] font-black uppercase tracking-[0.24em] text-slate-400">Total</p>
-          <div className="mt-2 text-3xl font-black text-slate-900 leading-none">{formatNumber(summary.total)}</div>
+          <p className="text-[10px] font-semibold tracking-[0.12em] text-slate-500">Total</p>
+          <div className="mt-2 text-3xl font-semibold text-slate-900 leading-none">{formatNumber(summary.total)}</div>
         </div>
-        <div className="bg-white border border-slate-100 rounded-4xl p-5 shadow-sm col-span-2 xl:col-span-1">
+        <div className="bg-white border border-slate-200/80 rounded-4xl p-5 shadow-[0_16px_28px_-22px_rgba(15,23,42,0.7)] col-span-2 xl:col-span-1 transition-all hover:-translate-y-0.5">
           <div className="w-10 h-10 rounded-2xl bg-slate-100 text-slate-700 flex items-center justify-center mb-4"><FolderKanban size={18} /></div>
-          <p className="text-[9px] font-black uppercase tracking-[0.24em] text-slate-400">Média por dia</p>
-          <div className="mt-2 text-3xl font-black text-slate-900 leading-none">{summary.media_por_dia || 0}</div>
-          <div className="mt-2 text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">{formatNumber(summary.dias_com_producao)} dias produtivos</div>
+          <p className="text-[10px] font-semibold tracking-[0.12em] text-slate-500">Média por dia</p>
+          <div className="mt-2 text-3xl font-semibold text-slate-900 leading-none">{summary.media_por_dia || 0}</div>
+          <div className="mt-2 text-[10px] font-semibold tracking-[0.08em] text-slate-500">{formatNumber(summary.dias_com_producao)} dias produtivos</div>
         </div>
       </section>
 
-      <section className="grid grid-cols-1 2xl:grid-cols-2 gap-6">
+      <section className="apple-section-reveal grid grid-cols-1 2xl:grid-cols-2 gap-6" style={revealStyle(3)}>
         <SeriesCard
           title="Fechamentos por dia"
           subtitle="Últimos 14 dias com produção registrada"
@@ -458,7 +460,7 @@ const AnalystAnalyticsTab = ({ analyticsData, currentUser, notify }) => {
         />
       </section>
 
-      <section className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+      <section className="apple-section-reveal grid grid-cols-1 xl:grid-cols-3 gap-6" style={revealStyle(4)}>
         <RankingCard
           title="Por tipo de pasta"
           icon={Layers3}
@@ -470,13 +472,13 @@ const AnalystAnalyticsTab = ({ analyticsData, currentUser, notify }) => {
         <RankingCard title="Por resultado" icon={TrendingUp} items={byResult} accentClass="bg-amber-50 text-amber-600" />
       </section>
 
-      <section className="bg-white border border-slate-100 rounded-4xl shadow-sm overflow-hidden">
+      <section className="apple-section-reveal bg-white border border-slate-200/80 rounded-4xl shadow-[0_20px_38px_-28px_rgba(15,23,42,0.75)] overflow-hidden" style={revealStyle(5)}>
         <div className="p-5 md:p-6 border-b border-slate-100 flex flex-col md:flex-row md:items-center md:justify-between gap-3 bg-slate-50/70">
           <div>
-            <h3 className="text-[10px] font-black uppercase tracking-[0.24em] text-slate-500">Últimas finalizações</h3>
-            <p className="text-[11px] font-bold text-slate-400 mt-1">Amostra operacional para conferência rápida e exportação</p>
+            <h3 className="text-[10px] font-semibold tracking-[0.12em] text-slate-600">Últimas finalizações</h3>
+            <p className="text-[11px] font-medium text-slate-500 mt-1">Amostra operacional para conferência rápida e exportação</p>
           </div>
-          <div className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+          <div className="text-[10px] font-semibold tracking-[0.08em] text-slate-500">
             {formatNumber(records.length)} registro{records.length === 1 ? '' : 's'} disponível{records.length === 1 ? '' : 'eis'}
           </div>
         </div>

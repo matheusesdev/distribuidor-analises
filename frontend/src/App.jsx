@@ -179,6 +179,7 @@ const App = () => {
   const [bulkTransferToId, setBulkTransferToId] = useState("");
   const [bulkTransferReason, setBulkTransferReason] = useState("");
   const [idlePrompt, setIdlePrompt] = useState({ visible: false, role: null, secondsLeft: 0 });
+  const [mobileIdleWarningDismissUntil, setMobileIdleWarningDismissUntil] = useState(0);
   const [loginSuccessSplash, setLoginSuccessSplash] = useState({ visible: false, role: null });
   const confirmResolverRef = useRef(null);
   const sessionActivityPersistRef = useRef({ manager: 0, analyst: 0 });
@@ -933,14 +934,27 @@ const App = () => {
   };
 
   const handleFinish = async (id, outcome) => {
+    const isConclusion = outcome === 'Concluido';
+    const confirmed = await requestConfirmation({
+      title: isConclusion ? 'Confirmar conclusão' : 'Enviar para discussão',
+      message: isConclusion
+        ? 'Confirma a conclusão desta pasta? Essa ação registra no histórico do analista.'
+        : 'Confirma o envio desta pasta para discussão? Ela ficará sinalizada para revisão.',
+      confirmLabel: isConclusion ? 'Concluir pasta' : 'Enviar para discussão',
+      tone: 'warning'
+    });
+    if (!confirmed) return;
+
     setIsGlobalLoading(true);
     try {
       const res = await api.finishTask(id, outcome);
       if (res.ok) {
-        notify("Pasta finalizada.");
+        notify(isConclusion ? "Pasta concluída com sucesso." : "Pasta enviada para discussão.");
         fetchData();
+      } else {
+        notify(await getApiErrorMessage(res, "Erro ao concluir pasta"), "error");
       }
-    } catch (e) { notify("Erro ao processar."); }
+    } catch (e) { notify("Erro ao processar conclusão da pasta.", "error"); }
     finally { setIsGlobalLoading(false); }
   };
 
@@ -1407,9 +1421,25 @@ const App = () => {
           </div>
         </div>
 
-        <div className="mt-5 rounded-xl bg-slate-50 border border-slate-100 px-4 py-3 flex items-center justify-between">
-          <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Tempo restante</span>
-          <span className="text-lg font-black text-slate-800 tracking-wider">{formatIdleCountdown(idlePrompt.secondsLeft)}</span>
+        <div className="mt-5 rounded-2xl border border-amber-200 bg-[linear-gradient(135deg,#fff7ed_0%,#fffbeb_52%,#ffffff_100%)] px-4 py-3.5">
+          <div className="flex items-center justify-between gap-3">
+            <div className="inline-flex items-center gap-2">
+              <div className="w-7 h-7 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center">
+                <Clock size={12} />
+              </div>
+              <div>
+                <p className="text-[8px] font-semibold uppercase tracking-[0.08em] text-amber-700">Expiração de sessão</p>
+                <p className="text-[10px] font-semibold text-slate-700">Tempo restante para logout automático</p>
+              </div>
+            </div>
+            <span className="text-base font-semibold text-amber-900 tracking-[0.08em]">{formatIdleCountdown(idlePrompt.secondsLeft)}</span>
+          </div>
+          <div className="mt-2.5 h-1.5 w-full rounded-full bg-amber-100 overflow-hidden">
+            <div
+              className="h-full rounded-full bg-[linear-gradient(90deg,#f59e0b_0%,#f97316_55%,#ef4444_100%)] transition-all duration-500"
+              style={{ width: `${idlePromptWarningProgress}%` }}
+            />
+          </div>
         </div>
 
         <div className="grid grid-cols-2 gap-3 mt-5">
@@ -1451,6 +1481,28 @@ const App = () => {
   const analystIdleSecondsLeft = currentUser?.id
     ? Math.max(0, Math.ceil(((Number(currentUser.lastActivityAt || 0) || Date.now()) + ANALYST_IDLE_TIMEOUT_MS - Date.now()) / 1000))
     : null;
+  const managerWarningWindowSeconds = ADMIN_IDLE_WARNING_MS / 1000;
+  const analystWarningWindowSeconds = ANALYST_IDLE_WARNING_MS / 1000;
+  const managerIdleWarningProgress = managerIdleSecondsLeft !== null
+    ? Math.max(0, Math.min(100, (managerIdleSecondsLeft / managerWarningWindowSeconds) * 100))
+    : 0;
+  const analystIdleWarningProgress = analystIdleSecondsLeft !== null
+    ? Math.max(0, Math.min(100, (analystIdleSecondsLeft / analystWarningWindowSeconds) * 100))
+    : 0;
+  const showAnalystMobileIdleWarning = analystIdleSecondsLeft !== null
+    && analystIdleSecondsLeft > 0
+    && analystIdleSecondsLeft <= (ANALYST_IDLE_WARNING_MS / 1000)
+    && Date.now() >= mobileIdleWarningDismissUntil;
+  const idlePromptWarningWindowSeconds = idlePrompt.role === 'admin'
+    ? managerWarningWindowSeconds
+    : analystWarningWindowSeconds;
+  const idlePromptWarningProgress = idlePrompt.visible
+    ? Math.max(0, Math.min(100, (idlePrompt.secondsLeft / Math.max(idlePromptWarningWindowSeconds, 1)) * 100))
+    : 0;
+  const refreshCycleProgress = Math.max(
+    0,
+    Math.min(100, ((AUTO_REFRESH_SECONDS - Math.max(0, refreshCountdown)) / AUTO_REFRESH_SECONDS) * 100)
+  );
 
   // --- TELA DE RESET DE SENHA (URL com ?reset_token=...) ---
   if (resetToken) return (
@@ -1508,12 +1560,25 @@ const App = () => {
 
       <main className="max-w-7xl mx-auto p-4 md:p-6 space-y-6 flex-1 w-full">
         {managerIdleSecondsLeft !== null && managerIdleSecondsLeft > 0 && managerIdleSecondsLeft <= (ADMIN_IDLE_WARNING_MS / 1000) && (
-          <section className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 flex items-center justify-between gap-3">
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-widest text-amber-800">Sessão do gestor perto do limite</p>
-              <p className="text-[11px] font-bold text-amber-700 mt-1">Interaja com o painel para manter a sessão aberta.</p>
+          <section className="rounded-2xl border border-amber-200 bg-[linear-gradient(135deg,#fff7ed_0%,#fffbeb_52%,#ffffff_100%)] px-4 py-3.5 shadow-[0_16px_26px_-22px_rgba(251,146,60,0.75)]">
+            <div className="flex items-center justify-between gap-3">
+              <div className="inline-flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+                  <Clock size={14} />
+                </div>
+                <div>
+                  <p className="text-[9px] font-semibold uppercase tracking-[0.08em] text-amber-800">Sessão do gestor</p>
+                  <p className="text-[11px] font-semibold text-slate-700 mt-0.5">Expira em {formatIdleCountdown(managerIdleSecondsLeft)}</p>
+                </div>
+              </div>
+              <span className="shrink-0 text-base font-semibold text-amber-900 tracking-[0.08em]">{formatIdleCountdown(managerIdleSecondsLeft)}</span>
             </div>
-            <span className="shrink-0 text-base font-black text-amber-900 tracking-wider">{formatIdleCountdown(managerIdleSecondsLeft)}</span>
+            <div className="mt-2.5 h-1.5 w-full rounded-full bg-amber-100 overflow-hidden">
+              <div
+                className="h-full rounded-full bg-[linear-gradient(90deg,#f59e0b_0%,#f97316_55%,#ef4444_100%)] transition-all duration-500"
+                style={{ width: `${managerIdleWarningProgress}%` }}
+              />
+            </div>
           </section>
         )}
 
@@ -1593,21 +1658,21 @@ const App = () => {
       <ConfirmActionModal confirmAction={confirmAction} onClose={closeConfirmation} />
       {idlePromptModal}
       {showTransferModal && transferTask && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-450 flex items-center justify-center p-4" onClick={() => setShowTransferModal(false)}>
-          <div className="bg-white border border-slate-100 rounded-2xl shadow-2xl w-full max-w-md p-6 animate-in zoom-in-95" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-start gap-3 mb-4">
-              <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-blue-50 text-blue-600">
+        <div className="fixed inset-0 bg-slate-950/55 backdrop-blur-md z-450 flex items-center justify-center p-3 sm:p-4" onClick={() => setShowTransferModal(false)}>
+          <div className="w-full max-w-xl border border-white/80 rounded-3xl bg-white/95 p-5 sm:p-6 shadow-[0_36px_70px_-30px_rgba(15,23,42,0.88)] animate-in zoom-in-95 duration-300" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start gap-3.5 mb-5">
+              <div className="w-10 h-10 rounded-2xl flex items-center justify-center bg-blue-50 border border-blue-100 text-[#0071e3]">
                 <ArrowRightLeft size={16} />
               </div>
-              <div>
-                <h3 className="text-sm font-black uppercase tracking-wide text-slate-800">Transferir Pasta</h3>
-                <p className="text-[11px] font-bold text-slate-500 mt-1 leading-relaxed">Reserva {transferTask.reserva_id} • {transferTask.cliente}</p>
+              <div className="min-w-0">
+                <h3 className="text-[15px] font-semibold tracking-[-0.01em] text-slate-900">Transferir pasta</h3>
+                <p className="text-[12px] font-medium text-slate-500 mt-1 leading-relaxed truncate">Reserva {transferTask.reserva_id} • {transferTask.cliente}</p>
               </div>
             </div>
 
-            <div className="space-y-3">
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Analista Destino</label>
-              <div className="bg-slate-50 border border-slate-100 rounded-xl p-2 max-h-44 overflow-y-auto custom-scrollbar space-y-1.5">
+            <div className="space-y-4">
+              <label className="text-[11px] font-semibold tracking-[0.06em] text-slate-600">Analista destino</label>
+              <div className="bg-slate-50/80 border border-slate-200 rounded-2xl p-2.5 max-h-52 overflow-y-auto custom-scrollbar space-y-2">
                 {transferTargetOptions.length > 0 ? transferTargetOptions.map(a => {
                   const isSelected = String(transferToId) === String(a.id);
                   return (
@@ -1615,47 +1680,47 @@ const App = () => {
                       key={a.id}
                       type="button"
                       onClick={() => setTransferToId(String(a.id))}
-                      className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left transition-all border ${isSelected ? 'bg-blue-600 text-white border-blue-600 shadow-sm' : 'bg-white text-slate-700 border-slate-100 hover:border-blue-200'}`}
+                      className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-left transition-all border ${isSelected ? 'bg-[linear-gradient(135deg,#0071e3_0%,#005bb7_100%)] text-white border-blue-600 shadow-[0_12px_20px_-16px_rgba(0,113,227,0.9)]' : 'bg-white text-slate-700 border-slate-200 hover:border-blue-200 hover:-translate-y-0.5'}`}
                     >
-                      <div className={`w-6 h-6 rounded-md flex items-center justify-center text-[9px] font-black uppercase ${isSelected ? 'bg-white/20 text-white' : 'bg-slate-50 text-slate-400'}`}>
+                      <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-semibold ${isSelected ? 'bg-white/20 text-white' : 'bg-slate-50 text-slate-500 border border-slate-200'}`}>
                         {a.nome?.charAt(0) || 'A'}
                       </div>
-                      <span className="text-[10px] font-black uppercase tracking-wide truncate flex-1">{a.nome}</span>
-                      {a.is_online && <span className="text-[8px] font-black uppercase text-green-500 shrink-0">Online</span>}
+                      <span className="text-[12px] font-semibold tracking-[0.01em] truncate flex-1">{a.nome}</span>
+                      {a.is_online && <span className={`text-[10px] font-semibold shrink-0 ${isSelected ? 'text-emerald-100' : 'text-emerald-600'}`}>Fila ativa</span>}
                     </button>
                   );
                 }) : (
-                  <div className="px-2 py-3 text-center text-[10px] font-black uppercase tracking-wide text-slate-400">
+                  <div className="px-2 py-3 text-center text-[11px] font-semibold tracking-[0.02em] text-slate-400">
                     Nenhum analista ativo disponível
                   </div>
                 )}
               </div>
 
-              <div className="bg-slate-50 border border-slate-100 rounded-xl px-3 py-2.5 text-[10px] font-black uppercase tracking-wide text-slate-500">
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl px-3 py-2.5 text-[11px] font-medium text-slate-600">
                 {selectedTransferTarget ? (
-                  <span>Destino selecionado: <span className="text-blue-600">{selectedTransferTarget.nome}</span></span>
+                  <span>Destino selecionado: <span className="text-[#0071e3] font-semibold">{selectedTransferTarget.nome}</span></span>
                 ) : (
                   <span>Nenhum destino selecionado</span>
                 )}
               </div>
 
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Motivo da transferência *</label>
+              <label className="text-[11px] font-semibold tracking-[0.06em] text-slate-600">Motivo da transferência *</label>
               <input
                 type="text"
                 value={transferReason}
                 onChange={(e) => setTransferReason(e.target.value)}
-                placeholder="Informe o motivo"
-                className="w-full bg-slate-50 border border-slate-100 rounded-xl py-3 px-4 text-[11px] text-slate-700 font-bold outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Ex.: balanceamento de carga da fila"
+                className="w-full bg-white border border-slate-200 rounded-2xl py-3 px-4 text-[12px] text-slate-700 font-medium outline-none focus:ring-4 focus:ring-blue-100/80 focus:border-blue-300"
                 required
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-3 mt-5">
-              <button onClick={() => setShowTransferModal(false)} className="py-2.5 bg-slate-50 text-slate-500 rounded-xl text-[10px] font-black uppercase border border-slate-100">Cancelar</button>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mt-5">
+              <button onClick={() => setShowTransferModal(false)} className="py-2.5 bg-slate-50 text-slate-600 rounded-2xl text-[11px] font-semibold border border-slate-200 transition-all hover:bg-slate-100">Cancelar</button>
               <button
                 disabled={!transferToId || !transferReason.trim()}
                 onClick={handleTransferTask}
-                className="py-2.5 rounded-xl text-[10px] font-black uppercase text-white bg-blue-600 disabled:bg-blue-300"
+                className="py-2.5 rounded-2xl text-[11px] font-semibold text-white bg-[linear-gradient(135deg,#0071e3_0%,#005bb7_100%)] disabled:bg-blue-300 disabled:cursor-not-allowed transition-all hover:-translate-y-0.5 active:translate-y-0"
               >
                 Transferir
               </button>
@@ -1665,21 +1730,21 @@ const App = () => {
       )}
 
       {showBulkTransferModal && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-450 flex items-center justify-center p-4" onClick={() => setShowBulkTransferModal(false)}>
-          <div className="bg-white border border-slate-100 rounded-2xl shadow-2xl w-full max-w-md p-6 animate-in zoom-in-95" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-start gap-3 mb-4">
-              <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-blue-50 text-blue-600 shrink-0">
+        <div className="fixed inset-0 bg-slate-950/55 backdrop-blur-md z-450 flex items-center justify-center p-3 sm:p-4" onClick={() => setShowBulkTransferModal(false)}>
+          <div className="w-full max-w-xl border border-white/80 rounded-3xl bg-white/95 p-5 sm:p-6 shadow-[0_36px_70px_-30px_rgba(15,23,42,0.88)] animate-in zoom-in-95 duration-300" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start gap-3.5 mb-5">
+              <div className="w-10 h-10 rounded-2xl flex items-center justify-center bg-blue-50 border border-blue-100 text-[#0071e3] shrink-0">
                 <ArrowRightLeft size={16} />
               </div>
-              <div>
-                <h3 className="text-sm font-black uppercase tracking-wide text-slate-800">Transferência em Massa</h3>
-                <p className="text-[11px] font-bold text-slate-500 mt-1 leading-relaxed">{selectedTaskIds.size} pasta{selectedTaskIds.size !== 1 ? 's' : ''} selecionada{selectedTaskIds.size !== 1 ? 's' : ''}</p>
+              <div className="min-w-0">
+                <h3 className="text-[15px] font-semibold tracking-[-0.01em] text-slate-900">Transferência em massa</h3>
+                <p className="text-[12px] font-medium text-slate-500 mt-1 leading-relaxed">{selectedTaskIds.size} pasta{selectedTaskIds.size !== 1 ? 's' : ''} selecionada{selectedTaskIds.size !== 1 ? 's' : ''}</p>
               </div>
             </div>
 
-            <div className="space-y-3">
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Analista Destino</label>
-              <div className="bg-slate-50 border border-slate-100 rounded-xl p-2 max-h-44 overflow-y-auto custom-scrollbar space-y-1.5">
+            <div className="space-y-4">
+              <label className="text-[11px] font-semibold tracking-[0.06em] text-slate-600">Analista destino</label>
+              <div className="bg-slate-50/80 border border-slate-200 rounded-2xl p-2.5 max-h-52 overflow-y-auto custom-scrollbar space-y-2">
                 {transferTargetOptions.length > 0 ? transferTargetOptions.map(a => {
                   const isSelected = String(bulkTransferToId) === String(a.id);
                   return (
@@ -1687,39 +1752,39 @@ const App = () => {
                       key={a.id}
                       type="button"
                       onClick={() => setBulkTransferToId(String(a.id))}
-                      className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left transition-all border ${isSelected ? 'bg-blue-600 text-white border-blue-600 shadow-sm' : 'bg-white text-slate-700 border-slate-100 hover:border-blue-200'}`}
+                      className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-left transition-all border ${isSelected ? 'bg-[linear-gradient(135deg,#0071e3_0%,#005bb7_100%)] text-white border-blue-600 shadow-[0_12px_20px_-16px_rgba(0,113,227,0.9)]' : 'bg-white text-slate-700 border-slate-200 hover:border-blue-200 hover:-translate-y-0.5'}`}
                     >
-                      <div className={`w-6 h-6 rounded-md flex items-center justify-center text-[9px] font-black uppercase ${isSelected ? 'bg-white/20 text-white' : 'bg-slate-50 text-slate-400'}`}>
+                      <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-semibold ${isSelected ? 'bg-white/20 text-white' : 'bg-slate-50 text-slate-500 border border-slate-200'}`}>
                         {a.nome?.charAt(0) || 'A'}
                       </div>
-                      <span className="text-[10px] font-black uppercase tracking-wide truncate flex-1">{a.nome}</span>
-                      {a.is_online && <span className="text-[8px] font-black uppercase text-green-500 shrink-0">Online</span>}
+                      <span className="text-[12px] font-semibold tracking-[0.01em] truncate flex-1">{a.nome}</span>
+                      {a.is_online && <span className={`text-[10px] font-semibold shrink-0 ${isSelected ? 'text-emerald-100' : 'text-emerald-600'}`}>Fila ativa</span>}
                     </button>
                   );
                 }) : (
-                  <div className="px-2 py-3 text-center text-[10px] font-black uppercase tracking-wide text-slate-400">
+                  <div className="px-2 py-3 text-center text-[11px] font-semibold tracking-[0.02em] text-slate-400">
                     Nenhum analista ativo disponível
                   </div>
                 )}
               </div>
 
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Motivo da transferência *</label>
+              <label className="text-[11px] font-semibold tracking-[0.06em] text-slate-600">Motivo da transferência *</label>
               <input
                 type="text"
                 value={bulkTransferReason}
                 onChange={(e) => setBulkTransferReason(e.target.value)}
-                placeholder="Informe o motivo"
-                className="w-full bg-slate-50 border border-slate-100 rounded-xl py-3 px-4 text-[11px] text-slate-700 font-bold outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Ex.: redistribuição para acelerar atendimento"
+                className="w-full bg-white border border-slate-200 rounded-2xl py-3 px-4 text-[12px] text-slate-700 font-medium outline-none focus:ring-4 focus:ring-blue-100/80 focus:border-blue-300"
                 required
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-3 mt-5">
-              <button onClick={() => setShowBulkTransferModal(false)} className="py-2.5 bg-slate-50 text-slate-500 rounded-xl text-[10px] font-black uppercase border border-slate-100">Cancelar</button>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mt-5">
+              <button onClick={() => setShowBulkTransferModal(false)} className="py-2.5 bg-slate-50 text-slate-600 rounded-2xl text-[11px] font-semibold border border-slate-200 transition-all hover:bg-slate-100">Cancelar</button>
               <button
                 disabled={!bulkTransferToId || !bulkTransferReason.trim()}
                 onClick={handleBulkTransfer}
-                className="py-2.5 rounded-xl text-[10px] font-black uppercase text-white bg-blue-600 disabled:bg-blue-300"
+                className="py-2.5 rounded-2xl text-[11px] font-semibold text-white bg-[linear-gradient(135deg,#0071e3_0%,#005bb7_100%)] disabled:bg-blue-300 disabled:cursor-not-allowed transition-all hover:-translate-y-0.5 active:translate-y-0"
               >
                 Transferir {selectedTaskIds.size} Pasta{selectedTaskIds.size !== 1 ? 's' : ''}
               </button>
@@ -1729,42 +1794,151 @@ const App = () => {
       )}
 
       {isGlobalLoading && <LoadingOverlay />}
-      <nav className="bg-white border-b border-slate-100 p-2 md:p-2.5 px-4 md:px-8 flex justify-between items-center sticky top-0 z-100 shadow-sm h-14 md:h-16">
-        <div className="flex items-center gap-3 md:gap-4 truncate">
-          <div className="logo-shimmer shrink-0">
-            <img src="/vcacloud.svg" alt="VCACloud" className="h-7 md:h-8 w-auto object-contain shrink-0 brightness-0 opacity-80" />
-          </div>
-          <div className="w-9 h-9 md:w-10 md:h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white font-black text-lg shadow-lg shadow-blue-500/20 shrink-0">{currentUser?.nome?.charAt(0)}</div>
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="truncate">
-              <h3 className="font-bold text-slate-700 leading-none text-xs md:text-sm uppercase truncate">{currentUser?.nome}</h3>
-              <span className={`text-[8px] md:text-[9px] font-black uppercase tracking-widest mt-1 flex items-center gap-1 ${currentUser?.is_online ? 'text-green-600' : 'text-slate-400'}`}>{currentUser?.is_online ? `ATIVO NA FILA • ${refreshCountdown}s` : 'PAUSADO'}</span>
+      <nav className="sticky top-0 z-100 border-b border-slate-200/80 bg-white/88 backdrop-blur-xl shadow-[0_14px_34px_-24px_rgba(15,23,42,0.45)]">
+        <div className="h-16 md:h-18 px-3 md:px-6 lg:px-8 flex items-center justify-between gap-2 md:gap-3">
+          <div className="flex items-center gap-2 md:gap-3 min-w-0">
+            <div className="logo-shimmer shrink-0">
+              <img src="/vcacloud.svg" alt="VCACloud" className="h-7 md:h-8 w-auto object-contain shrink-0 brightness-0 opacity-95" />
+            </div>
+
+            <div className="hidden sm:flex items-center gap-2 rounded-2xl border border-slate-200/80 bg-slate-50/85 px-2.5 py-1.5 min-w-0">
+              <div className="w-8 h-8 md:w-9 md:h-9 bg-[linear-gradient(140deg,#0071e3_0%,#005bb7_100%)] rounded-xl flex items-center justify-center text-white font-black text-sm shadow-[0_14px_22px_-14px_rgba(0,113,227,0.85)] shrink-0">
+                {currentUser?.nome?.charAt(0)}
+              </div>
+              <div className="min-w-0">
+                <h3 className="font-semibold text-slate-800 leading-none text-[11px] md:text-[12px] truncate max-w-42 md:max-w-60">{currentUser?.nome}</h3>
+                <span className={`mt-1 inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[8px] font-semibold tracking-[0.08em] ${currentUser?.is_online ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-slate-100 text-slate-500'}`}>
+                  <span className={`h-1.5 w-1.5 rounded-full ${currentUser?.is_online ? 'bg-emerald-500 queue-presence-dot' : 'bg-slate-400'}`} />
+                  {currentUser?.is_online ? `FILA ATIVA • ${formatIdleCountdown(refreshCountdown)}` : 'FILA PAUSADA'}
+                </span>
+              </div>
             </div>
           </div>
-        </div>
-        <div className="flex items-center gap-2 md:gap-3">
+
+          <div className="flex items-center gap-1.5 md:gap-2.5 shrink-0">
             {analystIdleSecondsLeft !== null && analystIdleSecondsLeft > 0 && analystIdleSecondsLeft <= (ANALYST_IDLE_WARNING_MS / 1000) && (
-              <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full border border-amber-200 bg-amber-50 text-amber-700">
-               <AlertTriangle size={12} className="shrink-0" />
-               <span className="text-[9px] font-black uppercase tracking-widest">Sessão expira em {formatIdleCountdown(analystIdleSecondsLeft)}</span>
+              <div className="hidden lg:flex items-center gap-2.5 px-3 py-1.5 rounded-2xl border border-amber-200 bg-[linear-gradient(135deg,#fff7ed_0%,#fffbeb_55%,#ffffff_100%)] text-slate-700 shadow-[0_14px_24px_-22px_rgba(251,146,60,0.75)]">
+               <div className="w-7 h-7 rounded-xl bg-amber-100 text-amber-700 inline-flex items-center justify-center shrink-0">
+                 <AlertTriangle size={12} className="shrink-0" />
+               </div>
+               <div className="min-w-0">
+                 <p className="text-[8px] font-semibold uppercase tracking-[0.08em] text-amber-700">Sessão ativa</p>
+                 <p className="text-[10px] font-semibold text-slate-700">Expira em {formatIdleCountdown(analystIdleSecondsLeft)}</p>
+                 <div className="mt-1 h-1 w-20 rounded-full bg-amber-100 overflow-hidden">
+                   <div
+                     className="h-full rounded-full bg-[linear-gradient(90deg,#f59e0b_0%,#f97316_55%,#ef4444_100%)] transition-all duration-500"
+                     style={{ width: `${analystIdleWarningProgress}%` }}
+                   />
+                 </div>
+               </div>
               </div>
             )}
-           <div className={`hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full border ${currentUser?.is_online ? 'bg-green-50 border-green-100 text-green-600' : 'bg-slate-50 border-slate-200 text-slate-300'}`}>
-              <div className={`w-1.5 h-1.5 rounded-full ${currentUser?.is_online ? 'bg-green-500 animate-pulse' : 'bg-slate-300'}`} />
-              <Clock size={12} className="opacity-70" />
-              <span className="text-[9px] font-black uppercase tracking-widest">{currentUser?.is_online ? `DISPONÍVEL • ${refreshCountdown}s` : 'OFFLINE'}</span>
-           </div>
-           <div className="flex bg-slate-50 p-1 rounded-xl gap-1 md:gap-1.5 items-center border border-slate-100 shrink-0">
-                <button onClick={() => toggleQueueStatus(!currentUser?.is_online)} className={`flex items-center gap-1.5 px-3 md:px-4 py-1.5 md:py-2 rounded-lg text-[8px] md:text-[9px] font-black uppercase transition-all shadow-sm ${currentUser?.is_online ? 'bg-red-50 text-red-600 border border-red-100 active:scale-95' : 'bg-green-600 text-white shadow-md active:scale-95'}`}>
-                <Power size={14} /> <span className="hidden xs:inline">{currentUser?.is_online ? "Pausar" : "Ligar"}</span>
-                </button>
-                <div className="w-px h-5 bg-slate-200 mx-0.5" />
-                <button onClick={() => setAnalystTab('mesa')} className={`p-1.5 md:p-2 rounded-lg transition-all ${analystTab === 'mesa' ? 'bg-white text-blue-600 shadow-sm border border-slate-100' : 'text-slate-300 hover:text-slate-400'}`} title="Mesa"><LayoutDashboard size={18}/></button>
-                <button onClick={() => setAnalystTab('analytics')} className={`p-1.5 md:p-2 rounded-lg transition-all ${analystTab === 'analytics' ? 'bg-white text-blue-600 shadow-sm border border-slate-100' : 'text-slate-300 hover:text-slate-400'}`} title="Dashboard analítico"><BarChart3 size={18}/></button>
-                <button onClick={() => setAnalystTab('settings')} className={`p-1.5 md:p-2 rounded-lg transition-all ${analystTab === 'settings' ? 'bg-white text-blue-600 shadow-sm border border-slate-100' : 'text-slate-300 hover:text-slate-400'}`} title="Configurações"><Settings size={18}/></button>
+            <button
+              onClick={() => setAnalystTab('analytics')}
+              className="inline-flex items-center gap-1 md:gap-1.5 px-2.5 md:px-3 py-1.5 rounded-full border border-blue-200 bg-blue-50 text-blue-700 transition-all hover:-translate-y-0.5 active:translate-y-0"
+              title="Abrir dashboard analítico"
+            >
+              <TrendingUp size={12} className="shrink-0" />
+              <span className="text-[9px] font-black uppercase tracking-widest md:hidden">{metrics.hoje}</span>
+              <span className="text-[9px] font-black uppercase tracking-widest hidden md:inline">Hoje: {metrics.hoje}</span>
+            </button>
+            <div className={`hidden md:flex items-center gap-2.5 px-3 py-1.5 rounded-2xl border backdrop-blur-sm ${currentUser?.is_online ? 'bg-white/90 border-blue-100 text-slate-700 shadow-[0_14px_24px_-22px_rgba(0,113,227,0.65)]' : 'bg-slate-50/90 border-slate-200 text-slate-400'}`}>
+              <div className={`w-7 h-7 rounded-xl flex items-center justify-center ${currentUser?.is_online ? 'bg-blue-50 text-[#0071e3]' : 'bg-slate-100 text-slate-400'}`}>
+                <Clock size={12} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[8px] font-semibold tracking-[0.08em] uppercase text-slate-500">Auto refresh</p>
+                <p className="text-[10px] font-semibold tracking-[0.01em] text-slate-700">
+                  {currentUser?.is_online ? `Atualiza em ${formatIdleCountdown(refreshCountdown)}` : 'Pausado'}
+                </p>
+                <div className="mt-1 h-1 w-20 rounded-full bg-slate-200/80 overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all duration-500 ${currentUser?.is_online ? 'bg-[linear-gradient(90deg,#34d399_0%,#0ea5e9_55%,#2563eb_100%)]' : 'bg-slate-300'}`}
+                    style={{ width: `${currentUser?.is_online ? refreshCycleProgress : 0}%` }}
+                  />
+                </div>
+              </div>
             </div>
-            <button onClick={() => { void handleAnalystLogout({ reason: 'manual' }); }} className="bg-white text-slate-300 p-1.5 md:p-2 rounded-lg hover:text-red-500 transition-all border border-slate-100 active:scale-95 shadow-sm ml-1 shrink-0"><LogOut size={18}/></button>
+            <div className="flex items-center rounded-2xl border border-slate-200/80 bg-slate-50/85 p-1 gap-1">
+              <button
+                onClick={() => toggleQueueStatus(!currentUser?.is_online)}
+                className={`inline-flex items-center gap-1.5 px-2.5 md:px-3 py-1.5 rounded-xl text-[9px] font-semibold tracking-[0.03em] transition-all ${currentUser?.is_online ? 'bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100' : 'bg-emerald-600 text-white border border-emerald-600 shadow-[0_12px_18px_-14px_rgba(5,150,105,0.85)] hover:bg-emerald-500'}`}
+                title={currentUser?.is_online ? 'Pausar fila' : 'Ligar fila'}
+              >
+                <Power size={14} />
+                <span className="hidden md:inline">{currentUser?.is_online ? 'Pausar' : 'Ligar'}</span>
+              </button>
+
+              <button
+                onClick={() => setAnalystTab('mesa')}
+                className={`inline-flex items-center gap-1 px-2.5 md:px-3 py-1.5 rounded-xl text-[9px] font-semibold tracking-[0.03em] transition-all ${analystTab === 'mesa' ? 'bg-white text-[#0071e3] border border-blue-100 shadow-[0_10px_14px_-12px_rgba(0,113,227,0.8)]' : 'text-slate-500 hover:text-slate-700'}`}
+                title="Mesa"
+              >
+                <LayoutDashboard size={14} />
+                <span className="hidden md:inline">Mesa</span>
+              </button>
+
+              <button
+                onClick={() => setAnalystTab('analytics')}
+                className={`inline-flex items-center gap-1 px-2.5 md:px-3 py-1.5 rounded-xl text-[9px] font-semibold tracking-[0.03em] transition-all ${analystTab === 'analytics' ? 'bg-white text-[#0071e3] border border-blue-100 shadow-[0_10px_14px_-12px_rgba(0,113,227,0.8)]' : 'text-slate-500 hover:text-slate-700'}`}
+                title="Dashboard analítico"
+              >
+                <BarChart3 size={14} />
+                <span className="hidden lg:inline">Analítico</span>
+              </button>
+
+              <button
+                onClick={() => setAnalystTab('settings')}
+                className={`inline-flex items-center gap-1 px-2.5 md:px-3 py-1.5 rounded-xl text-[9px] font-semibold tracking-[0.03em] transition-all ${analystTab === 'settings' ? 'bg-white text-[#0071e3] border border-blue-100 shadow-[0_10px_14px_-12px_rgba(0,113,227,0.8)]' : 'text-slate-500 hover:text-slate-700'}`}
+                title="Configurações"
+              >
+                <Settings size={14} />
+                <span className="hidden lg:inline">Config</span>
+              </button>
+            </div>
+
+            <button
+              onClick={() => { void handleAnalystLogout({ reason: 'manual' }); }}
+              className="inline-flex items-center justify-center h-9 w-9 rounded-xl border border-slate-200 bg-white text-slate-400 transition-all hover:text-rose-500 hover:border-rose-200 hover:-translate-y-0.5 active:translate-y-0"
+              title="Sair"
+            >
+              <LogOut size={16} />
+            </button>
+          </div>
         </div>
+
+        {showAnalystMobileIdleWarning && (
+          <div className="lg:hidden px-3 pb-2.5">
+            <div className="rounded-xl border border-amber-200 bg-[linear-gradient(135deg,#fff7ed_0%,#fffbeb_55%,#ffffff_100%)] px-3 py-2 shadow-[0_10px_18px_-16px_rgba(251,146,60,0.75)]">
+              <div className="flex items-center justify-between gap-2">
+                <div className="inline-flex items-center gap-2 min-w-0">
+                  <div className="w-6 h-6 rounded-lg bg-amber-100 text-amber-700 inline-flex items-center justify-center shrink-0">
+                    <AlertTriangle size={11} />
+                  </div>
+                  <p className="text-[10px] font-semibold text-slate-700 truncate">Sessão expira em {formatIdleCountdown(analystIdleSecondsLeft)}</p>
+                </div>
+                <div className="inline-flex items-center gap-1.5 shrink-0">
+                  <span className="text-[10px] font-semibold text-amber-800 tracking-[0.06em]">{formatIdleCountdown(analystIdleSecondsLeft)}</span>
+                  <button
+                    type="button"
+                    onClick={() => setMobileIdleWarningDismissUntil(Date.now() + 15000)}
+                    className="h-5 w-5 rounded-md border border-amber-200 bg-white/80 text-amber-700 inline-flex items-center justify-center"
+                    title="Ocultar por alguns segundos"
+                    aria-label="Ocultar aviso temporariamente"
+                  >
+                    <X size={11} />
+                  </button>
+                </div>
+              </div>
+              <div className="mt-1.5 h-1 w-full rounded-full bg-amber-100 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-[linear-gradient(90deg,#f59e0b_0%,#f97316_55%,#ef4444_100%)] transition-all duration-500"
+                  style={{ width: `${analystIdleWarningProgress}%` }}
+                />
+              </div>
+            </div>
+          </div>
+        )}
       </nav>
 
       <main className="max-w-7xl mx-auto p-4 md:p-8 animate-in fade-in duration-700 w-full flex-1">
@@ -1805,7 +1979,6 @@ const App = () => {
               getReservaDisplayId={getReservaDisplayId}
               openTransferModal={openTransferModal}
               handleFinish={handleFinish}
-              metrics={metrics}
             />
           ) : (
             <div className="space-y-6 py-20 text-center text-slate-300 italic text-[11px] uppercase tracking-[0.4em] font-bold px-6">Nenhum conteúdo disponível nesta aba.</div>
