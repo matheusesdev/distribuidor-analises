@@ -75,6 +75,40 @@
   animation: manager-tab-slide-backward 260ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+@keyframes analyst-detail-slide-forward {
+  from {
+    opacity: 0;
+    transform: translateX(22px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes analyst-detail-slide-backward {
+  from {
+    opacity: 0;
+    transform: translateX(-22px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+.analyst-detail-transition {
+  will-change: transform, opacity;
+}
+
+.analyst-detail-transition.is-forward {
+  animation: analyst-detail-slide-forward 360ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.analyst-detail-transition.is-backward {
+  animation: analyst-detail-slide-backward 360ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
 body {
   margin: 0;
   padding: 0;
