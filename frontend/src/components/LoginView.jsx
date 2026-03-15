@@ -22,6 +22,7 @@ const LoginView = ({
   showManagerPassword,
   setShowManagerPassword,
   loginNotice,
+  loginSuccessSplash,
   handleLogin,
   handleManagerLogin,
 }) => {
@@ -40,6 +41,8 @@ const LoginView = ({
   const [forgotSent, setForgotSent] = useState(false);
   const [forgotLoading, setForgotLoading] = useState(false);
   const [forgotError, setForgotError] = useState('');
+  const [showSuccessCheck, setShowSuccessCheck] = useState(false);
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
 
   useEffect(() => {
     let currentIndex = 0;
@@ -55,6 +58,22 @@ const LoginView = ({
     const cursorInterval = setInterval(() => setIsCursorVisible(v => !v), CURSOR_BLINK_MS);
     return () => clearInterval(cursorInterval);
   }, []);
+
+  useEffect(() => {
+    if (!loginSuccessSplash?.visible) {
+      setShowSuccessCheck(false);
+      setShowSuccessMessage(false);
+      return;
+    }
+
+    const checkTimer = window.setTimeout(() => setShowSuccessCheck(true), 70);
+    const textTimer = window.setTimeout(() => setShowSuccessMessage(true), 520);
+
+    return () => {
+      window.clearTimeout(checkTimer);
+      window.clearTimeout(textTimer);
+    };
+  }, [loginSuccessSplash?.visible]);
 
   const handleSubmitLogin = (e) => {
     if (e) e.preventDefault();
@@ -101,6 +120,34 @@ const LoginView = ({
       <StatusToast toast={toast} />
       <ConfirmActionModal confirmAction={confirmAction} onClose={closeConfirmation} />
       {isGlobalLoading && <LoadingOverlay />}
+      {loginSuccessSplash?.visible && (
+        <div className="fixed inset-0 z-[400] bg-[radial-gradient(circle_at_top,_#3ecf8e_0%,_#1f9f68_40%,_#147a4d_100%)] text-white flex flex-col items-center justify-center px-6">
+          <div className="relative w-36 h-36 flex items-center justify-center">
+            <div className="absolute inset-0 rounded-full border border-white/25" />
+            <div className="absolute inset-3 rounded-full border border-white/20 animate-ping" style={{ animationDuration: '1.25s' }} />
+            <div className="absolute inset-[1.05rem] rounded-full bg-white/8 backdrop-blur-md shadow-[0_16px_40px_-20px_rgba(0,0,0,0.55)]" />
+            <svg viewBox="0 0 100 100" className="relative w-24 h-24" fill="none" aria-hidden="true">
+              <circle cx="50" cy="50" r="34" stroke="rgba(255,255,255,0.34)" strokeWidth="3" />
+              <path
+                d="M33 52 L45 64 L69 39"
+                stroke="white"
+                strokeWidth="6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                style={{
+                  strokeDasharray: 72,
+                  strokeDashoffset: showSuccessCheck ? 0 : 72,
+                  transition: 'stroke-dashoffset 420ms cubic-bezier(0.22, 1, 0.36, 1)',
+                }}
+              />
+            </svg>
+          </div>
+
+          <p className={`mt-8 text-base sm:text-lg font-semibold tracking-[0.06em] text-white/95 text-center transition-all duration-300 ${showSuccessMessage ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'}`}>
+            Login realizado com sucesso
+          </p>
+        </div>
+      )}
 
       {/* ===== PAINEL ESQUERDO AZUL (desktop) ===== */}
       <div className="hidden lg:flex flex-col justify-between w-[45%] bg-blue-600 p-12 relative overflow-hidden shrink-0">
@@ -150,14 +197,14 @@ const LoginView = ({
           <form onSubmit={handleSubmitLogin} className="space-y-4" noValidate>
             {/* Campo E-mail */}
             <div>
-              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2">E-mail</label>
+              <label className="text-[11px] font-semibold text-slate-500 tracking-[0.01em] block mb-2">E-mail</label>
               <div className="relative">
-                <Mail size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-300 pointer-events-none" />
+                <Mail size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                 <input
                   type="email"
                   value={loginEmail}
                   onChange={(e) => setLoginEmail(e.target.value)}
-                  className="w-full bg-white border-2 border-slate-100 rounded-2xl py-3.5 pl-10 pr-4 text-slate-800 font-bold outline-none focus:ring-4 focus:ring-blue-50 focus:border-blue-500 text-sm transition-all duration-200 shadow-sm"
+                  className="w-full bg-slate-50/90 border border-slate-200 rounded-[18px] py-3.5 pl-11 pr-4 text-slate-900 font-medium outline-none focus:ring-4 focus:ring-sky-100/70 focus:border-sky-400 text-[15px] transition-all duration-200 shadow-[0_10px_24px_-20px_rgba(15,23,42,0.5)] placeholder:text-slate-400"
                   placeholder="seu@vcaconstrutora.com.br"
                   autoComplete="email"
                   autoFocus
@@ -168,7 +215,7 @@ const LoginView = ({
             {/* Campo Senha */}
             <div>
               <div className="flex items-center justify-between mb-2">
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Senha</label>
+                <label className="text-[11px] font-semibold text-slate-500 tracking-[0.01em]">Senha</label>
                 <button
                   type="button"
                   onClick={openForgotModal}
@@ -178,19 +225,19 @@ const LoginView = ({
                 </button>
               </div>
               <div className="relative">
-                <Lock size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-300 pointer-events-none" />
+                <Lock size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                 <input
                   type={showLoginPassword ? 'text' : 'password'}
                   value={loginPassword}
                   onChange={(e) => setLoginPassword(e.target.value)}
-                  className="w-full bg-white border-2 border-slate-100 rounded-2xl py-3.5 pl-10 pr-10 text-slate-800 font-bold outline-none focus:ring-4 focus:ring-blue-50 focus:border-blue-500 text-sm transition-all duration-200 shadow-sm"
+                  className="w-full bg-slate-50/90 border border-slate-200 rounded-[18px] py-3.5 pl-11 pr-11 text-slate-900 font-medium outline-none focus:ring-4 focus:ring-sky-100/70 focus:border-sky-400 text-[15px] transition-all duration-200 shadow-[0_10px_24px_-20px_rgba(15,23,42,0.5)] placeholder:text-slate-400"
                   placeholder="********"
                   autoComplete="current-password"
                 />
                 <button
                   type="button"
                   onClick={() => setShowLoginPassword(p => !p)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-300 hover:text-slate-500 transition-colors duration-200 p-1"
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 transition-colors duration-200 p-1"
                   title={showLoginPassword ? 'Ocultar senha' : 'Mostrar senha'}
                 >
                   {showLoginPassword ? <EyeOff size={14} /> : <Eye size={14} />}
@@ -337,52 +384,52 @@ const LoginView = ({
       {/* ===== MODAL: ACESSO ADMIN ===== */}
       {showManagerLoginModal && (
         <div
-          className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-250 flex items-center justify-center p-4 animate-in fade-in duration-200"
+          className="fixed inset-0 bg-slate-900/45 backdrop-blur-md z-250 flex items-center justify-center p-4 animate-in fade-in duration-200"
           onClick={() => setShowManagerLoginModal(false)}
         >
           <div
-            className="bg-white rounded-3xl w-full max-w-xs shadow-2xl border border-slate-100 overflow-hidden animate-in slide-in-from-bottom-4 zoom-in-95 duration-300"
+            className="bg-white/95 rounded-[1.6rem] w-full max-w-sm shadow-[0_36px_80px_-34px_rgba(2,6,23,0.65)] border border-white/70 overflow-hidden animate-in slide-in-from-bottom-4 zoom-in-95 duration-300 backdrop-blur-xl"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="bg-slate-900 px-8 pt-8 pb-6 flex flex-col items-center gap-3">
-              <div className="w-14 h-14 rounded-2xl bg-white/10 flex items-center justify-center text-white border border-white/10">
+            <div className="bg-[radial-gradient(circle_at_top,_#1f2937_0%,_#0f172a_70%)] px-8 pt-8 pb-6 flex flex-col items-center gap-3">
+              <div className="w-14 h-14 rounded-2xl bg-white/10 flex items-center justify-center text-white border border-white/20 shadow-inner">
                 <BarChart4 size={22} />
               </div>
               <div className="text-center">
-                <p className="text-white font-black text-sm uppercase tracking-tight">Painel Admin</p>
-                <p className="text-slate-300 text-[9px] font-bold uppercase tracking-widest mt-0.5">Acesso restrito ao gestor</p>
+                <p className="text-white font-semibold text-[1.03rem] tracking-[-0.01em]">Painel Admin</p>
+                <p className="text-slate-300 text-[11px] font-medium tracking-[0.02em] mt-1">Acesso restrito ao gestor</p>
               </div>
             </div>
-            <div className="px-8 py-8 space-y-6">
+            <div className="px-8 py-8 space-y-5">
               <div className="space-y-3">
                 <div className="relative">
-                  <Mail size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-300 pointer-events-none" />
+                  <Mail size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                   <input
                     type="email"
                     value={managerUsername}
                     onChange={(e) => setManagerUsername(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleManagerLogin()}
-                    className="w-full bg-slate-50 border border-slate-100 rounded-xl py-3.5 pl-10 pr-4 text-slate-800 font-bold outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm transition-all duration-200"
+                    className="w-full bg-slate-50/90 border border-slate-200 rounded-2xl py-3.5 pl-11 pr-4 text-slate-900 font-medium outline-none focus:ring-4 focus:ring-sky-100/70 focus:border-sky-400 text-[15px] transition-all duration-200 shadow-[0_10px_24px_-20px_rgba(15,23,42,0.5)]"
                     placeholder="E-mail admin"
                     autoFocus
                     autoComplete="email"
                   />
                 </div>
                 <div className="relative">
-                  <Lock size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-300 pointer-events-none" />
+                  <Lock size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                   <input
                     type={showManagerPassword ? 'text' : 'password'}
                     value={managerPassword}
                     onChange={(e) => setManagerPassword(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleManagerLogin()}
-                    className="w-full bg-slate-50 border border-slate-100 rounded-xl py-3.5 pl-10 pr-10 text-slate-800 font-bold outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm transition-all duration-200"
+                    className="w-full bg-slate-50/90 border border-slate-200 rounded-2xl py-3.5 pl-11 pr-11 text-slate-900 font-medium outline-none focus:ring-4 focus:ring-sky-100/70 focus:border-sky-400 text-[15px] transition-all duration-200 shadow-[0_10px_24px_-20px_rgba(15,23,42,0.5)]"
                     placeholder="Senha"
                     autoComplete="current-password"
                   />
                   <button
                     type="button"
                     onClick={() => setShowManagerPassword(p => !p)}
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-300 hover:text-slate-500 transition-colors duration-200 p-1"
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 transition-colors duration-200 p-1"
                   >
                     {showManagerPassword ? <EyeOff size={14} /> : <Eye size={14} />}
                   </button>
@@ -393,10 +440,10 @@ const LoginView = ({
                 type="button"
                 disabled={isGlobalLoading || !managerUsername.trim() || !managerPassword.trim()}
                 onClick={handleManagerLogin}
-                className={`w-full py-3.5 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg transition-all duration-200 flex items-center justify-center gap-2.5 ${
+                className={`w-full py-3.5 rounded-full font-semibold text-[15px] tracking-[0.01em] transition-all duration-200 flex items-center justify-center gap-2.5 ${
                   isGlobalLoading || !managerUsername.trim() || !managerPassword.trim()
                     ? 'bg-slate-100 text-slate-300 cursor-not-allowed'
-                    : 'bg-slate-900 text-white hover:bg-slate-800 active:scale-95'
+                    : 'bg-[#0071e3] text-white shadow-[0_18px_34px_-18px_rgba(0,113,227,0.82)] hover:bg-[#0077ed] hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.99]'
                 }`}
               >
                 {isGlobalLoading ? (
@@ -412,7 +459,7 @@ const LoginView = ({
               <button
                 type="button"
                 onClick={() => setShowManagerLoginModal(false)}
-                className="w-full py-2.5 text-slate-500 font-bold uppercase text-[9px] tracking-widest hover:text-slate-700 hover:bg-slate-50 rounded-lg transition-all duration-200"
+                className="w-full py-2.5 text-slate-500 font-medium text-[13px] hover:text-slate-700 hover:bg-slate-100/80 rounded-xl transition-all duration-200"
               >
                 Cancelar
               </button>

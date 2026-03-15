@@ -26,6 +26,7 @@ const ADMIN_IDLE_TIMEOUT_MS = 30 * 60 * 1000;
 const ADMIN_IDLE_WARNING_MS = 2 * 60 * 1000;
 const ANALYST_IDLE_TIMEOUT_MS = 4 * 60 * 60 * 1000;
 const ANALYST_IDLE_WARNING_MS = 5 * 60 * 1000;
+const LOGIN_SUCCESS_SPLASH_MS = 1600;
 const ALL_FILTER = 'all';
 const LEGACY_MANAGER_TOKEN = 'legacy-admin-session';
 const EMPTY_ANALYTICS = {
@@ -86,6 +87,7 @@ const App = () => {
   });
   const [analystTab, setAnalystTab] = useState('mesa'); 
   const [managerTab, setManagerTab] = useState('dashboard');
+  const [managerTabDirection, setManagerTabDirection] = useState('forward');
   const [transferMonthFilter, setTransferMonthFilter] = useState(ALL_FILTER);
   const [transferOriginFilter, setTransferOriginFilter] = useState(ALL_FILTER);
   const [transferDestinationFilter, setTransferDestinationFilter] = useState(ALL_FILTER);
@@ -177,9 +179,11 @@ const App = () => {
   const [bulkTransferToId, setBulkTransferToId] = useState("");
   const [bulkTransferReason, setBulkTransferReason] = useState("");
   const [idlePrompt, setIdlePrompt] = useState({ visible: false, role: null, secondsLeft: 0 });
+  const [loginSuccessSplash, setLoginSuccessSplash] = useState({ visible: false, role: null });
   const confirmResolverRef = useRef(null);
   const sessionActivityPersistRef = useRef({ manager: 0, analyst: 0 });
   const sessionExpiryGuardRef = useRef(false);
+  const loginSuccessTimerRef = useRef(null);
 
   const CRM_BASE_BY_SOURCE = {
     cvcrm: "https://vca.cvcrm.com.br/gestor/comercial/reservas",
@@ -235,6 +239,30 @@ const App = () => {
   const notify = useCallback((message, type = "success") => {
     setToast({ show: true, message, type });
     setTimeout(() => setToast({ show: false, message: "", type: "success" }), 3500);
+  }, []);
+
+  const runLoginSuccessSplash = useCallback((role, onComplete) => {
+    if (loginSuccessTimerRef.current) {
+      window.clearTimeout(loginSuccessTimerRef.current);
+      loginSuccessTimerRef.current = null;
+    }
+
+    setLoginSuccessSplash({ visible: true, role });
+    loginSuccessTimerRef.current = window.setTimeout(() => {
+      setLoginSuccessSplash({ visible: false, role: null });
+      loginSuccessTimerRef.current = null;
+      if (typeof onComplete === 'function') {
+        onComplete();
+      }
+    }, LOGIN_SUCCESS_SPLASH_MS);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (loginSuccessTimerRef.current) {
+        window.clearTimeout(loginSuccessTimerRef.current);
+      }
+    };
   }, []);
 
   const persistAnalystSession = useCallback((session) => {
@@ -537,16 +565,16 @@ const App = () => {
   }, [nextRefreshAt]);
 
   useEffect(() => {
-    if (managerSession?.token) {
+    if (managerSession?.token && !loginSuccessSplash.visible) {
       setView('manager');
     }
-  }, [managerSession?.token]);
+  }, [managerSession?.token, loginSuccessSplash.visible]);
 
   useEffect(() => {
-    if (view === 'login' && !managerSession?.token && currentUser?.id) {
+    if (view === 'login' && !loginSuccessSplash.visible && !managerSession?.token && currentUser?.id) {
       setView('analyst');
     }
-  }, [view, managerSession?.token, currentUser?.id]);
+  }, [view, loginSuccessSplash.visible, managerSession?.token, currentUser?.id]);
 
   useEffect(() => {
     if (view === 'manager' && !managerSession?.token) {
@@ -564,9 +592,9 @@ const App = () => {
         const userData = await res.json();
         persistAnalystSession(userData);
         setAnalystTab('mesa');
-        setView('analyst');
         setLoginNotice(null);
         notify(`Olá, ${userData.nome}!`);
+        runLoginSuccessSplash('analyst', () => setView('analyst'));
       } else {
         notify(await getApiErrorMessage(res, "Falha no login"), "error");
       }
@@ -587,9 +615,9 @@ const App = () => {
         setManagerPassword('');
         setShowManagerPassword(false);
         setManagerTab('dashboard');
-        setView('manager');
         setLoginNotice(null);
         notify('Acesso admin liberado.');
+        runLoginSuccessSplash('manager', () => setView('manager'));
       } else if (res.status === 404) {
         const legacyOverview = await api.getManagerOverview();
 
@@ -604,9 +632,9 @@ const App = () => {
           setManagerPassword('');
           setShowManagerPassword(false);
           setManagerTab('dashboard');
-          setView('manager');
           setLoginNotice(null);
           notify('Painel admin aberto em modo de compatibilidade.');
+          runLoginSuccessSplash('manager', () => setView('manager'));
         } else {
           notify('O backend de produção não expõe o login do admin nem o overview do painel.', 'error');
         }
@@ -1158,18 +1186,40 @@ const App = () => {
     finally { setIsGlobalLoading(false); }
   };
 
-  const handleDeleteAnalyst = async (id) => {
-    if (!window.confirm("Remover este analista?")) return;
+  const handleDeleteAnalyst = async (analyst) => {
+    const analystId = Number(typeof analyst === 'object' ? analyst?.id : analyst);
+    if (!Number.isFinite(analystId) || analystId <= 0) {
+      notify('Analista inválido para exclusão.', 'error');
+      return;
+    }
+
+    const analystName = typeof analyst === 'object'
+      ? (analyst?.nome || `Analista ${analystId}`)
+      : `Analista ${analystId}`;
+
+    const confirmed = await requestConfirmation({
+      title: 'Excluir analista',
+      message: `Deseja excluir ${analystName}? Esta ação remove o acesso e não pode ser desfeita.`,
+      confirmLabel: 'Excluir',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
+
     setIsGlobalLoading(true);
     try {
-        const res = await api.deleteAnalyst(id);
+        const res = await api.deleteAnalyst(analystId);
         if (res.status === 401) {
             handleManagerUnauthorized();
             return;
         }
-        notify("Analista removido.");
-        fetchData();
-    } catch (e) { notify("Erro ao remover."); }
+
+        if (res.ok) {
+          notify('Analista removido com sucesso.');
+          fetchData();
+        } else {
+          notify(await getApiErrorMessage(res, 'Erro ao remover analista'), 'error');
+        }
+    } catch (e) { notify("Erro ao remover analista.", 'error'); }
     finally { setIsGlobalLoading(false); }
   };
 
@@ -1319,6 +1369,19 @@ const App = () => {
     };
   }, [groupedTransferLogs]);
 
+  const handleManagerTabChange = useCallback((nextTab) => {
+    if (!nextTab || nextTab === managerTab) return;
+    const tabOrder = ['dashboard', 'transferencias', 'admins'];
+    const currentIndex = tabOrder.indexOf(managerTab);
+    const nextIndex = tabOrder.indexOf(nextTab);
+
+    if (currentIndex >= 0 && nextIndex >= 0) {
+      setManagerTabDirection(nextIndex > currentIndex ? 'forward' : 'backward');
+    }
+
+    setManagerTab(nextTab);
+  }, [managerTab]);
+
   const resetTransferFilters = () => {
     setTransferMonthFilter(ALL_FILTER);
     setTransferOriginFilter(ALL_FILTER);
@@ -1421,6 +1484,7 @@ const App = () => {
       showManagerPassword={showManagerPassword}
       setShowManagerPassword={setShowManagerPassword}
       loginNotice={loginNotice}
+      loginSuccessSplash={loginSuccessSplash}
       handleLogin={handleLogin}
       handleManagerLogin={handleManagerLogin}
     />
@@ -1428,7 +1492,10 @@ const App = () => {
 
   // --- PAINEL GESTOR ---
   if (view === 'manager') return (
-    <div className="min-h-screen font-sans bg-[#f8fafc] text-slate-800 flex flex-col overflow-x-hidden">
+    <div
+      className="min-h-screen bg-[radial-gradient(circle_at_top,#ffffff_0%,#f4f7fb_46%,#edf2f8_100%)] text-slate-800 flex flex-col overflow-x-hidden"
+      style={{ fontFamily: '"SF Pro Text", "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif' }}
+    >
       <StatusToast toast={toast} />
       <ConfirmActionModal confirmAction={confirmAction} onClose={closeConfirmation} />
       {idlePromptModal}
@@ -1439,7 +1506,7 @@ const App = () => {
         onExit={handleManagerLogout}
       />
 
-      <main className="max-w-7xl mx-auto p-4 md:p-6 space-y-6 flex-1">
+      <main className="max-w-7xl mx-auto p-4 md:p-6 space-y-6 flex-1 w-full">
         {managerIdleSecondsLeft !== null && managerIdleSecondsLeft > 0 && managerIdleSecondsLeft <= (ADMIN_IDLE_WARNING_MS / 1000) && (
           <section className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 flex items-center justify-between gap-3">
             <div>
@@ -1450,58 +1517,63 @@ const App = () => {
           </section>
         )}
 
-        <section className="bg-white border border-slate-100 rounded-2xl p-2 shadow-sm flex gap-2 w-fit">
-          <button onClick={() => setManagerTab('dashboard')} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wide transition-all ${managerTab === 'dashboard' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-500 bg-slate-50 hover:bg-slate-100'}`}>Dashboard</button>
-          <button onClick={() => setManagerTab('transferencias')} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wide transition-all flex items-center gap-2 ${managerTab === 'transferencias' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-500 bg-slate-50 hover:bg-slate-100'}`}><ArrowRightLeft size={12} /> Transferências</button>
-          <button onClick={() => setManagerTab('admins')} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wide transition-all flex items-center gap-2 ${managerTab === 'admins' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-500 bg-slate-50 hover:bg-slate-100'}`}><UserPlus size={12} /> Admins</button>
+        <section className="w-fit rounded-full border border-slate-200/80 bg-white/80 p-1.5 shadow-[0_16px_34px_-24px_rgba(15,23,42,0.42)] backdrop-blur-xl flex gap-1.5">
+          <button onClick={() => handleManagerTabChange('dashboard')} className={`px-4 py-2 rounded-full text-[12px] font-semibold tracking-[0.01em] transition-all inline-flex items-center gap-2 ${managerTab === 'dashboard' ? 'bg-[#0071e3] text-white shadow-[0_12px_24px_-16px_rgba(0,113,227,0.9)]' : 'text-slate-600 hover:bg-slate-100/90'}`}><LayoutDashboard size={13} /> Dashboard</button>
+          <button onClick={() => handleManagerTabChange('transferencias')} className={`px-4 py-2 rounded-full text-[12px] font-semibold tracking-[0.01em] transition-all inline-flex items-center gap-2 ${managerTab === 'transferencias' ? 'bg-[#0071e3] text-white shadow-[0_12px_24px_-16px_rgba(0,113,227,0.9)]' : 'text-slate-600 hover:bg-slate-100/90'}`}><ArrowRightLeft size={13} /> Transferências</button>
+          <button onClick={() => handleManagerTabChange('admins')} className={`px-4 py-2 rounded-full text-[12px] font-semibold tracking-[0.01em] transition-all inline-flex items-center gap-2 ${managerTab === 'admins' ? 'bg-[#0071e3] text-white shadow-[0_12px_24px_-16px_rgba(0,113,227,0.9)]' : 'text-slate-600 hover:bg-slate-100/90'}`}><UserPlus size={13} /> Admins</button>
         </section>
 
-        {managerTab === 'dashboard' && (
-          <ManagerDashboardTab
-            SITUACOES_MAP={SITUACOES_MAP}
-            SIT_COLORS={SIT_COLORS}
-            isSyncing={isSyncing}
-            managerSyncStatus={managerSyncStatus}
-            calculatedBreakdown={calculatedBreakdown}
-            dashData={dashData}
-            analistasMapa={analistasMapa}
-            setEditForm={setEditForm}
-            setShowEditModal={setShowEditModal}
-            togglingQueueIds={togglingQueueIds}
-            handleAdminQueueToggle={handleAdminQueueToggle}
-            handleDeleteAnalyst={handleDeleteAnalyst}
-          />
-        )}
+        <div
+          key={managerTab}
+          className={`manager-tab-transition ${managerTabDirection === 'forward' ? 'is-forward' : 'is-backward'}`}
+        >
+          {managerTab === 'dashboard' && (
+            <ManagerDashboardTab
+              SITUACOES_MAP={SITUACOES_MAP}
+              SIT_COLORS={SIT_COLORS}
+              isSyncing={isSyncing}
+              managerSyncStatus={managerSyncStatus}
+              calculatedBreakdown={calculatedBreakdown}
+              dashData={dashData}
+              analistasMapa={analistasMapa}
+              setEditForm={setEditForm}
+              setShowEditModal={setShowEditModal}
+              togglingQueueIds={togglingQueueIds}
+              handleAdminQueueToggle={handleAdminQueueToggle}
+              handleDeleteAnalyst={handleDeleteAnalyst}
+            />
+          )}
 
-        {managerTab === 'transferencias' && (
-          <ManagerTransfersTab
-            transferMonthFilter={transferMonthFilter}
-            setTransferMonthFilter={setTransferMonthFilter}
-            transferMonthOptions={transferMonthOptions}
-            transferOriginFilter={transferOriginFilter}
-            setTransferOriginFilter={setTransferOriginFilter}
-            transferOriginOptions={transferOriginOptions}
-            transferDestinationFilter={transferDestinationFilter}
-            setTransferDestinationFilter={setTransferDestinationFilter}
-            transferDestinationOptions={transferDestinationOptions}
-            resetTransferFilters={resetTransferFilters}
-            transferInsights={transferInsights}
-            groupedTransferLogs={groupedTransferLogs}
-          />
-        )}
+          {managerTab === 'transferencias' && (
+            <ManagerTransfersTab
+              transferMonthFilter={transferMonthFilter}
+              setTransferMonthFilter={setTransferMonthFilter}
+              transferMonthOptions={transferMonthOptions}
+              transferOriginFilter={transferOriginFilter}
+              setTransferOriginFilter={setTransferOriginFilter}
+              transferOriginOptions={transferOriginOptions}
+              transferDestinationFilter={transferDestinationFilter}
+              setTransferDestinationFilter={setTransferDestinationFilter}
+              transferDestinationOptions={transferDestinationOptions}
+              resetTransferFilters={resetTransferFilters}
+              transferInsights={transferInsights}
+              groupedTransferLogs={groupedTransferLogs}
+            />
+          )}
 
-        {managerTab === 'admins' && (
-          <ManagerAdminsTab
-            admins={adminUsers}
-            analysts={dashData.equipe || []}
-            adminForm={adminForm}
-            setAdminForm={setAdminForm}
-            handleCreateAdmin={handleCreateAdminUser}
-            handleRevokeAdminSession={handleRevokeAdminSession}
-            handleRevokeAnalystSession={handleRevokeAnalystSession}
-            isGlobalLoading={isGlobalLoading}
-          />
-        )}
+          {managerTab === 'admins' && (
+            <ManagerAdminsTab
+              admins={adminUsers}
+              analysts={dashData.equipe || []}
+              adminForm={adminForm}
+              setAdminForm={setAdminForm}
+              handleCreateAdmin={handleCreateAdminUser}
+              handleRevokeAdminSession={handleRevokeAdminSession}
+              handleRevokeAnalystSession={handleRevokeAnalystSession}
+              isGlobalLoading={isGlobalLoading}
+            />
+          )}
+        </div>
       </main>
       <EditAnalystModal
         showEditModal={showEditModal}

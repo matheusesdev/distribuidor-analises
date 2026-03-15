@@ -27,19 +27,19 @@ const ManagerAdminsTab = ({
 
   return (
     <section className="grid grid-cols-1 xl:grid-cols-[0.85fr_1.15fr] gap-6">
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 md:p-6">
+      <div className="bg-white/90 rounded-3xl border border-slate-200/80 shadow-[0_24px_45px_-30px_rgba(15,23,42,0.5)] p-5 md:p-6 backdrop-blur-sm">
         <div className="flex items-center gap-2 mb-5">
-          <UserPlus size={18} className="text-blue-600" />
-          <h2 className="text-[11px] font-black uppercase tracking-widest text-slate-700">Novo Administrador</h2>
+          <UserPlus size={18} className="text-[#0071e3]" />
+          <h2 className="text-[12px] font-semibold tracking-[0.05em] text-slate-700">Novo Administrador</h2>
         </div>
 
-        <form className="space-y-3" onSubmit={handleCreateAdmin}>
+        <form className="space-y-3.5" onSubmit={handleCreateAdmin}>
           <input
             type="email"
             name="email"
             value={adminForm.email}
             onChange={(e) => setAdminForm((prev) => ({ ...prev, email: e.target.value }))}
-            className="w-full bg-slate-50 border border-slate-100 rounded-xl py-3 px-4 text-sm text-slate-800 font-bold outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-3.5 px-4 text-[15px] text-slate-900 font-medium outline-none transition-all focus:ring-4 focus:ring-sky-100/70 focus:border-sky-400"
             placeholder="E-mail do administrador"
             autoComplete="email"
           />
@@ -49,7 +49,7 @@ const ManagerAdminsTab = ({
             name="username"
             value={adminForm.username}
             onChange={(e) => setAdminForm((prev) => ({ ...prev, username: e.target.value }))}
-            className="w-full bg-slate-50 border border-slate-100 rounded-xl py-3 px-4 text-sm text-slate-800 font-bold outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-3.5 px-4 text-[15px] text-slate-900 font-medium outline-none transition-all focus:ring-4 focus:ring-sky-100/70 focus:border-sky-400"
             placeholder="Username (opcional)"
             autoComplete="username"
           />
@@ -59,12 +59,12 @@ const ManagerAdminsTab = ({
             name="senha"
             value={adminForm.senha}
             onChange={(e) => setAdminForm((prev) => ({ ...prev, senha: e.target.value }))}
-            className="w-full bg-slate-50 border border-slate-100 rounded-xl py-3 px-4 text-sm text-slate-800 font-bold outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-3.5 px-4 text-[15px] text-slate-900 font-medium outline-none transition-all focus:ring-4 focus:ring-sky-100/70 focus:border-sky-400"
             placeholder="Senha inicial"
             autoComplete="new-password"
           />
 
-          <label className="flex items-center gap-2 text-[11px] font-bold text-slate-600">
+          <label className="flex items-center gap-2 text-[12px] font-medium text-slate-600">
             <input
               type="checkbox"
               name="ativo"
@@ -78,10 +78,10 @@ const ManagerAdminsTab = ({
           <button
             type="submit"
             disabled={isGlobalLoading}
-            className={`w-full py-3 rounded-xl font-black uppercase text-[10px] tracking-widest transition-all ${
+            className={`w-full py-3.5 rounded-full font-semibold text-[14px] tracking-[0.01em] transition-all ${
               isGlobalLoading
                 ? 'bg-slate-100 text-slate-300 cursor-not-allowed'
-                : 'bg-blue-600 text-white hover:bg-blue-500 active:scale-95 shadow-sm'
+                : 'bg-[#0071e3] text-white hover:bg-[#0077ed] hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.99] shadow-[0_16px_28px_-18px_rgba(0,113,227,0.9)]'
             }`}
           >
             {isGlobalLoading ? 'Criando...' : 'Criar Admin'}
@@ -89,13 +89,13 @@ const ManagerAdminsTab = ({
         </form>
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 md:p-6">
+      <div className="bg-white/90 rounded-3xl border border-slate-200/80 shadow-[0_24px_45px_-30px_rgba(15,23,42,0.5)] p-5 md:p-6 backdrop-blur-sm">
         <div className="flex items-center justify-between gap-3 mb-5">
           <div className="flex items-center gap-2">
-            <Users size={18} className="text-blue-600" />
-            <h2 className="text-[11px] font-black uppercase tracking-widest text-slate-700">Administradores</h2>
+            <Users size={18} className="text-[#0071e3]" />
+            <h2 className="text-[12px] font-semibold tracking-[0.05em] text-slate-700">Administradores</h2>
           </div>
-          <span className="px-2 py-1 rounded-full bg-slate-100 text-[9px] font-black uppercase text-slate-500">
+          <span className="px-2.5 py-1 rounded-full bg-slate-100 text-[10px] font-semibold text-slate-600">
             Total: {sortedAdmins.length}
           </span>
         </div>
@@ -103,16 +103,16 @@ const ManagerAdminsTab = ({
         <div className="space-y-2 max-h-115 overflow-y-auto pr-1">
           {sortedAdmins.length > 0 ? (
             sortedAdmins.map((admin) => (
-              <div key={admin.id} className="rounded-xl border border-slate-100 bg-slate-50 px-4 py-3">
+              <div key={admin.id} className="rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3 transition-all hover:-translate-y-0.5 hover:shadow-sm">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="text-[11px] font-black uppercase text-slate-800 truncate">{admin.username}</p>
-                    <p className="text-[10px] font-bold text-slate-500 truncate mt-1 inline-flex items-center gap-1">
+                    <p className="text-[12px] font-semibold text-slate-800 truncate">{admin.username}</p>
+                    <p className="text-[11px] font-medium text-slate-500 truncate mt-1 inline-flex items-center gap-1">
                       <Mail size={12} /> {admin.email || 'Sem e-mail'}
                     </p>
                   </div>
                   <div className="flex flex-col items-end gap-2 shrink-0">
-                    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[9px] font-black uppercase ${admin.ativo ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
+                    <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-semibold ${admin.ativo ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
                       <ShieldCheck size={11} />
                       {admin.ativo ? 'Ativo' : 'Inativo'}
                     </span>
@@ -120,15 +120,15 @@ const ManagerAdminsTab = ({
                       type="button"
                       disabled={isGlobalLoading}
                       onClick={() => handleRevokeAdminSession?.(admin)}
-                      className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] font-black uppercase border transition-all ${
+                      className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[10px] font-semibold border transition-all ${
                         isGlobalLoading
                           ? 'border-slate-100 text-slate-300 bg-slate-100 cursor-not-allowed'
-                          : 'border-amber-200 text-amber-700 bg-amber-50 hover:bg-amber-100'
+                          : 'border-amber-200 text-amber-700 bg-amber-50 hover:bg-amber-100 hover:-translate-y-0.5 active:translate-y-0'
                       }`}
                     >
                       <RotateCcw size={11} /> Encerrar Sessões
                     </button>
-                    <p className="text-[9px] font-bold text-slate-400">Exige novo login em todos os dispositivos.</p>
+                    <p className="text-[10px] font-medium text-slate-400">Exige novo login em todos os dispositivos.</p>
                   </div>
                 </div>
               </div>
@@ -143,26 +143,26 @@ const ManagerAdminsTab = ({
         <div className="mt-6 border-t border-slate-100 pt-5">
           <div className="flex items-center justify-between gap-3 mb-4">
             <div className="flex items-center gap-2">
-              <UserCog size={18} className="text-blue-600" />
-              <h3 className="text-[11px] font-black uppercase tracking-widest text-slate-700">Sessões e Acessos</h3>
+              <UserCog size={18} className="text-[#0071e3]" />
+              <h3 className="text-[12px] font-semibold tracking-[0.05em] text-slate-700">Sessões e Acessos</h3>
             </div>
-            <span className="px-2 py-1 rounded-full bg-slate-100 text-[9px] font-black uppercase text-slate-500">
+            <span className="px-2.5 py-1 rounded-full bg-slate-100 text-[10px] font-semibold text-slate-600">
               Total: {sortedAnalysts.length}
             </span>
           </div>
 
-          <p className="text-[10px] font-bold text-slate-500 mb-3">
+          <p className="text-[11px] font-medium text-slate-500 mb-3 leading-relaxed">
             Ao encerrar o acesso do analista, ele sai da plataforma, fica em pausa na fila e as pastas em andamento são redistribuídas.
           </p>
 
           <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
             {sortedAnalysts.length > 0 ? (
               sortedAnalysts.map((analyst) => (
-                <div key={analyst.id} className="rounded-xl border border-slate-100 bg-white px-4 py-3">
+                <div key={analyst.id} className="rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 transition-all hover:-translate-y-0.5 hover:shadow-sm">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="text-[11px] font-black uppercase text-slate-800 truncate">{analyst.nome}</p>
-                      <p className="text-[10px] font-bold text-slate-500 truncate mt-1 inline-flex items-center gap-1">
+                      <p className="text-[12px] font-semibold text-slate-800 truncate">{analyst.nome}</p>
+                      <p className="text-[11px] font-medium text-slate-500 truncate mt-1 inline-flex items-center gap-1">
                         <Mail size={12} /> {analyst.email || 'Sem e-mail'}
                       </p>
                     </div>
@@ -170,10 +170,10 @@ const ManagerAdminsTab = ({
                       type="button"
                       disabled={isGlobalLoading}
                       onClick={() => handleRevokeAnalystSession?.(analyst)}
-                      className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] font-black uppercase border transition-all shrink-0 ${
+                      className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[10px] font-semibold border transition-all shrink-0 ${
                         isGlobalLoading
                           ? 'border-slate-100 text-slate-300 bg-slate-100 cursor-not-allowed'
-                          : 'border-red-200 text-red-700 bg-red-50 hover:bg-red-100'
+                          : 'border-red-200 text-red-700 bg-red-50 hover:bg-red-100 hover:-translate-y-0.5 active:translate-y-0'
                       }`}
                     >
                       <RotateCcw size={11} /> Encerrar e Pausar
