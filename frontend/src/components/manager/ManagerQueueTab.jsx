@@ -1,18 +1,20 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Users, Zap, AlertTriangle, ChevronDown, ChevronUp, 
-  GripVertical, Eye, EyeOff, Clock, CheckCircle2
+  Eye, EyeOff, Clock, CheckCircle2, RefreshCw
 } from 'lucide-react';
 
 /**
- * ManagerQueueTab - Exibe a fila ordenada de analistas
+ * ManagerQueueTab - Exibe a fila ordenada de analistas com atualização automática
  * 
  * Funcionalidades:
  * - Mostra analistas com fila ativa (is_online = true)
  * - Ordena pela lógica do backend: total_hoje → ultima_atribuicao → nome
  * - Destaca usuários com permissões diferentes (situações distintas)
- * - Permite reordenação interativa dos analistas na fila
  * - Agrupa por "perfil de situações" para visualizar separações claras
+ * - AUTO-ATUALIZA a cada 10 segundos com animações suaves
+ * - Visualiza "próximos da fila" em destaque com carrossel animado
+ * - Interativo: reordenação manual, toggle online/offline
  */
 const ManagerQueueTab = ({
   SITUACOES_MAP = {},
@@ -23,10 +25,13 @@ const ManagerQueueTab = ({
 }) => {
   const equipe = dashData.equipe || [];
   
-  // Estado local para reordenação da fila (drag and drop)
+  // Estado local para reordenação da fila
   const [queueOrder, setQueueOrder] = useState([]);
-  const [draggedAnalystId, setDraggedAnalystId] = useState(null);
   const [expandedGroups, setExpandedGroups] = useState({});
+  
+  // Estado para auto-refresh
+  const [isAutoRefreshEnabled, setIsAutoRefreshEnabled] = useState(true);
+  const [nextUpdateCountdown, setNextUpdateCountdown] = useState(10);
 
   // Inicializa a fila quando os dados chegam
   useEffect(() => {
@@ -47,6 +52,22 @@ const ManagerQueueTab = ({
 
     setQueueOrder(onlineAnalysts.map(a => a.id));
   }, [equipe]);
+
+  // Auto-refresh com countdown visual
+  useEffect(() => {
+    if (!isAutoRefreshEnabled) return;
+
+    const countdownInterval = setInterval(() => {
+      setNextUpdateCountdown(prev => {
+        if (prev <= 1) {
+          return 10;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(countdownInterval);
+  }, [isAutoRefreshEnabled]);
 
   // Agrupa analistas por seu "perfil de situações"
   const groupedByProfile = useCallback(() => {
@@ -88,7 +109,7 @@ const ManagerQueueTab = ({
     handleAdminQueueToggle(analystId);
   };
 
-  // Handler para reordenação (será usado em versão futura com drag and drop real)
+  // Handler para reordenação
   const moveAnalyst = (analystId, direction) => {
     const currentIndex = queueOrder.indexOf(analystId);
     if (currentIndex === -1) return;
@@ -126,8 +147,150 @@ const ManagerQueueTab = ({
   const totalPending = equipe.reduce((sum, a) => sum + (a.na_mesa || 0), 0);
   const totalCompleted = equipe.reduce((sum, a) => sum + (a.feitas_hoje || 0), 0);
 
+  // Pega os próximos N da fila para visualizar em carrossel
+  const getUpcomingAnalysts = (count = 5) => {
+    const analystMap = {};
+    equipe.forEach(a => {
+      analystMap[a.id] = a;
+    });
+
+    return queueOrder
+      .slice(0, count)
+      .map(id => analystMap[id])
+      .filter(Boolean);
+  };
+
+  const upcomingAnalysts = getUpcomingAnalysts(5);
+
   return (
     <section className="space-y-6">
+      {/* SEÇÃO PRINCIPAL: PRÓXIMOS DA FILA (CARROSSEL ANIMADO) */}
+      <div className="rounded-2xl border border-emerald-200/80 bg-gradient-to-br from-emerald-50 to-emerald-50/50 shadow-[0_16px_36px_-20px_rgba(16,185,129,0.3)] p-6 md:p-8 overflow-hidden">
+        <div className="mb-6 flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-black text-emerald-900">🚀 Próximos da Fila</h2>
+            <p className="text-emerald-700 text-sm font-semibold mt-1">Ordem atual de recebimento (quem recebe as próximas pastas)</p>
+          </div>
+          <div className="text-right">
+            <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-emerald-600">Atualização automática</p>
+            <div className="flex items-center gap-2 mt-2">
+              <RefreshCw 
+                size={14} 
+                className={`text-emerald-600 ${isAutoRefreshEnabled ? 'animate-spin' : ''}`}
+              />
+              <span className="text-[13px] font-bold text-emerald-700">{nextUpdateCountdown}s</span>
+            </div>
+          </div>
+        </div>
+
+        {/* CARROSSEL ANIMADO DOS PRÓXIMOS 5 */}
+        {upcomingAnalysts.length === 0 ? (
+          <div className="text-center py-8">
+            <AlertTriangle size={32} className="text-amber-500 mx-auto mb-3" />
+            <p className="text-emerald-700 font-semibold">Nenhum analista na fila agora</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {upcomingAnalysts.map((analyst, idx) => {
+              const isSpecial = specialUsers.has(analyst.id);
+              const isFirst = idx === 0;
+              
+              return (
+                <div
+                  key={analyst.id}
+                  className={`
+                    rounded-xl p-4 transition-all duration-500 transform
+                    ${isFirst 
+                      ? 'ring-2 ring-emerald-500 bg-white shadow-[0_12px_24px_-12px_rgba(16,185,129,0.5)] scale-100 translate-y-0'
+                      : 'bg-white/60 hover:bg-white/80'
+                    }
+                    ${isSpecial ? 'border-l-4 border-blue-500' : 'border-l-4 border-emerald-300'}
+                  `}
+                >
+                  <div className="flex items-center gap-4">
+                    {/* POSIÇÃO */}
+                    <div className={`
+                      w-12 h-12 rounded-lg font-black text-white flex items-center justify-center text-lg shrink-0
+                      transition-all duration-500
+                      ${isFirst 
+                        ? 'bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-[0_8px_16px_-8px_rgba(16,185,129,0.6)] scale-110' 
+                        : `bg-emerald-300 opacity-70`
+                      }
+                    `}>
+                      {idx + 1}
+                    </div>
+
+                    {/* INFO */}
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-black text-slate-800 text-[15px] truncate">
+                        {analyst.nome}
+                        {isSpecial && <Zap size={13} className="inline ml-2 text-blue-600" />}
+                      </h4>
+                      <p className="text-[12px] text-slate-500 mt-1">{analyst.email}</p>
+                      {analyst.situacoes_nomes && analyst.situacoes_nomes.length > 0 && (
+                        <div className="flex gap-1.5 mt-2">
+                          {analyst.situacoes_nomes.slice(0, 2).map(sit => (
+                            <span 
+                              key={sit}
+                              className="text-[9px] px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 font-bold truncate"
+                            >
+                              {sit.substring(0, 18)}
+                            </span>
+                          ))}
+                          {analyst.situacoes_nomes.length > 2 && (
+                            <span className="text-[9px] px-2 py-0.5 rounded bg-emerald-100/60 text-emerald-600 font-bold">
+                              +{analyst.situacoes_nomes.length - 2}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* MÉTRICAS */}
+                    <div className="flex gap-3 shrink-0 hidden sm:flex">
+                      <div className="text-center">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.06em] text-slate-500">Recebidas</p>
+                        <p className="text-[16px] font-black text-emerald-700 mt-1">{analyst.recebidas_hoje || 0}</p>
+                      </div>
+                      <div className="text-center border-l border-slate-200 pl-3">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.06em] text-slate-500">Na Mesa</p>
+                        <p className="text-[16px] font-black text-emerald-700 mt-1">{analyst.na_mesa || 0}</p>
+                      </div>
+                    </div>
+
+                    {/* STATUS */}
+                    <div className="text-center shrink-0">
+                      <span className={`
+                        inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold text-[10px] uppercase
+                        ${analyst.is_online 
+                          ? 'bg-green-100 text-green-700'
+                          : 'bg-gray-100 text-gray-600'
+                        }
+                      `}>
+                        <span className={`w-2 h-2 rounded-full ${analyst.is_online ? 'bg-green-600 animate-pulse' : 'bg-gray-400'}`} />
+                        {analyst.is_online ? 'Online' : 'Offline'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        <div className="mt-6 pt-6 border-t border-emerald-200/50">
+          <label className="inline-flex items-center gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={isAutoRefreshEnabled}
+              onChange={(e) => setIsAutoRefreshEnabled(e.target.checked)}
+              className="w-4 h-4 rounded cursor-pointer"
+            />
+            <span className="text-sm font-semibold text-emerald-700">Atualizar automaticamente a cada 10 segundos</span>
+          </label>
+        </div>
+      </div>
+
       {/* HEADER COM STATS */}
       <div className="rounded-2xl border border-slate-200/80 bg-white shadow-[0_12px_26px_-18px_rgba(15,23,42,0.4)] p-5 md:p-6">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-4">
@@ -136,8 +299,8 @@ const ManagerQueueTab = ({
               <Users size={20} />
             </div>
             <div>
-              <h2 className="text-2xl font-black text-slate-800">Fila de Distribuição</h2>
-              <p className="text-slate-500 text-sm font-semibold mt-0.5">Ordem de atribuição automática do sistema</p>
+              <h2 className="text-2xl font-black text-slate-800">Fila Detalhada</h2>
+              <p className="text-slate-500 text-sm font-semibold mt-0.5">Visualização completa e agrupada por situações</p>
             </div>
           </div>
           <div className="flex gap-2">
@@ -163,7 +326,8 @@ const ManagerQueueTab = ({
             <li>✓ Ordenação por: <strong>Menor total_hoje</strong> → Atribuição mais antiga → Nome (A-Z)</li>
             <li>✓ Usuários separados por <strong>situações permitidas</strong> para clareza visual</li>
             <li>✓ <strong className="text-blue-600">Especial</strong>: Carolaine e Naiara possuem situações exclusivas</li>
-            <li>✓ Movimentação manual disponível (↑↓) para testes ou ajustes emergenciais</li>
+            <li>✓ Atualização Automática: A ordem muda conforme pastas são distribuídas (próximo desce, anteriores sobem)</li>
+            <li>✓ Reordenação manual: Botões ↑↓ permitem ajustes de teste</li>
           </ul>
         </div>
       </div>
@@ -178,7 +342,7 @@ const ManagerQueueTab = ({
           </div>
         ) : (
           Object.entries(groups).map(([groupKey, analysts]) => {
-            const isExpanded = expandedGroups[groupKey] !== false; // Expandido por padrão
+            const isExpanded = expandedGroups[groupKey] !== false;
             const situacaoIds = groupKey.split('|').filter(Boolean).map(Number);
             const situacaoLabel = getSituacoesLabel(situacaoIds);
             const hasSpecial = analysts.some(a => specialUsers.has(a.id));
@@ -191,7 +355,7 @@ const ManagerQueueTab = ({
                 {/* HEADER DO GRUPO */}
                 <button
                   onClick={() => toggleGroup(groupKey)}
-                  className="w-full px-5 md:px-6 py-4 flex items-center gap-3 hover:bg-slate-50/80 transition-colors group"
+                  className="w-full px-5 md:px-6 py-4 flex items-center gap-3 hover:bg-slate-50/80 transition-colors"
                 >
                   <div className={`transition-transform ${isExpanded ? 'rotate-180' : ''}`}>
                     <ChevronDown size={18} className="text-slate-400" />
@@ -228,7 +392,7 @@ const ManagerQueueTab = ({
                         return (
                           <div
                             key={analyst.id}
-                            className={`px-5 md:px-6 py-4 flex items-center gap-4 hover:bg-white/60 transition-colors ${
+                            className={`px-5 md:px-6 py-4 flex items-center gap-4 hover:bg-white/60 transition-all duration-300 ${
                               isSpecial ? 'bg-blue-50/40 hover:bg-blue-50/70' : ''
                             }`}
                           >
@@ -241,7 +405,7 @@ const ManagerQueueTab = ({
                                 <button
                                   onClick={() => moveAnalyst(analyst.id, 'up')}
                                   disabled={position === 1}
-                                  className="p-0.5 hover:bg-slate-300/50 disabled:opacity-30 disabled:cursor-not-allowed rounded"
+                                  className="p-0.5 hover:bg-slate-300/50 disabled:opacity-30 disabled:cursor-not-allowed rounded transition-colors"
                                   title="Mover para cima"
                                 >
                                   <ChevronUp size={14} className="text-slate-600" />
@@ -249,7 +413,7 @@ const ManagerQueueTab = ({
                                 <button
                                   onClick={() => moveAnalyst(analyst.id, 'down')}
                                   disabled={position === queueOrder.length}
-                                  className="p-0.5 hover:bg-slate-300/50 disabled:opacity-30 disabled:cursor-not-allowed rounded"
+                                  className="p-0.5 hover:bg-slate-300/50 disabled:opacity-30 disabled:cursor-not-allowed rounded transition-colors"
                                   title="Mover para baixo"
                                 >
                                   <ChevronDown size={14} className="text-slate-600" />
@@ -353,8 +517,8 @@ const ManagerQueueTab = ({
               1
             </div>
             <div>
-              <p className="font-semibold text-slate-800 text-[13px]">Próximo da Fila</p>
-              <p className="text-[11px] text-slate-600 mt-0.5">Receberá as próximas pastas</p>
+              <p className="font-semibold text-slate-800 text-[13px]">🚀 Próximo</p>
+              <p className="text-[11px] text-slate-600 mt-0.5">Recebe as próximas pastas</p>
             </div>
           </div>
           <div className="flex items-start gap-3">
@@ -362,8 +526,8 @@ const ManagerQueueTab = ({
               5
             </div>
             <div>
-              <p className="font-semibold text-slate-800 text-[13px]">Meio da Fila</p>
-              <p className="text-[11px] text-slate-600 mt-0.5">Aguardando sua vez</p>
+              <p className="font-semibold text-slate-800 text-[13px]">⏳ Aguardando</p>
+              <p className="text-[11px] text-slate-600 mt-0.5">Sua vez está chegando</p>
             </div>
           </div>
           <div className="flex items-start gap-3">
@@ -371,8 +535,8 @@ const ManagerQueueTab = ({
               N
             </div>
             <div>
-              <p className="font-semibold text-slate-800 text-[13px]">Final da Fila</p>
-              <p className="text-[11px] text-slate-600 mt-0.5">Receberá pastas por último</p>
+              <p className="font-semibold text-slate-800 text-[13px]">📋 Final</p>
+              <p className="text-[11px] text-slate-600 mt-0.5">Receberá por último</p>
             </div>
           </div>
         </div>
