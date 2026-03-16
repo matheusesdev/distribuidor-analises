@@ -6,7 +6,7 @@ import {
   UserPlus, Trash2, Power, Settings, CheckSquare, Square, 
   Edit3, UserCheck, Users, ShieldCheck, Save,
   Layout, ChevronDown, Search, User as UserIcon,
-  Tag, BarChart3, PieChart, RotateCcw, ArrowRightLeft,
+  Tag, BarChart3, PieChart, RotateCcw, ArrowRightLeft, LineChart,
   Moon, Sun
 } from 'lucide-react';
 import { api } from './services/api';
@@ -19,6 +19,7 @@ import AnalystSettingsTab from './components/analyst/AnalystSettingsTab';
 import ManagerHeader from './components/manager/ManagerHeader';
 import ManagerDashboardTab from './components/manager/ManagerDashboardTab';
 import ManagerTransfersTab from './components/manager/ManagerTransfersTab';
+import ManagerQueueTab from './components/manager/ManagerQueueTab';
 import ManagerAdminsTab from './components/manager/ManagerAdminsTab';
 import EditAnalystModal from './components/manager/EditAnalystModal';
 
@@ -1575,7 +1576,7 @@ const App = () => {
 
   const handleManagerTabChange = useCallback((nextTab) => {
     if (!nextTab || nextTab === managerTab) return;
-    const tabOrder = ['dashboard', 'transferencias', 'admins'];
+    const tabOrder = ['dashboard', 'fila', 'transferencias', 'admins'];
     const currentIndex = tabOrder.indexOf(managerTab);
     const nextIndex = tabOrder.indexOf(nextTab);
 
@@ -1777,6 +1778,7 @@ const App = () => {
 
         <section className="w-fit rounded-full border border-slate-200/80 bg-white/80 p-1.5 shadow-[0_16px_34px_-24px_rgba(15,23,42,0.42)] backdrop-blur-xl flex gap-1.5">
           <button onClick={() => handleManagerTabChange('dashboard')} className={`px-4 py-2 rounded-full text-[12px] font-semibold tracking-[0.01em] transition-all inline-flex items-center gap-2 ${managerTab === 'dashboard' ? 'bg-[#0071e3] text-white shadow-[0_12px_24px_-16px_rgba(0,113,227,0.9)]' : 'text-slate-600 hover:bg-slate-100/90'}`}><LayoutDashboard size={13} /> Dashboard</button>
+          <button onClick={() => handleManagerTabChange('fila')} className={`px-4 py-2 rounded-full text-[12px] font-semibold tracking-[0.01em] transition-all inline-flex items-center gap-2 ${managerTab === 'fila' ? 'bg-[#0071e3] text-white shadow-[0_12px_24px_-16px_rgba(0,113,227,0.9)]' : 'text-slate-600 hover:bg-slate-100/90'}`}><LineChart size={13} /> Fila</button>
           <button onClick={() => handleManagerTabChange('transferencias')} className={`px-4 py-2 rounded-full text-[12px] font-semibold tracking-[0.01em] transition-all inline-flex items-center gap-2 ${managerTab === 'transferencias' ? 'bg-[#0071e3] text-white shadow-[0_12px_24px_-16px_rgba(0,113,227,0.9)]' : 'text-slate-600 hover:bg-slate-100/90'}`}><ArrowRightLeft size={13} /> Transferências</button>
           <button onClick={() => handleManagerTabChange('admins')} className={`px-4 py-2 rounded-full text-[12px] font-semibold tracking-[0.01em] transition-all inline-flex items-center gap-2 ${managerTab === 'admins' ? 'bg-[#0071e3] text-white shadow-[0_12px_24px_-16px_rgba(0,113,227,0.9)]' : 'text-slate-600 hover:bg-slate-100/90'}`}><UserPlus size={13} /> Admins</button>
         </section>
@@ -1800,6 +1802,16 @@ const App = () => {
               handleAdminQueueToggle={handleAdminQueueToggle}
               handleAdminBulkQueueToggle={handleAdminBulkQueueToggle}
               handleDeleteAnalyst={handleDeleteAnalyst}
+            />
+          )}
+
+          {managerTab === 'fila' && (
+            <ManagerQueueTab
+              SITUACOES_MAP={SITUACOES_MAP}
+              SIT_COLORS={SIT_COLORS}
+              dashData={dashData}
+              handleAdminQueueToggle={handleAdminQueueToggle}
+              togglingQueueIds={togglingQueueIds}
             />
           )}
 

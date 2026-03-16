@@ -296,8 +296,8 @@ const LoginView = ({
 
           {/* Rodape */}
           <div className="space-y-0.5 md:space-y-1">
-            <p className="text-center text-[9px] font-bold text-slate-800 uppercase tracking-widest">VCA Construtora (c) {new Date().getFullYear()}</p>
-            <p className="text-center text-[10px] font-semibold text-slate-800">Feito por Matheus Santos (c) {new Date().getFullYear()}</p>
+            <p className="text-center text-[9px] font-bold text-slate-800 tracking-widest">Feito por Matheus Santos</p>
+            <p className="text-center text-[10px] font-semibold text-slate-800">© {new Date().getFullYear()} - Todos os direitos reservados.</p>
             <div className="pt-1.5 md:pt-2 flex justify-center">
               <img src="/logo.png" alt="VCA Logo" className="h-5 w-auto object-contain" />
             </div>
