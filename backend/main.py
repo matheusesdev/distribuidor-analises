@@ -47,6 +47,13 @@ def parse_allowed_origins(raw: str) -> List[str]:
     return origins or ["http://localhost:5173"]
 
 
+def parse_bool_env(name: str, default: bool = False) -> bool:
+    raw_value = (os.getenv(name) or "").strip().lower()
+    if not raw_value:
+        return default
+    return raw_value in {"1", "true", "yes", "on", "y", "sim"}
+
+
 def hash_password(plain_password: str, iterations: int = 310000) -> str:
     salt = os.urandom(16)
     password_hash = hashlib.pbkdf2_hmac("sha256", plain_password.encode("utf-8"), salt, iterations)
@@ -389,7 +396,7 @@ def generate_reset_token() -> tuple:
 
 def send_reset_email(to_email: str, reset_link: str, analyst_name: str) -> bool:
     """Envia e-mail de redefinição de senha via SMTP configurado nas env vars."""
-    if not SMTP_HOST or not SMTP_USER or not SMTP_PASS:
+    if not SMTP_HOST or not SMTP_FROM:
         print(f"[AVISO] SMTP não configurado. Link de reset para {to_email}: {reset_link}")
         return False
     try:
@@ -436,11 +443,15 @@ def send_reset_email(to_email: str, reset_link: str, analyst_name: str) -> bool:
         msg.attach(MIMEText(text_body, "plain", "utf-8"))
         msg.attach(MIMEText(html_body, "html", "utf-8"))
 
-        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15) as server:
+        smtp_client = smtplib.SMTP_SSL if SMTP_USE_SSL else smtplib.SMTP
+        with smtp_client(SMTP_HOST, SMTP_PORT, timeout=SMTP_TIMEOUT_SECONDS) as server:
             server.ehlo()
-            server.starttls()
-            server.login(SMTP_USER, SMTP_PASS)
-            server.sendmail(SMTP_FROM, to_email, msg.as_string())
+            if SMTP_USE_TLS and not SMTP_USE_SSL:
+                server.starttls()
+                server.ehlo()
+            if SMTP_USER and SMTP_PASS:
+                server.login(SMTP_USER, SMTP_PASS)
+            server.sendmail(SMTP_FROM, [to_email], msg.as_string())
         return True
     except Exception as e:
         print(f"[ERRO] Falha ao enviar e-mail de reset: {e}")
@@ -592,6 +603,9 @@ SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
 SMTP_USER = os.getenv("SMTP_USER", "")
 SMTP_PASS = os.getenv("SMTP_PASS", "")
 SMTP_FROM = os.getenv("SMTP_FROM", "") or SMTP_USER
+SMTP_USE_TLS = parse_bool_env("SMTP_USE_TLS", default=SMTP_PORT == 587)
+SMTP_USE_SSL = parse_bool_env("SMTP_USE_SSL", default=SMTP_PORT == 465)
+SMTP_TIMEOUT_SECONDS = int(os.getenv("SMTP_TIMEOUT_SECONDS", "20"))
 FRONTEND_URL = os.getenv("FRONTEND_URL", "https://distribuidor-analises.vercel.app")
 RESET_TOKEN_TTL_MINUTES = int(os.getenv("RESET_TOKEN_TTL_MINUTES", "60"))
 
@@ -1717,11 +1731,20 @@ async def forgot_password(req: ForgotPasswordRequest):
         }).eq("id", analista["id"]).execute()
 
         reset_link = f"{FRONTEND_URL}?reset_token={plain_token}"
-        send_reset_email(
+        email_sent = send_reset_email(
             to_email=analista["email"],
             reset_link=reset_link,
             analyst_name=analista.get("nome", "Analista"),
         )
+        if not email_sent:
+            supabase.table("analistas").update({
+                "reset_token_hash": None,
+                "reset_token_expires": None,
+            }).eq("id", analista["id"]).execute()
+            print(
+                f"[ERRO] Reset de senha não entregue para {email_normalizado}. "
+                "Token invalidado após falha de SMTP."
+            )
 
         return RESPOSTA_PADRAO
     except HTTPException:
