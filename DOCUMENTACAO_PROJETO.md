@@ -1,15 +1,15 @@
-# Documentacao do Projeto
+# Documentação do Projeto
 
-## 1. O que e este projeto
+## 1. O que é este projeto
 
-Este projeto e um sistema interno de distribuicao e acompanhamento de reservas/pastas de analise comercial da VCA. Ele busca reservas em situacoes especificas no CVCRM, distribui essas reservas entre analistas elegiveis, permite que o time acompanhe a fila em tempo real e oferece um painel de gestao para controle operacional.
+Este projeto é um sistema interno de distribuição e acompanhamento de reservas/pastas de análise comercial da VCA. Ele busca reservas em situações específicas no CVCRM, distribui essas reservas entre analistas elegíveis, permite que o time acompanhe a fila em tempo real e oferece um painel de gestão para controle operacional.
 
-Na pratica, a aplicacao resolve quatro frentes principais:
+Na prática, a aplicação resolve quatro frentes principais:
 
 - capturar reservas do CRM automaticamente;
-- distribuir cada pasta para um analista com base nas permissoes e disponibilidade;
-- registrar historico de conclusoes e transferencias;
-- dar ao gestor visibilidade da operacao, incluindo equipe, carga atual, produtividade e administracao de acessos.
+- distribuir cada pasta para um analista com base nas permissões e disponibilidade;
+- registrar histórico de conclusões e transferências;
+- dar ao gestor visibilidade da operação, incluindo equipe, carga atual, produtividade e administração de acessos.
 
 ## 2. Stack utilizada
 
@@ -19,10 +19,10 @@ Na pratica, a aplicacao resolve quatro frentes principais:
 - Vite
 - JavaScript/JSX
 - Tailwind CSS
-- lucide-react para icones
-- `xlsx`, `jspdf` e `jspdf-autotable` para exportacoes e relatorios
+- lucide-react para ícones
+- `xlsx`, `jspdf` e `jspdf-autotable` para exportações e relatórios
 
-O frontend fica em `frontend/` e roda localmente com Vite na porta `5173`. Em desenvolvimento, as chamadas `/api` sao encaminhadas para o backend em `http://localhost:8000`.
+O frontend fica em `frontend/` e roda localmente com Vite na porta `5173`. Em desenvolvimento, as chamadas `/api` são encaminhadas para o backend em `http://localhost:8000`.
 
 ### Backend
 
@@ -34,40 +34,40 @@ O frontend fica em `frontend/` e roda localmente com Vite na porta `5173`. Em de
 - psycopg2-binary
 - python-dotenv
 
-O backend fica em `backend/` e expõe uma API HTTP que concentra autenticacao, sincronizacao com o CRM, regras de fila, transferencias, historico e administracao.
+O backend fica em `backend/` e expõe uma API HTTP que concentra autenticação, sincronização com o CRM, regras de fila, transferências, histórico e administração.
 
-### Banco e servicos externos
+### Banco e serviços externos
 
 - Supabase como banco principal e camada de acesso aos dados
 - CVCRM como origem das reservas monitoradas
-- SMTP para envio de e-mail de redefinicao de senha
+- SMTP para envio de e-mail de redefinição de senha
 - Fly.io para deploy do backend
-- Vercel como URL de frontend de producao referenciada no backend
+- Vercel como URL de frontend de produção referenciada no backend
 
-## 3. Estrutura geral da aplicacao
+## 3. Estrutura geral da aplicação
 
-O projeto esta dividido em duas partes:
+O projeto está dividido em duas partes:
 
 ### `frontend/`
 
-Aplicacao React com uma interface unica que muda de comportamento conforme o perfil autenticado.
+Aplicação React com uma interface única que muda de comportamento conforme o perfil autenticado.
 
 Perfis principais:
 
 - analista
 - gestor/admin
 
-Telas e modulos principais:
+Telas e módulos principais:
 
 - login de analista
 - reset de senha
 - mesa do analista
 - analytics do analista
-- configuracoes do analista
+- configurações do analista
 - dashboard do gestor
 - fila/equipe
-- historico de transferencias
-- administracao de analistas e administradores
+- histórico de transferências
+- administração de analistas e administradores
 
 ### `backend/`
 
@@ -76,34 +76,34 @@ API FastAPI que:
 - autentica analistas e gestores;
 - sincroniza dados com o CVCRM em background;
 - distribui reservas entre analistas;
-- conclui reservas e registra historico;
+- conclui reservas e registra histórico;
 - transfere reservas manualmente;
-- revoga sessoes;
-- gera dados analiticos para o painel.
+- revoga sessões;
+- gera dados analíticos para o painel.
 
 ## 4. Como o sistema funciona
 
-### 4.1. Sincronizacao com o CRM
+### 4.1. Sincronização com o CRM
 
-O backend executa uma tarefa em background no startup da aplicacao. Essa tarefa roda em loop e chama a sincronizacao em intervalo configuravel, hoje com default de `25` segundos (`SYNC_INTERVAL_SECONDS`).
+O backend executa uma tarefa em background no startup da aplicação. Essa tarefa roda em loop e chama a sincronização em intervalo configurável, hoje com default de `25` segundos (`SYNC_INTERVAL_SECONDS`).
 
-Durante a sincronizacao, o sistema:
+Durante a sincronização, o sistema:
 
-1. consulta todas as reservas das situacoes monitoradas no CVCRM;
-2. suporta paginacao para buscar todas as paginas;
-3. normaliza os ids das reservas;
-4. verifica se a reserva ja existe localmente na tabela de distribuicao;
-5. se for nova, tenta atribuir a um analista elegivel;
-6. se ja existir, pode reatribuir quando o analista atual estiver inativo, offline ou ausente;
-7. atualiza a situacao da reserva localmente quando ela muda no CRM;
-8. remove da mesa local as reservas que nao estao mais no CRM, com uma limpeza segura para evitar apagar dados em caso de falha parcial de coleta.
+1. consulta todas as reservas das situações monitoradas no CVCRM;
+2. suporta paginação para buscar todas as páginas;
+3. normaliza os IDs das reservas;
+4. verifica se a reserva já existe localmente na tabela de distribuição;
+5. se for nova, tenta atribuir a um analista elegível;
+6. se já existir, pode reatribuir quando o analista atual estiver inativo, offline ou ausente;
+7. atualiza a situação da reserva localmente quando ela muda no CRM;
+8. remove da mesa local as reservas que não estão mais no CRM, com uma limpeza segura para evitar apagar dados em caso de falha parcial de coleta.
 
-As fontes monitoradas hoje sao:
+As fontes monitoradas hoje são:
 
 - CVCRM principal
-- CVCRM LOTEAR, quando o token especifico estiver configurado
+- CVCRM LOTEAR, quando o token específico estiver configurado
 
-### 4.2. Logica de distribuicao
+### 4.2. Lógica de distribuição
 
 Cada analista possui:
 
@@ -112,89 +112,89 @@ Cada analista possui:
 - senha
 - status (`ativo` ou `inativo`)
 - indicador de fila online/offline
-- permissoes de situacoes
+- permissões de situações
 
-As permissoes definem quais tipos de reserva o analista pode receber. Quando chega uma nova reserva de uma determinada situacao, o backend procura um analista elegivel com aquela permissao. Se houver analista apto e online, a pasta e atribuida. Caso contrario, a reserva pode permanecer sem destino ate que alguem fique disponivel.
+As permissões definem quais tipos de reserva o analista pode receber. Quando chega uma nova reserva de uma determinada situação, o backend procura um analista elegível com aquela permissão. Se houver analista apto e online, a pasta é atribuída. Caso contrário, a reserva pode permanecer sem destino até que alguém fique disponível.
 
-Tambem existe redistribuicao automatica quando um analista sai da fila ou fica indisponivel.
+Também existe redistribuição automática quando um analista sai da fila ou fica indisponível.
 
-### 4.3. Operacao do analista
+### 4.3. Operação do analista
 
-Depois do login, o analista acessa a propria mesa. Nela, ele consegue:
+Depois do login, o analista acessa a própria mesa. Nela, ele consegue:
 
-- ver as reservas atualmente atribuidas a ele;
+- ver as reservas atualmente atribuídas a ele;
 - filtrar e pesquisar;
 - abrir a reserva no CRM;
 - concluir a pasta com um resultado;
 - transferir uma pasta para outro analista;
-- transferir varias pastas em massa;
-- acompanhar metricas pessoais;
+- transferir várias pastas em massa;
+- acompanhar métricas pessoais;
 - alterar a senha.
 
-Quando uma pasta e concluida:
+Quando uma pasta é concluída:
 
 1. o backend registra os dados na tabela `historico`;
-2. a reserva e removida da tabela `distribuicoes`;
-3. a produtividade passa a refletir essa conclusao nos dashboards.
+2. a reserva é removida da tabela `distribuicoes`;
+3. a produtividade passa a refletir essa conclusão nos dashboards.
 
-### 4.4. Operacao do gestor
+### 4.4. Operação do gestor
 
-O painel do gestor consolida a operacao inteira. Ele oferece:
+O painel do gestor consolida a operação inteira. Ele oferece:
 
-- visao da equipe;
+- visão da equipe;
 - contagem de reservas pendentes no CRM;
-- distribuicao atual da mesa;
-- historico recente;
-- logs de transferencias;
-- analytics por analista, dia, mes e situacao;
-- criacao, edicao e exclusao de analistas;
-- gestao de administradores;
-- revogacao de sessoes de admin e analistas.
+- distribuição atual da mesa;
+- histórico recente;
+- logs de transferências;
+- analytics por analista, dia, mês e situação;
+- criação, edição e exclusão de analistas;
+- gestão de administradores;
+- revogação de sessões de admin e analistas.
 
-O endpoint `/api/gestor/overview` monta boa parte dessa visao combinando:
+O endpoint `/api/gestor/overview` monta boa parte dessa visão combinando:
 
 - equipe cadastrada;
-- distribuicoes atuais;
-- historico do dia;
-- historico analitico do periodo;
-- logs de transferencias;
-- estado do ultimo sync.
+- distribuições atuais;
+- histórico do dia;
+- histórico analítico do período;
+- logs de transferências;
+- estado do último sync.
 
-## 5. Regras de autenticacao e seguranca
+## 5. Regras de autenticação e segurança
 
-O sistema possui autenticacao separada para analistas e administradores.
+O sistema possui autenticação separada para analistas e administradores.
 
 ### Analistas
 
 - podem fazer login por ID e senha;
-- tambem podem fazer login por e-mail e senha;
-- possuem token proprio de sessao;
+- também podem fazer login por e-mail e senha;
+- possuem token próprio de sessão;
 - podem redefinir senha por e-mail;
-- tem sessao invalidada quando a senha muda ou quando o gestor revoga o acesso.
+- têm sessão invalidada quando a senha muda ou quando o gestor revoga o acesso.
 
 ### Gestores/Admins
 
 - fazem login no painel administrativo;
-- possuem token proprio de sessao;
+- possuem token próprio de sessão;
 - podem criar novos administradores;
-- podem revogar sessoes remotamente.
+- podem revogar sessões remotamente.
 
-### Seguranca implementada
+### Segurança implementada
 
 - senhas com hash PBKDF2-SHA256;
 - tokens assinados com segredo do backend;
-- `session_version` para invalidacao remota de sessoes;
-- logs de revogacao de sessao;
-- validacao de acesso via header `Authorization: Bearer ...`;
+- `session_version` para invalidação remota de sessões;
+- logs de revogação de sessão;
+- validação de acesso via header `Authorization: Bearer ...`;
 - CORS configurado para o frontend.
 
 ## 6. Principais tabelas e dados
 
-Pelo codigo e pelas migrations presentes, estas sao as estruturas mais importantes do sistema:
+Pelo código e pelas migrations presentes, estas são as estruturas mais importantes do sistema:
 
 ### `analistas`
 
-Tabela central de operadores. Armazena credenciais, status, fila online/offline, permissoes, total do dia e versao de sessao.
+Tabela central de operadores. Armazena credenciais, status, fila online/offline, permissões, total do dia e versão de sessão.
 
 ### `administradores`
 
@@ -202,56 +202,56 @@ Tabela dos gestores/admins que acessam o painel administrativo.
 
 ### `distribuicoes`
 
-Tabela operacional da mesa atual. Guarda as reservas que ainda estao em atendimento, com o analista responsavel, dados da reserva e situacao atual.
+Tabela operacional da mesa atual. Guarda as reservas que ainda estão em atendimento, com o analista responsável, dados da reserva e situação atual.
 
-Observacao: esta tabela e usada extensivamente no backend, mas a migration dela nao aparece entre os arquivos SQL versionados neste repositorio.
+Observação: esta tabela é usada extensivamente no backend, mas a migration dela não aparece entre os arquivos SQL versionados neste repositório.
 
 ### `historico`
 
-Tabela de conclucoes. Registra cada reserva finalizada, o analista, situacao e data de fechamento.
+Tabela de conclusões. Registra cada reserva finalizada, o analista, a situação e a data de fechamento.
 
 ### `logs_transferencias`
 
-Tabela de auditoria de transferencias manuais entre analistas.
+Tabela de auditoria de transferências manuais entre analistas.
 
 ### `logs_sessoes_revogadas`
 
-Tabela de auditoria de revogacoes de sessao feitas pelo gestor.
+Tabela de auditoria de revogações de sessão feitas pelo gestor.
 
-## 7. Situacoes de negocio monitoradas
+## 7. Situações de negócio monitoradas
 
-O backend trabalha com um conjunto fechado de situacoes mapeadas internamente. Hoje, o codigo monitora:
+O backend trabalha com um conjunto fechado de situações mapeadas internamente. Hoje, o código monitora:
 
-- Analise Venda Loteamento
-- Analise Venda Parcelamento Incorporadora
-- Analise Venda Caixa
-- Confeccao de Contrato
+- Análise Venda Loteamento
+- Análise Venda Parcelamento Incorporadora
+- Análise Venda Caixa
+- Confecção de Contrato
 - Assinado
-- Aprovacao Expansao
-- equivalentes do ambiente LOTEAR para parte dessas situacoes
+- Aprovação Expansão
+- equivalentes do ambiente LOTEAR para parte dessas situações
 
-Essas situacoes sao importantes porque:
+Essas situações são importantes porque:
 
 - determinam quais reservas entram na fila;
-- definem as permissoes dos analistas;
-- influenciam dashboards e relatorios.
+- definem as permissões dos analistas;
+- influenciam dashboards e relatórios.
 
-## 8. Fluxo resumido do negocio
+## 8. Fluxo resumido do negócio
 
 Fluxo ponta a ponta:
 
 1. o backend consulta o CVCRM periodicamente;
-2. reservas das situacoes monitoradas entram na base local;
-3. o sistema tenta atribuir cada reserva a um analista elegivel;
+2. reservas das situações monitoradas entram na base local;
+3. o sistema tenta atribuir cada reserva a um analista elegível;
 4. o analista atende a pasta na mesa;
-5. a pasta pode ser concluida ou transferida;
-6. conclusoes vao para `historico`;
-7. transferencias vao para `logs_transferencias`;
+5. a pasta pode ser concluída ou transferida;
+6. conclusões vão para `historico`;
+7. transferências vão para `logs_transferencias`;
 8. o gestor acompanha tudo pelo painel.
 
 ## 9. Principais endpoints da API
 
-### Autenticacao e conta
+### Autenticação e conta
 
 - `POST /api/login`
 - `POST /api/login/email`
@@ -260,7 +260,7 @@ Fluxo ponta a ponta:
 - `POST /api/analista/resetar-senha`
 - `POST /api/analista/alterar-senha`
 
-### Operacao do analista
+### Operação do analista
 
 - `GET /api/analistas`
 - `GET /api/mesa/{analista_id}`
@@ -271,7 +271,7 @@ Fluxo ponta a ponta:
 - `POST /api/analista/transferir`
 - `POST /api/analista/transferir-massa`
 
-### Operacao do gestor
+### Operação do gestor
 
 - `GET /api/gestor/sync-status`
 - `GET /api/gestor/overview`
@@ -284,7 +284,7 @@ Fluxo ponta a ponta:
 - `PATCH /api/gestor/analistas/{id}`
 - `DELETE /api/gestor/analistas/{id}`
 
-## 10. Variaveis de ambiente importantes
+## 10. Variáveis de ambiente importantes
 
 ### Backend
 
@@ -327,7 +327,7 @@ pip install -r requirements.txt
 python run.py
 ```
 
-Servidor local padrao:
+Servidor local padrão:
 
 - `http://localhost:8000`
 
@@ -340,19 +340,19 @@ npm install
 npm run dev
 ```
 
-Servidor local padrao:
+Servidor local padrão:
 
 - `http://localhost:5173`
 
-## 12. Resumo tecnico
+## 12. Resumo técnico
 
-Em resumo, este projeto e uma plataforma operacional de distribuicao de reservas para analistas, com sincronizacao automatica com o CVCRM, controle de fila, autenticacao separada por perfil, trilha de auditoria e painel gerencial.
+Em resumo, este projeto é uma plataforma operacional de distribuição de reservas para analistas, com sincronização automática com o CVCRM, controle de fila, autenticação separada por perfil, trilha de auditoria e painel gerencial.
 
-O coracao da regra de negocio esta no backend, especialmente em:
+O coração da regra de negócio está no backend, especialmente em:
 
-- sincronizacao recorrente com o CRM;
-- atribuicao e redistribuicao de pastas;
-- controle de sessoes;
-- consolidacao dos dados analiticos.
+- sincronização recorrente com o CRM;
+- atribuição e redistribuição de pastas;
+- controle de sessões;
+- consolidação dos dados analíticos.
 
-Ja o frontend funciona como interface operacional e gerencial para consumir essa API e transformar os dados em fluxo de trabalho diario.
+Já o frontend funciona como interface operacional e gerencial para consumir essa API e transformar os dados em fluxo de trabalho diário.
