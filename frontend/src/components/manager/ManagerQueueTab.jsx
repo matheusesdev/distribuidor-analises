@@ -184,26 +184,45 @@ const ManagerQueueTab = ({
       .filter(Boolean);
   }, [queueOrder, teamById]);
 
+  const queueViewAnalysts = useMemo(() => {
+    const visibleIds = new Set(onlineQueue.map((analyst) => analyst.id));
+    const offlineQueue = teamData
+      .filter((analyst) => analyst.status !== 'inativo' && !analyst.is_online && !visibleIds.has(analyst.id))
+      .sort((a, b) => {
+        const mesaDiff = (a.na_mesa || 0) - (b.na_mesa || 0);
+        if (mesaDiff !== 0) return mesaDiff;
+
+        const totalDiff = (a.recebidas_hoje || 0) - (b.recebidas_hoje || 0);
+        if (totalDiff !== 0) return totalDiff;
+
+        return (a.nome || '').localeCompare(b.nome || '', 'pt-BR');
+      })
+      .map((analyst) => ({ ...analyst, queuePosition: null }));
+
+    return [...onlineQueue, ...offlineQueue];
+  }, [onlineQueue, teamData]);
+
   const groupedQueue = useMemo(() => {
     const groups = {};
 
-    onlineQueue.forEach((analyst) => {
+    queueViewAnalysts.forEach((analyst) => {
       const key = [...(analyst.situacoes_ids || [])].sort((a, b) => a - b).join('|') || 'sem-permissoes';
       if (!groups[key]) groups[key] = [];
       groups[key].push(analyst);
     });
 
     return Object.entries(groups);
-  }, [onlineQueue]);
+  }, [queueViewAnalysts]);
 
   const summary = useMemo(() => {
     const totalOnline = onlineQueue.length;
+    const totalOffline = queueViewAnalysts.filter((analyst) => !analyst.is_online).length;
     const totalNaMesa = teamData.reduce((sum, analyst) => sum + (analyst.na_mesa || 0), 0);
     const totalFeitas = teamData.reduce((sum, analyst) => sum + (analyst.feitas_hoje || 0), 0);
     const averageLoad = totalOnline > 0 ? (totalNaMesa / totalOnline).toFixed(1) : '0.0';
 
-    return { totalOnline, totalNaMesa, totalFeitas, averageLoad };
-  }, [onlineQueue.length, teamData]);
+    return { totalOnline, totalOffline, totalNaMesa, totalFeitas, averageLoad };
+  }, [onlineQueue.length, queueViewAnalysts, teamData]);
 
   const priorityQueue = onlineQueue.slice(0, 3);
 
@@ -428,7 +447,7 @@ const ManagerQueueTab = ({
         <div className="flex flex-col gap-4 border-b border-slate-100 px-5 py-5 md:flex-row md:items-center md:justify-between md:px-6">
           <div>
             <p className="text-[10px] font-semibold tracking-[0.12em] text-slate-500">Fila detalhada</p>
-            <h2 className="mt-1 text-[1.2rem] font-semibold tracking-[-0.02em] text-slate-900">Equipe online por grupo de permissão</h2>
+            <h2 className="mt-1 text-[1.2rem] font-semibold tracking-[-0.02em] text-slate-900">Equipe por grupo de permissão</h2>
           </div>
           <div className="flex flex-wrap items-center gap-2 text-[11px] font-medium text-slate-500">
             <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5">
@@ -437,6 +456,11 @@ const ManagerQueueTab = ({
             <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5">
               Analistas online: {summary.totalOnline}
             </span>
+            {summary.totalOffline > 0 && (
+              <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-slate-400">
+                Desligados visíveis: {summary.totalOffline}
+              </span>
+            )}
           </div>
         </div>
 
@@ -475,38 +499,52 @@ const ManagerQueueTab = ({
                       <div className="space-y-2 rounded-[1.45rem] bg-slate-50/70 p-2 md:p-3">
                         {analysts.map((analyst) => {
                           const isToggling = togglingQueueIds.includes(analyst.id);
+                          const isDisconnected = !analyst.is_online;
                           const isFirst = analyst.queuePosition === 1;
                           const isLast = analyst.queuePosition === onlineQueue.length;
                           const pulse = positionPulseById[analyst.id];
                           const lastAssigned = formatRelativeTime(analyst.ultima_atribuicao);
+                          const statusLabel = isDisconnected ? 'Desligado' : 'Fila ativa';
 
                           return (
                             <article
                               key={analyst.id}
-                              className={`rounded-[1.3rem] border bg-white px-4 py-4 transition-all md:px-5 ${pulse ? 'border-[#93c5fd] shadow-[0_18px_32px_-26px_rgba(0,113,227,0.75)]' : 'border-slate-200'} ${isFirst ? 'ring-1 ring-[#0071e3]/12' : ''}`}
+                              className={`rounded-[1.3rem] border px-4 py-4 transition-all md:px-5 ${
+                                isDisconnected
+                                  ? 'border-slate-200 bg-[linear-gradient(180deg,#fcfcfd_0%,#f8fafc_100%)] opacity-65 saturate-[0.8]'
+                                  : `bg-white ${pulse ? 'border-[#93c5fd] shadow-[0_18px_32px_-26px_rgba(0,113,227,0.75)]' : 'border-slate-200'} ${isFirst ? 'ring-1 ring-[#0071e3]/12' : ''}`
+                              }`}
                             >
                               <div className="flex flex-col gap-4 xl:flex-row xl:items-center">
                                 <div className="flex min-w-0 flex-1 items-start gap-3">
-                                  <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-[13px] font-semibold ${isFirst ? 'bg-[#0071e3] text-white' : isLast ? 'bg-slate-200 text-slate-700' : 'bg-slate-900 text-white'}`}>
-                                    {analyst.queuePosition}
+                                  <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-[13px] font-semibold ${
+                                    isDisconnected
+                                      ? 'border border-slate-200 bg-slate-100 text-slate-400'
+                                      : isFirst
+                                        ? 'bg-[#0071e3] text-white'
+                                        : isLast
+                                          ? 'bg-slate-200 text-slate-700'
+                                          : 'bg-slate-900 text-white'
+                                  }`}>
+                                    {isDisconnected ? <EyeOff size={14} /> : analyst.queuePosition}
                                   </div>
                                   <div className="min-w-0 flex-1">
                                     <div className="flex flex-wrap items-center gap-2">
-                                      <h3 className="truncate text-[15px] font-semibold tracking-[-0.015em] text-slate-900">
+                                      <h3 className={`truncate text-[15px] font-semibold tracking-[-0.015em] ${isDisconnected ? 'text-slate-400 line-through decoration-slate-300' : 'text-slate-900'}`}>
                                         {analyst.nome}
                                       </h3>
-                                      <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-medium ${analyst.is_online ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-600 border border-slate-200'}`}>
+                                      <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-medium ${analyst.is_online ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-500 border border-slate-200'}`}>
                                         {analyst.is_online ? <Eye size={11} /> : <EyeOff size={11} />}
-                                        {analyst.is_online ? 'Fila ativa' : 'Offline'}
+                                        {statusLabel}
                                       </span>
                                     </div>
-                                    <p className="mt-1 truncate text-[12px] text-slate-500">{analyst.email || 'Sem e-mail'}</p>
+                                    <p className={`mt-1 truncate text-[12px] ${isDisconnected ? 'text-slate-400' : 'text-slate-500'}`}>{analyst.email || 'Sem e-mail'}</p>
                                     <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
-                                      <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1" title={lastAssigned.title}>
+                                      <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 ${isDisconnected ? 'border-slate-200 bg-white/80 text-slate-400' : 'border-slate-200 bg-slate-50'}`} title={lastAssigned.title}>
                                         <Clock3 size={11} />
                                         {lastAssigned.label}
                                       </span>
-                                      <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1">
+                                      <span className={`inline-flex items-center rounded-full border px-2.5 py-1 ${isDisconnected ? 'border-slate-200 bg-white/80 text-slate-400' : 'border-slate-200 bg-slate-50'}`}>
                                         {analyst.situacoes_nomes?.length || 0} permissões
                                       </span>
                                     </div>
@@ -514,26 +552,26 @@ const ManagerQueueTab = ({
                                 </div>
 
                                 <div className="grid grid-cols-3 gap-2 sm:w-auto sm:min-w-[260px]">
-                                  <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-center">
-                                    <p className="text-[10px] font-medium text-slate-500">Recebidas</p>
-                                    <p className="mt-1 text-[18px] font-semibold tracking-[-0.02em] text-slate-900">{analyst.recebidas_hoje}</p>
+                                  <div className={`rounded-2xl border px-3 py-3 text-center ${isDisconnected ? 'border-slate-200 bg-white/80' : 'border-slate-200 bg-slate-50'}`}>
+                                    <p className={`text-[10px] font-medium ${isDisconnected ? 'text-slate-400' : 'text-slate-500'}`}>Recebidas</p>
+                                    <p className={`mt-1 text-[18px] font-semibold tracking-[-0.02em] ${isDisconnected ? 'text-slate-400' : 'text-slate-900'}`}>{analyst.recebidas_hoje}</p>
                                   </div>
-                                  <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-center">
-                                    <p className="text-[10px] font-medium text-slate-500">Mesa</p>
-                                    <p className="mt-1 text-[18px] font-semibold tracking-[-0.02em] text-slate-900">{analyst.na_mesa}</p>
+                                  <div className={`rounded-2xl border px-3 py-3 text-center ${isDisconnected ? 'border-slate-200 bg-white/80' : 'border-slate-200 bg-slate-50'}`}>
+                                    <p className={`text-[10px] font-medium ${isDisconnected ? 'text-slate-400' : 'text-slate-500'}`}>Mesa</p>
+                                    <p className={`mt-1 text-[18px] font-semibold tracking-[-0.02em] ${isDisconnected ? 'text-slate-400' : 'text-slate-900'}`}>{analyst.na_mesa}</p>
                                   </div>
-                                  <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-center">
-                                    <p className="text-[10px] font-medium text-slate-500">Feitas</p>
-                                    <p className="mt-1 text-[18px] font-semibold tracking-[-0.02em] text-slate-900">{analyst.feitas_hoje}</p>
+                                  <div className={`rounded-2xl border px-3 py-3 text-center ${isDisconnected ? 'border-slate-200 bg-white/80' : 'border-slate-200 bg-slate-50'}`}>
+                                    <p className={`text-[10px] font-medium ${isDisconnected ? 'text-slate-400' : 'text-slate-500'}`}>Feitas</p>
+                                    <p className={`mt-1 text-[18px] font-semibold tracking-[-0.02em] ${isDisconnected ? 'text-slate-400' : 'text-slate-900'}`}>{analyst.feitas_hoje}</p>
                                   </div>
                                 </div>
 
                                 <div className="flex flex-wrap items-center gap-2 xl:justify-end">
-                                  <div className="inline-flex items-center rounded-2xl border border-slate-200 bg-slate-50 p-1">
+                                  <div className={`inline-flex items-center rounded-2xl border p-1 ${isDisconnected ? 'border-slate-200 bg-white/80' : 'border-slate-200 bg-slate-50'}`}>
                                     <button
                                       type="button"
                                       onClick={() => moveAnalyst(analyst.id, 'up')}
-                                      disabled={analyst.queuePosition === 1}
+                                      disabled={isDisconnected || analyst.queuePosition === 1}
                                       className="inline-flex h-9 w-9 items-center justify-center rounded-xl text-slate-600 transition-all hover:bg-white hover:text-slate-900 disabled:opacity-35 disabled:cursor-not-allowed"
                                       title="Mover para cima"
                                     >
@@ -542,7 +580,7 @@ const ManagerQueueTab = ({
                                     <button
                                       type="button"
                                       onClick={() => moveAnalyst(analyst.id, 'down')}
-                                      disabled={analyst.queuePosition === onlineQueue.length}
+                                      disabled={isDisconnected || analyst.queuePosition === onlineQueue.length}
                                       className="inline-flex h-9 w-9 items-center justify-center rounded-xl text-slate-600 transition-all hover:bg-white hover:text-slate-900 disabled:opacity-35 disabled:cursor-not-allowed"
                                       title="Mover para baixo"
                                     >
@@ -563,7 +601,7 @@ const ManagerQueueTab = ({
                                     }`}
                                   >
                                     {isToggling ? <RefreshCw size={12} className="animate-spin" /> : analyst.is_online ? <Eye size={12} /> : <EyeOff size={12} />}
-                                    {analyst.is_online ? 'Online' : 'Offline'}
+                                    {analyst.is_online ? 'Online' : 'Desligado'}
                                   </button>
                                 </div>
                               </div>
