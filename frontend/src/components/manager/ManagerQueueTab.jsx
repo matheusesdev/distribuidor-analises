@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+﻿import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowDown,
   ArrowUp,
@@ -84,7 +84,7 @@ const ManagerQueueTab = ({
   const teamData = useMemo(() => {
     const source = Array.isArray(dashData?.resumo_equipe) && dashData.resumo_equipe.length > 0
       ? dashData.resumo_equipe
-      : (dashData?.equipe || []);
+      : dashData?.equipe || [];
 
     return source
       .map((analyst) => {
@@ -284,21 +284,21 @@ const ManagerQueueTab = ({
           </div>
 
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4">
-              <p className="text-[10px] font-semibold tracking-[0.12em] text-slate-500">Online</p>
-              <p className="mt-2 text-3xl font-semibold tracking-[-0.03em] text-slate-900">{summary.totalOnline}</p>
+            <div className="flex min-h-[108px] flex-col justify-between rounded-2xl border border-blue-100 bg-[linear-gradient(180deg,#ffffff_0%,#f5faff_100%)] px-4 py-4 shadow-[0_14px_30px_-26px_rgba(0,113,227,0.28)]">
+              <p className="text-[10px] font-semibold tracking-[0.12em] text-blue-700/75">Online</p>
+              <p className="text-3xl font-semibold leading-none tracking-[-0.03em] tabular-nums text-blue-950">{summary.totalOnline}</p>
             </div>
-            <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4">
-              <p className="text-[10px] font-semibold tracking-[0.12em] text-slate-500">Na mesa</p>
-              <p className="mt-2 text-3xl font-semibold tracking-[-0.03em] text-slate-900">{summary.totalNaMesa}</p>
+            <div className="flex min-h-[108px] flex-col justify-between rounded-2xl border border-amber-100 bg-[linear-gradient(180deg,#ffffff_0%,#fffaf2_100%)] px-4 py-4 shadow-[0_14px_30px_-26px_rgba(180,83,9,0.18)]">
+              <p className="text-[10px] font-semibold tracking-[0.12em] text-amber-700/75">Na mesa</p>
+              <p className="text-3xl font-semibold leading-none tracking-[-0.03em] tabular-nums text-amber-950">{summary.totalNaMesa}</p>
             </div>
-            <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4">
-              <p className="text-[10px] font-semibold tracking-[0.12em] text-slate-500">Feitas hoje</p>
-              <p className="mt-2 text-3xl font-semibold tracking-[-0.03em] text-slate-900">{summary.totalFeitas}</p>
+            <div className="flex min-h-[108px] flex-col justify-between rounded-2xl border border-emerald-100 bg-[linear-gradient(180deg,#ffffff_0%,#f4fcf7_100%)] px-4 py-4 shadow-[0_14px_30px_-26px_rgba(5,150,105,0.2)]">
+              <p className="text-[10px] font-semibold tracking-[0.12em] text-emerald-700/75">Feitas hoje</p>
+              <p className="text-3xl font-semibold leading-none tracking-[-0.03em] tabular-nums text-emerald-950">{summary.totalFeitas}</p>
             </div>
-            <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4">
-              <p className="text-[10px] font-semibold tracking-[0.12em] text-slate-500">Carga média</p>
-              <p className="mt-2 text-3xl font-semibold tracking-[-0.03em] text-slate-900">{summary.averageLoad}</p>
+            <div className="flex min-h-[108px] flex-col justify-between rounded-2xl border border-violet-100 bg-[linear-gradient(180deg,#ffffff_0%,#f8f7ff_100%)] px-4 py-4 shadow-[0_14px_30px_-26px_rgba(91,33,182,0.16)]">
+              <p className="text-[10px] font-semibold tracking-[0.12em] text-violet-700/75">Carga média</p>
+              <p className="text-3xl font-semibold leading-none tracking-[-0.03em] tabular-nums text-violet-950">{summary.averageLoad}</p>
             </div>
           </div>
         </div>

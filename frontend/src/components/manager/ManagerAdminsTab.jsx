@@ -27,7 +27,7 @@ const ManagerAdminsTab = ({
 
   return (
     <section className="grid grid-cols-1 xl:grid-cols-[0.85fr_1.15fr] gap-6">
-      <div className="bg-white/90 rounded-3xl border border-slate-200/80 shadow-[0_24px_45px_-30px_rgba(15,23,42,0.5)] p-5 md:p-6 backdrop-blur-sm">
+      <div className="h-fit self-start bg-white/90 rounded-3xl border border-slate-200/80 shadow-[0_24px_45px_-30px_rgba(15,23,42,0.5)] p-5 md:p-6 backdrop-blur-sm">
         <div className="flex items-center gap-2 mb-5">
           <UserPlus size={18} className="text-[#0071e3]" />
           <h2 className="text-[12px] font-semibold tracking-[0.05em] text-slate-700">Novo Administrador</h2>
