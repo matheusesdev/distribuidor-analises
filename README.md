@@ -1,17 +1,17 @@
 # VCA Distribuidor
 
-Sistema interno para distribuicao, acompanhamento e auditoria de reservas/pastas de analise comercial da VCA.
+Sistema interno para distribuição, acompanhamento e auditoria de reservas/pastas de análise comercial da VCA.
 
-O projeto integra o CVCRM ao fluxo operacional dos analistas, distribuindo automaticamente as reservas entre usuarios elegiveis, registrando historico de atendimento e oferecendo um painel gerencial para acompanhamento da operacao.
+O projeto integra o CVCRM ao fluxo operacional dos analistas, distribuindo automaticamente as reservas entre usuários elegíveis, registrando histórico de atendimento e oferecendo um painel gerencial para acompanhamento da operação.
 
-## Visao Geral
+## Visão Geral
 
 O sistema cobre quatro frentes principais:
 
-- sincronizacao automatica de reservas vindas do CRM;
-- distribuicao de pastas entre analistas conforme permissoes e disponibilidade;
-- registro de historico de conclusoes e transferencias;
-- painel administrativo com visao da equipe, fila, produtividade e controle de acessos.
+- sincronização automática de reservas vindas do CRM;
+- distribuição de pastas entre analistas conforme permissões e disponibilidade;
+- registro de histórico de conclusões e transferências;
+- painel administrativo com visão da equipe, fila, produtividade e controle de acessos.
 
 ## Stack
 
@@ -33,7 +33,7 @@ O sistema cobre quatro frentes principais:
 - Supabase Client
 - psycopg2-binary
 
-### Infra e integracoes
+### Infra e Integrações
 
 - Supabase
 - CVCRM
@@ -59,78 +59,78 @@ O sistema cobre quatro frentes principais:
 
 ## Como Funciona
 
-### Sincronizacao
+### Sincronização
 
-O backend executa um processo em background que consulta periodicamente as situacoes monitoradas no CVCRM. A cada ciclo ele:
+O backend executa um processo em background que consulta periodicamente as situações monitoradas no CVCRM. A cada ciclo, ele:
 
-1. busca todas as reservas das situacoes configuradas;
+1. busca todas as reservas das situações configuradas;
 2. normaliza os dados recebidos;
 3. cria ou atualiza os registros locais;
-4. tenta atribuir automaticamente cada reserva a um analista elegivel;
-5. remove da mesa local reservas que ja nao existem no CRM, com limpeza segura.
+4. tenta atribuir automaticamente cada reserva a um analista elegível;
+5. remove da mesa local reservas que já não existem no CRM, com limpeza segura.
 
-### Distribuicao
+### Distribuição
 
-Cada analista possui permissoes por situacao e estado de fila online/offline. Com base nisso, o sistema define quem pode receber cada nova pasta.
+Cada analista possui permissões por situação e estado de fila online/offline. Com base nisso, o sistema define quem pode receber cada nova pasta.
 
-Quando um analista sai da fila, fica inativo ou perde a sessao, o backend pode redistribuir automaticamente as reservas para outros usuarios aptos.
+Quando um analista sai da fila, fica inativo ou perde a sessão, o backend pode redistribuir automaticamente as reservas para outros usuários aptos.
 
-### Operacao do Analista
+### Operação do Analista
 
 O analista consegue:
 
-- acessar a propria mesa;
+- acessar a própria mesa;
 - pesquisar e filtrar reservas;
 - abrir a reserva no CRM;
 - concluir a pasta;
-- transferir uma ou varias pastas;
-- acompanhar metricas e analytics;
-- alterar a propria senha.
+- transferir uma ou várias pastas;
+- acompanhar métricas e analytics;
+- alterar a própria senha.
 
-### Operacao do Gestor
+### Operação do Gestor
 
 O gestor/admin consegue:
 
-- visualizar a equipe e a distribuicao atual;
-- acompanhar historico e logs de transferencias;
-- consultar dados analiticos da operacao;
+- visualizar a equipe e a distribuição atual;
+- acompanhar histórico e logs de transferências;
+- consultar dados analíticos da operação;
 - criar, editar e remover analistas;
 - gerenciar administradores;
-- revogar sessoes remotamente.
+- revogar sessões remotamente.
 
-## Principais Modulos
+## Principais Módulos
 
 ### Frontend
 
 - login e reset de senha;
 - mesa do analista;
-- dashboard analitico do analista;
+- dashboard analítico do analista;
 - painel do gestor;
-- administracao de usuarios.
+- administração de usuários.
 
 ### Backend
 
-- autenticacao de analistas e admins;
-- sincronizacao com CVCRM;
-- distribuicao e redistribuicao de reservas;
-- conclusao de atendimento e historico;
-- transferencia manual e em massa;
-- auditoria de revogacao de sessoes.
+- autenticação de analistas e admins;
+- sincronização com CVCRM;
+- distribuição e redistribuição de reservas;
+- conclusão de atendimento e histórico;
+- transferência manual e em massa;
+- auditoria de revogação de sessões.
 
 ## Principais Tabelas
 
 - `analistas`: operadores da fila
 - `administradores`: acessos do painel gestor
 - `distribuicoes`: mesa atual de reservas em atendimento
-- `historico`: reservas concluidas
-- `logs_transferencias`: auditoria de transferencias
-- `logs_sessoes_revogadas`: auditoria de revogacao de sessao
+- `historico`: reservas concluídas
+- `logs_transferencias`: auditoria de transferências
+- `logs_sessoes_revogadas`: auditoria de revogação de sessão
 
-Observacao: a tabela `distribuicoes` e usada no backend, mas a migration dela nao aparece entre os arquivos SQL versionados neste repositorio.
+Observação: a tabela `distribuicoes` é usada no backend, mas a migration dela não aparece entre os arquivos SQL versionados neste repositório.
 
 ## Principais Endpoints
 
-### Autenticacao
+### Autenticação
 
 - `POST /api/login`
 - `POST /api/login/email`
@@ -157,11 +157,11 @@ Observacao: a tabela `distribuicoes` e usada no backend, mas a migration dela na
 - `PATCH /api/gestor/analistas/{id}`
 - `DELETE /api/gestor/analistas/{id}`
 
-## Variaveis de Ambiente
+## Variáveis de Ambiente
 
 ### Backend
 
-Configuracoes principais:
+Configurações principais:
 
 - `SUPABASE_URL`
 - `SUPABASE_KEY`
@@ -173,13 +173,13 @@ Configuracoes principais:
 - `SYNC_INTERVAL_SECONDS`
 - `FRONTEND_URL`
 
-Tambem existem variaveis de SMTP e de integracao com o ambiente LOTEAR.
+Também existem variáveis de SMTP e de integração com o ambiente LOTEAR.
 
 ### Frontend
 
 - `VITE_API_URL`
 
-## Execucao Local
+## Execução Local
 
 ### Backend
 
@@ -189,7 +189,7 @@ pip install -r requirements.txt
 python run.py
 ```
 
-Disponivel em `http://localhost:8000`.
+Disponível em `http://localhost:8000`.
 
 ### Frontend
 
@@ -199,8 +199,8 @@ npm install
 npm run dev
 ```
 
-Disponivel em `http://localhost:5173`.
+Disponível em `http://localhost:5173`.
 
-## Documentacao Complementar
+## Documentação Complementar
 
-Para uma explicacao mais completa da arquitetura, logica e funcionamento do sistema, veja [DOCUMENTACAO_PROJETO.md](./DOCUMENTACAO_PROJETO.md).
+Para uma explicação mais completa da arquitetura, lógica e funcionamento do sistema, veja [DOCUMENTACAO_PROJETO.md](./DOCUMENTACAO_PROJETO.md).
