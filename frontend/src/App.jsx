@@ -24,10 +24,6 @@ import ManagerAdminsTab from './components/manager/ManagerAdminsTab';
 import EditAnalystModal from './components/manager/EditAnalystModal';
 
 const AUTO_REFRESH_SECONDS = 15;
-const ADMIN_IDLE_TIMEOUT_MS = 30 * 60 * 1000;
-const ADMIN_IDLE_WARNING_MS = 2 * 60 * 1000;
-const ANALYST_IDLE_TIMEOUT_MS = 4 * 60 * 60 * 1000;
-const ANALYST_IDLE_WARNING_MS = 5 * 60 * 1000;
 const LOGIN_SUCCESS_SPLASH_MS = 1600;
 const ALL_FILTER = 'all';
 const LEGACY_MANAGER_TOKEN = 'legacy-admin-session';
@@ -930,59 +926,14 @@ const App = () => {
       const now = Date.now();
 
       if (managerSession?.token) {
-        const lastActivity = Number(managerSession.lastActivityAt || 0) || now;
-        const elapsed = now - lastActivity;
-        const remaining = ADMIN_IDLE_TIMEOUT_MS - elapsed;
-
-        if (remaining <= 0) {
-          if (sessionExpiryGuardRef.current) return;
-          sessionExpiryGuardRef.current = true;
-          clearManagerSession();
-          setIdlePrompt({ visible: false, role: null, secondsLeft: 0 });
-          setView('login');
-          setLoginNotice('Sua sessão de gestor foi encerrada por inatividade. Faça login novamente para continuar.');
-          notify('Sessão admin encerrada por inatividade (30 minutos).', 'error');
-          setTimeout(() => {
-            sessionExpiryGuardRef.current = false;
-          }, 500);
-          return;
-        }
-
-        if (remaining <= ADMIN_IDLE_WARNING_MS) {
-          setIdlePrompt({
-            visible: true,
-            role: 'admin',
-            secondsLeft: Math.ceil(remaining / 1000),
-          });
-        } else if (idlePrompt.visible && idlePrompt.role === 'admin') {
+        if (idlePrompt.visible && idlePrompt.role === 'admin') {
           setIdlePrompt({ visible: false, role: null, secondsLeft: 0 });
         }
         return;
       }
 
       if (currentUser?.id) {
-        const lastActivity = Number(currentUser.lastActivityAt || 0) || now;
-        const elapsed = now - lastActivity;
-        const remaining = ANALYST_IDLE_TIMEOUT_MS - elapsed;
-
-        if (remaining <= 0) {
-          if (sessionExpiryGuardRef.current) return;
-          sessionExpiryGuardRef.current = true;
-          void handleAnalystLogout({ reason: 'idle' }).finally(() => {
-            setTimeout(() => {
-              sessionExpiryGuardRef.current = false;
-            }, 500);
-          });
-          return;
-        }
-
-        if (remaining <= ANALYST_IDLE_WARNING_MS) {
-          setIdlePrompt({
-            visible: true,
-            role: 'analyst',
-            secondsLeft: Math.ceil(remaining / 1000),
-          });
-        } else if (idlePrompt.visible && idlePrompt.role === 'analyst') {
+        if (idlePrompt.visible && idlePrompt.role === 'analyst') {
           setIdlePrompt({ visible: false, role: null, secondsLeft: 0 });
         }
       }
@@ -1666,24 +1617,13 @@ const App = () => {
     </div>
   ) : null;
 
-  const managerIdleSecondsLeft = managerSession?.token
-    ? Math.max(0, Math.ceil(((Number(managerSession.lastActivityAt || 0) || Date.now()) + ADMIN_IDLE_TIMEOUT_MS - Date.now()) / 1000))
-    : null;
-  const analystIdleSecondsLeft = currentUser?.id
-    ? Math.max(0, Math.ceil(((Number(currentUser.lastActivityAt || 0) || Date.now()) + ANALYST_IDLE_TIMEOUT_MS - Date.now()) / 1000))
-    : null;
-  const managerWarningWindowSeconds = ADMIN_IDLE_WARNING_MS / 1000;
-  const analystWarningWindowSeconds = ANALYST_IDLE_WARNING_MS / 1000;
-  const managerIdleWarningProgress = managerIdleSecondsLeft !== null
-    ? Math.max(0, Math.min(100, (managerIdleSecondsLeft / managerWarningWindowSeconds) * 100))
-    : 0;
-  const analystIdleWarningProgress = analystIdleSecondsLeft !== null
-    ? Math.max(0, Math.min(100, (analystIdleSecondsLeft / analystWarningWindowSeconds) * 100))
-    : 0;
-  const showAnalystMobileIdleWarning = analystIdleSecondsLeft !== null
-    && analystIdleSecondsLeft > 0
-    && analystIdleSecondsLeft <= (ANALYST_IDLE_WARNING_MS / 1000)
-    && Date.now() >= mobileIdleWarningDismissUntil;
+  const managerIdleSecondsLeft = null;
+  const analystIdleSecondsLeft = null;
+  const managerWarningWindowSeconds = 0;
+  const analystWarningWindowSeconds = 0;
+  const managerIdleWarningProgress = 0;
+  const analystIdleWarningProgress = 0;
+  const showAnalystMobileIdleWarning = false;
   const idlePromptWarningWindowSeconds = idlePrompt.role === 'admin'
     ? managerWarningWindowSeconds
     : analystWarningWindowSeconds;
@@ -1753,29 +1693,6 @@ const App = () => {
       />
 
       <main className="max-w-7xl mx-auto p-4 md:p-6 space-y-6 flex-1 w-full">
-        {managerIdleSecondsLeft !== null && managerIdleSecondsLeft > 0 && managerIdleSecondsLeft <= (ADMIN_IDLE_WARNING_MS / 1000) && (
-          <section className="rounded-2xl border border-amber-200 bg-[linear-gradient(135deg,#fff7ed_0%,#fffbeb_52%,#ffffff_100%)] px-4 py-3.5 shadow-[0_16px_26px_-22px_rgba(251,146,60,0.75)]">
-            <div className="flex items-center justify-between gap-3">
-              <div className="inline-flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
-                  <Clock size={14} />
-                </div>
-                <div>
-                  <p className="text-[9px] font-semibold uppercase tracking-[0.08em] text-amber-800">Sessão do gestor</p>
-                  <p className="text-[11px] font-semibold text-slate-700 mt-0.5">Expira em {formatIdleCountdown(managerIdleSecondsLeft)}</p>
-                </div>
-              </div>
-              <span className="shrink-0 text-base font-semibold text-amber-900 tracking-[0.08em]">{formatIdleCountdown(managerIdleSecondsLeft)}</span>
-            </div>
-            <div className="mt-2.5 h-1.5 w-full rounded-full bg-amber-100 overflow-hidden">
-              <div
-                className="h-full rounded-full bg-[linear-gradient(90deg,#f59e0b_0%,#f97316_55%,#ef4444_100%)] transition-all duration-500"
-                style={{ width: `${managerIdleWarningProgress}%` }}
-              />
-            </div>
-          </section>
-        )}
-
         <section className="w-fit rounded-full border border-slate-200/80 bg-white/80 p-1.5 shadow-[0_16px_34px_-24px_rgba(15,23,42,0.42)] backdrop-blur-xl flex gap-1.5">
           <button onClick={() => handleManagerTabChange('dashboard')} className={`px-4 py-2 rounded-full text-[12px] font-semibold tracking-[0.01em] transition-all inline-flex items-center gap-2 ${managerTab === 'dashboard' ? 'bg-[#0071e3] text-white shadow-[0_12px_24px_-16px_rgba(0,113,227,0.9)]' : 'text-slate-600 hover:bg-slate-100/90'}`}><LayoutDashboard size={13} /> Dashboard</button>
           <button onClick={() => handleManagerTabChange('fila')} className={`px-4 py-2 rounded-full text-[12px] font-semibold tracking-[0.01em] transition-all inline-flex items-center gap-2 ${managerTab === 'fila' ? 'bg-[#0071e3] text-white shadow-[0_12px_24px_-16px_rgba(0,113,227,0.9)]' : 'text-slate-600 hover:bg-slate-100/90'}`}><LineChart size={13} /> Fila</button>
