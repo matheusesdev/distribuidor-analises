@@ -42,9 +42,28 @@ def seed_analysts(app_module):
     ]
 
 
+def seed_admins(app_module):
+    app_module.supabase.db["administradores"] = [
+        {
+            "id": 10,
+            "username": "gestor",
+            "email": "gestor@teste.com",
+            "senha": app_module.hash_password("Admin@123"),
+            "ativo": True,
+            "session_version": 1,
+        }
+    ]
+
+
 def auth_header(app_module, analyst_id=1):
     analyst = next(item for item in app_module.supabase.db["analistas"] if item["id"] == analyst_id)
     token = app_module.create_analyst_token(analyst)
+    return {"Authorization": f"Bearer {token}"}
+
+
+def manager_auth_header(app_module, admin_id=10):
+    admin = next(item for item in app_module.supabase.db["administradores"] if item["id"] == admin_id)
+    token = app_module.create_manager_token(admin)
     return {"Authorization": f"Bearer {token}"}
 
 
@@ -129,6 +148,41 @@ def test_concluir_only_allows_owner_of_reserva(client, app_module):
     assert app_module.supabase.db["historico"][0]["reserva_id"] == "res-1"
 
 
+def test_get_mesa_returns_curated_contract(client, app_module):
+    seed_analysts(app_module)
+    app_module.supabase.db["distribuicoes"] = [
+        {
+            "reserva_id": "res-1",
+            "cliente": "Cliente 1",
+            "empreendimento": "Emp 1",
+            "unidade": "Apto 1",
+            "situacao_id": 62,
+            "situacao_nome": "ANALISE VENDA LOTEAMENTO",
+            "analista_id": 1,
+            "data_atribuicao": "2026-03-24T10:00:00",
+            "created_at": "2026-03-24T09:55:00",
+            "campo_interno": "nao-deve-sair",
+        }
+    ]
+
+    response = client.get("/api/mesa/1", headers=auth_header(app_module))
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload == [
+        {
+            "reserva_id": "res-1",
+            "cliente": "Cliente 1",
+            "empreendimento": "Emp 1",
+            "unidade": "Apto 1",
+            "situacao_id": 62,
+            "situacao_nome": "ANALISE VENDA LOTEAMENTO",
+            "analista_id": 1,
+            "data_atribuicao": "2026-03-24T10:00:00",
+        }
+    ]
+
+
 def test_transferir_moves_reserva_and_logs_transfer(client, app_module):
     seed_analysts(app_module)
     app_module.supabase.db["distribuicoes"] = [
@@ -195,6 +249,106 @@ def test_reset_password_updates_hash_and_clears_token(client, app_module):
     assert analyst["reset_token_expires"] is None
     assert analyst["session_version"] == 2
     assert app_module.verify_password("NovaSenha@123", analyst["senha"])
+
+
+def test_manager_overview_returns_sanitized_contracts(client, app_module):
+    seed_analysts(app_module)
+    seed_admins(app_module)
+    app_module.supabase.db["analistas"][0]["reset_token_hash"] = "secret"
+    app_module.supabase.db["analistas"][0]["reset_token_expires"] = "2999-03-24T10:00:00+00:00"
+    app_module.supabase.db["distribuicoes"] = [
+        {
+            "reserva_id": "res-9",
+            "cliente": "Cliente 9",
+            "empreendimento": "Emp 9",
+            "unidade": "Apto 9",
+            "situacao_id": 62,
+            "situacao_nome": "ANALISE VENDA LOTEAMENTO",
+            "analista_id": 1,
+            "data_atribuicao": "2026-03-24T10:00:00",
+            "campo_interno": "ignorar",
+        }
+    ]
+    app_module.supabase.db["historico"] = [
+        {
+            "reserva_id": "hist-1",
+            "cliente": "Cliente Hist",
+            "empreendimento": "Emp Hist",
+            "unidade": "Casa 1",
+            "resultado": "aprovado",
+            "situacao_id": 62,
+            "situacao_nome": "ANALISE VENDA LOTEAMENTO",
+            "analista_id": 1,
+            "analista_nome": "Ana Ativa",
+            "data_fim": "2026-03-24T11:00:00+00:00",
+            "senha": "nao-deve-sair",
+        }
+    ]
+    app_module.supabase.db["logs_transferencias"] = [
+        {
+            "id": 99,
+            "reserva_id": "res-9",
+            "analista_origem_id": 1,
+            "analista_origem_nome": "Ana Ativa",
+            "analista_destino_id": 3,
+            "analista_destino_nome": "Bruno Revisor",
+            "situacao_id": 62,
+            "situacao_nome": "ANALISE VENDA LOTEAMENTO",
+            "cliente": "Cliente 9",
+            "empreendimento": "Emp 9",
+            "unidade": "Apto 9",
+            "motivo": "Balanceamento",
+            "data_transferencia": "2026-03-24T12:00:00+00:00",
+            "token_interno": "nao-deve-sair",
+        }
+    ]
+
+    response = client.get("/api/gestor/overview", headers=manager_auth_header(app_module))
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["equipe"][0]["id"] == 1
+    assert "senha" not in payload["equipe"][0]
+    assert "session_version" not in payload["equipe"][0]
+    assert "reset_token_hash" not in payload["equipe"][0]
+    assert set(payload["distribuicao_atual"][0].keys()) == {
+        "reserva_id",
+        "cliente",
+        "empreendimento",
+        "unidade",
+        "situacao_id",
+        "situacao_nome",
+        "analista_id",
+        "data_atribuicao",
+    }
+    assert set(payload["historico_recente"][0].keys()) == {
+        "reserva_id",
+        "cliente",
+        "empreendimento",
+        "unidade",
+        "resultado",
+        "situacao_id",
+        "situacao_nome",
+        "analista_id",
+        "analista_nome",
+        "data_fim",
+    }
+    assert set(payload["logs_transferencias"][0].keys()) == {
+        "id",
+        "reserva_id",
+        "analista_origem_id",
+        "analista_origem_nome",
+        "analista_destino_id",
+        "analista_destino_nome",
+        "situacao_id",
+        "situacao_nome",
+        "cliente",
+        "empreendimento",
+        "unidade",
+        "motivo",
+        "data_transferencia",
+        "created_at",
+    }
 
 
 def test_status_fila_offline_redistributes_owned_items(client, app_module):

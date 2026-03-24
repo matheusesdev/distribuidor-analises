@@ -30,6 +30,8 @@ class FakeTable:
         self.count_requested = None
         self.filters = []
         self.limit_value = None
+        self.range_start = None
+        self.range_end = None
         self.order_field = None
         self.order_desc = False
         self.payload = None
@@ -56,6 +58,11 @@ class FakeTable:
 
     def limit(self, value):
         self.limit_value = value
+        return self
+
+    def range(self, start, end):
+        self.range_start = start
+        self.range_end = end
         return self
 
     def order(self, field, desc=False):
@@ -108,6 +115,9 @@ class FakeTable:
             result = matched[:]
             if self.order_field:
                 result.sort(key=lambda item: item.get(self.order_field) or "", reverse=self.order_desc)
+            if self.range_start is not None:
+                end = self.range_end + 1 if self.range_end is not None else None
+                result = result[self.range_start:end]
             if self.limit_value is not None:
                 result = result[: self.limit_value]
             response = FakeResponse(

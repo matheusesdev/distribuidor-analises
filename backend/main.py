@@ -14,7 +14,7 @@ from email.mime.multipart import MIMEMultipart
 from typing import Any, Dict, List, Optional
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from supabase import create_client, Client
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from postgrest.exceptions import APIError
 
 
@@ -288,6 +288,94 @@ def serialize_analyst_public(analyst: Dict[str, Any]) -> Dict[str, Any]:
         "is_online": bool(analyst.get("is_online")),
         "total_hoje": int(analyst.get("total_hoje") or 0),
         "ultima_atribuicao": analyst.get("ultima_atribuicao"),
+    }
+
+
+ANALYST_PUBLIC_SELECT_FIELDS = "id,nome,email,permissoes,status,is_online,total_hoje,ultima_atribuicao"
+ADMIN_PUBLIC_SELECT_FIELDS = "id,username,email,ativo,data_criacao,updated_at"
+DISTRIBUICAO_SELECT_FIELDS = "reserva_id,cliente,empreendimento,unidade,situacao_id,situacao_nome,analista_id,data_atribuicao"
+TRANSFER_LOG_SELECT_FIELDS = (
+    "id,reserva_id,analista_origem_id,analista_origem_nome,analista_destino_id,"
+    "analista_destino_nome,situacao_id,situacao_nome,cliente,empreendimento,"
+    "unidade,motivo,data_transferencia,created_at"
+)
+
+
+def parse_optional_int(value: Any) -> Optional[int]:
+    if value in (None, ""):
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def serialize_team_member(analyst: Dict[str, Any], total_hoje: int) -> Dict[str, Any]:
+    payload = serialize_analyst_public(analyst)
+    payload["total_hoje"] = int(total_hoje or 0)
+    return payload
+
+
+def serialize_mesa_item(item: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        "reserva_id": str(item.get("reserva_id") or ""),
+        "cliente": item.get("cliente") or "",
+        "empreendimento": item.get("empreendimento") or "",
+        "unidade": item.get("unidade") or "",
+        "situacao_id": parse_optional_int(item.get("situacao_id")),
+        "situacao_nome": item.get("situacao_nome") or "",
+        "analista_id": parse_optional_int(item.get("analista_id")),
+        "data_atribuicao": item.get("data_atribuicao"),
+    }
+
+
+def get_historico_recent_select_fields() -> str:
+    fields = ["reserva_id", "cliente", "empreendimento", "unidade", "resultado", "analista_id", "data_fim"]
+    if HISTORICO_HAS_ANALISTA_NOME:
+        fields.append("analista_nome")
+    if HISTORICO_HAS_SITUACAO_ID:
+        fields.append("situacao_id")
+    if HISTORICO_HAS_SITUACAO_NOME:
+        fields.append("situacao_nome")
+    return ",".join(fields)
+
+
+def serialize_history_recent_item(item: Dict[str, Any]) -> Dict[str, Any]:
+    situacao_id = parse_optional_int(item.get("situacao_id"))
+    situacao_nome = (item.get("situacao_nome") or "").strip()
+    if not situacao_nome and situacao_id is not None:
+        situacao_nome = SITUACOES_NOMES.get(situacao_id, "")
+
+    return {
+        "reserva_id": str(item.get("reserva_id") or ""),
+        "cliente": item.get("cliente") or "",
+        "empreendimento": item.get("empreendimento") or "",
+        "unidade": item.get("unidade") or "",
+        "resultado": item.get("resultado") or "",
+        "situacao_id": situacao_id,
+        "situacao_nome": situacao_nome or None,
+        "analista_id": parse_optional_int(item.get("analista_id")),
+        "analista_nome": item.get("analista_nome") or None,
+        "data_fim": item.get("data_fim"),
+    }
+
+
+def serialize_transfer_log(item: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        "id": item.get("id"),
+        "reserva_id": str(item.get("reserva_id") or ""),
+        "analista_origem_id": parse_optional_int(item.get("analista_origem_id")),
+        "analista_origem_nome": item.get("analista_origem_nome") or "",
+        "analista_destino_id": parse_optional_int(item.get("analista_destino_id")),
+        "analista_destino_nome": item.get("analista_destino_nome") or "",
+        "situacao_id": parse_optional_int(item.get("situacao_id")),
+        "situacao_nome": item.get("situacao_nome") or None,
+        "cliente": item.get("cliente") or "",
+        "empreendimento": item.get("empreendimento") or "",
+        "unidade": item.get("unidade") or "",
+        "motivo": item.get("motivo") or "",
+        "data_transferencia": item.get("data_transferencia"),
+        "created_at": item.get("created_at"),
     }
 
 
@@ -1237,6 +1325,201 @@ class ChangePasswordRequest(BaseModel):
     senha_atual: str
     nova_senha: str
 
+
+class AdminSessionResponse(BaseModel):
+    id: Optional[int] = None
+    usuario: Optional[str] = None
+    email: Optional[str] = None
+    token: str
+
+
+class AdminListItemResponse(BaseModel):
+    id: Optional[int] = None
+    username: Optional[str] = None
+    email: Optional[str] = None
+    ativo: bool
+    data_criacao: Optional[str] = None
+    updated_at: Optional[str] = None
+
+
+class AnalystPublicResponse(BaseModel):
+    id: Optional[int] = None
+    nome: Optional[str] = None
+    email: Optional[str] = None
+    permissoes: List[int]
+    status: str
+    is_online: bool
+    total_hoje: int
+    ultima_atribuicao: Optional[str] = None
+
+
+class AnalystSessionResponse(AnalystPublicResponse):
+    token: str
+
+
+class MesaItemResponse(BaseModel):
+    reserva_id: str
+    cliente: str
+    empreendimento: str
+    unidade: str
+    situacao_id: Optional[int] = None
+    situacao_nome: str
+    analista_id: Optional[int] = None
+    data_atribuicao: Optional[str] = None
+
+
+class MetricsResponse(BaseModel):
+    hoje: int
+    ano: int
+
+
+class CounterItemResponse(BaseModel):
+    label: str
+    total: int
+
+
+class SeriesItemResponse(BaseModel):
+    key: str
+    label: str
+    total: int
+
+
+class AnalystDashboardSummaryResponse(BaseModel):
+    total: int
+    hoje: int
+    mes: int
+    ano: int
+    media_por_dia: float
+    dias_com_producao: int
+
+
+class AnalystDashboardSeriesResponse(BaseModel):
+    por_dia: List[SeriesItemResponse]
+    por_mes: List[SeriesItemResponse]
+
+
+class AnalystDashboardRankingsResponse(BaseModel):
+    por_resultado: List[CounterItemResponse]
+    por_situacao: List[CounterItemResponse]
+    por_empreendimento: List[CounterItemResponse]
+
+
+class AnalystDashboardSchemaResponse(BaseModel):
+    historico_tem_analista_nome: bool
+    historico_tem_situacao: bool
+
+
+class AnalystDashboardRecordResponse(BaseModel):
+    reserva_id: Optional[str] = None
+    cliente: str
+    empreendimento: str
+    unidade: str
+    situacao_nome: str
+    resultado: str
+    data_fim: str
+    data_fim_label: str
+
+
+class AnalystDashboardResponse(BaseModel):
+    resumo: AnalystDashboardSummaryResponse
+    series: AnalystDashboardSeriesResponse
+    rankings: AnalystDashboardRankingsResponse
+    schema_: AnalystDashboardSchemaResponse = Field(alias="schema")
+    registros: List[AnalystDashboardRecordResponse]
+    total_registros: int
+    gerado_em: str
+
+
+class TransferStatusResponse(BaseModel):
+    status: str
+    message: str
+
+
+class TransferBulkErrorResponse(BaseModel):
+    reserva_id: str
+    motivo: str
+
+
+class TransferBulkResponse(BaseModel):
+    status: str
+    transferidas: int
+    erros: int
+    detalhes_erros: List[TransferBulkErrorResponse]
+
+
+class TeamAnalyticsSituationSeriesResponse(BaseModel):
+    label: str
+    total: int
+    serie: List[SeriesItemResponse]
+
+
+class TeamAnalyticsResponse(BaseModel):
+    total_periodo: int
+    por_dia: List[SeriesItemResponse]
+    por_mes: List[SeriesItemResponse]
+    por_situacao: List[CounterItemResponse]
+    por_situacao_por_dia: List[TeamAnalyticsSituationSeriesResponse]
+    por_situacao_por_mes: List[TeamAnalyticsSituationSeriesResponse]
+
+
+class TeamSummaryResponse(BaseModel):
+    analista_id: int
+    nome: str
+    email: str
+    status: str
+    is_online: bool
+    recebidas_hoje: int
+    feitas_hoje: int
+    na_mesa: int
+    ultima_atribuicao: Optional[str] = None
+    situacoes_ids: List[int]
+    situacoes_nomes: List[str]
+    mesa_por_situacao: Dict[str, int]
+    analytics: TeamAnalyticsResponse
+
+
+class HistoryRecentItemResponse(BaseModel):
+    reserva_id: str
+    cliente: str
+    empreendimento: str
+    unidade: str
+    resultado: str
+    situacao_id: Optional[int] = None
+    situacao_nome: Optional[str] = None
+    analista_id: Optional[int] = None
+    analista_nome: Optional[str] = None
+    data_fim: Optional[str] = None
+
+
+class TransferLogResponse(BaseModel):
+    id: Optional[Any] = None
+    reserva_id: str
+    analista_origem_id: Optional[int] = None
+    analista_origem_nome: str
+    analista_destino_id: Optional[int] = None
+    analista_destino_nome: str
+    situacao_id: Optional[int] = None
+    situacao_nome: Optional[str] = None
+    cliente: str
+    empreendimento: str
+    unidade: str
+    motivo: str
+    data_transferencia: Optional[str] = None
+    created_at: Optional[str] = None
+
+
+class ManagerOverviewResponse(BaseModel):
+    equipe: List[AnalystPublicResponse]
+    resumo_equipe: List[TeamSummaryResponse]
+    total_pendente_cvcrm: int
+    distribuicao_atual: List[MesaItemResponse]
+    historico_recente: List[HistoryRecentItemResponse]
+    logs_transferencias: List[TransferLogResponse]
+    logs_transferencias_total: int
+    logs_limit: int
+    logs_offset: int
+    pastas_sem_destino: int
+
 # --- LÓGICA DE DISTRIBUIÇÃO ---
 
 async def get_next_analyst(sit_id: int, exclude_ids: Optional[List[int]] = None):
@@ -1551,7 +1834,7 @@ async def reset_all_data(authorization: Optional[str] = Header(default=None)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/api/gestor/login")
+@app.post("/api/gestor/login", response_model=AdminSessionResponse)
 async def manager_login(req: ManagerLoginRequest):
     admin = verify_admin_credentials(req.usuario, req.senha)
     
@@ -1561,13 +1844,13 @@ async def manager_login(req: ManagerLoginRequest):
     return serialize_admin_session(admin)
 
 
-@app.get("/api/gestor/admins")
+@app.get("/api/gestor/admins", response_model=List[AdminListItemResponse])
 async def list_admin_users(authorization: Optional[str] = Header(default=None)):
     require_manager_auth(authorization)
     try:
         res = (
             supabase.table("administradores")
-            .select("id,username,email,ativo,data_criacao,updated_at")
+            .select(ADMIN_PUBLIC_SELECT_FIELDS)
             .order("data_criacao", desc=True)
             .execute()
         )
@@ -1576,7 +1859,7 @@ async def list_admin_users(authorization: Optional[str] = Header(default=None)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/api/gestor/admins")
+@app.post("/api/gestor/admins", response_model=AdminListItemResponse)
 async def create_admin_user(req: AdminCreateRequest, authorization: Optional[str] = Header(default=None)):
     require_manager_auth(authorization)
 
@@ -1698,7 +1981,7 @@ async def revoke_user_sessions(req: SessionRevokeRequest, authorization: Optiona
     }
 
 
-@app.post("/api/login")
+@app.post("/api/login", response_model=AnalystSessionResponse)
 async def login(req: LoginRequest):
     try:
         res = (
@@ -1725,7 +2008,7 @@ async def login(req: LoginRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/api/login/email")
+@app.post("/api/login/email", response_model=AnalystSessionResponse)
 async def login_email(req: LoginEmailRequest):
     """Login do analista com e-mail e senha."""
     email_normalizado = (req.email or "").strip().lower()
@@ -1957,13 +2240,13 @@ async def set_online_status(req: StatusFilaRequest, authorization: Optional[str]
     except Exception as e:
         raise HTTPException(status_code=500, detail="Erro ao atualizar status da fila")
 
-@app.get("/api/analistas")
+@app.get("/api/analistas", response_model=List[AnalystPublicResponse])
 async def listar_analistas(authorization: Optional[str] = Header(default=None)):
     try:
         require_authenticated_user(authorization)
         res = (
             supabase.table("analistas")
-            .select("id,nome,email,permissoes,status,is_online,total_hoje,ultima_atribuicao")
+            .select(ANALYST_PUBLIC_SELECT_FIELDS)
             .order("nome")
             .execute()
         )
@@ -1973,13 +2256,18 @@ async def listar_analistas(authorization: Optional[str] = Header(default=None)):
     except:
         return []
 
-@app.get("/api/mesa/{analista_id}")
+@app.get("/api/mesa/{analista_id}", response_model=List[MesaItemResponse])
 async def get_mesa(analista_id: int, authorization: Optional[str] = Header(default=None)):
     require_analyst_auth(authorization, expected_analyst_id=analista_id)
-    res = supabase.table("distribuicoes").select("*").eq("analista_id", analista_id).execute()
-    return res.data or []
+    res = (
+        supabase.table("distribuicoes")
+        .select(DISTRIBUICAO_SELECT_FIELDS)
+        .eq("analista_id", analista_id)
+        .execute()
+    )
+    return [serialize_mesa_item(item) for item in (res.data or [])]
 
-@app.get("/api/metricas/{analista_id}")
+@app.get("/api/metricas/{analista_id}", response_model=MetricsResponse)
 async def get_metrics(analista_id: int, authorization: Optional[str] = Header(default=None)):
     require_analyst_auth(authorization, expected_analyst_id=analista_id)
     now = datetime.datetime.now()
@@ -1992,7 +2280,7 @@ async def get_metrics(analista_id: int, authorization: Optional[str] = Header(de
         "ano": count_period(now.strftime("%Y-01-01"))
     }
 
-@app.get("/api/analista/dashboard/{analista_id}")
+@app.get("/api/analista/dashboard/{analista_id}", response_model=AnalystDashboardResponse)
 async def get_analyst_dashboard(analista_id: int, authorization: Optional[str] = Header(default=None)):
     require_analyst_auth(authorization, expected_analyst_id=analista_id)
     history_fields = ["reserva_id", "cliente", "empreendimento", "unidade", "resultado", "data_fim"]
@@ -2149,7 +2437,7 @@ async def backfill_historico(
     require_manager_auth(authorization)
     return await backfill_historico_metadata(limit=limit)
 
-@app.post("/api/analista/transferir")
+@app.post("/api/analista/transferir", response_model=TransferStatusResponse)
 async def transferir_pasta(req: TransferirPastaRequest, authorization: Optional[str] = Header(default=None)):
     try:
         require_analyst_auth(authorization, expected_analyst_id=req.analista_origem_id)
@@ -2160,11 +2448,13 @@ async def transferir_pasta(req: TransferirPastaRequest, authorization: Optional[
         if not motivo_limpo:
             raise HTTPException(status_code=400, detail="Motivo da transferência é obrigatório")
 
-        dist = supabase.table("distribuicoes") \
-            .select("*") \
-            .eq("reserva_id", req.reserva_id) \
-            .eq("analista_id", req.analista_origem_id) \
+        dist = (
+            supabase.table("distribuicoes")
+            .select(DISTRIBUICAO_SELECT_FIELDS)
+            .eq("reserva_id", req.reserva_id)
+            .eq("analista_id", req.analista_origem_id)
             .execute()
+        )
 
         if not dist.data:
             raise HTTPException(status_code=404, detail="Pasta não encontrada na sua mesa")
@@ -2173,7 +2463,12 @@ async def transferir_pasta(req: TransferirPastaRequest, authorization: Optional[
         situacao_id = int(pasta.get("situacao_id", 0))
 
         origem_res = supabase.table("analistas").select("id,nome").eq("id", req.analista_origem_id).execute()
-        destino_res = supabase.table("analistas").select("*").eq("id", req.analista_destino_id).execute()
+        destino_res = (
+            supabase.table("analistas")
+            .select("id,nome,status,total_hoje")
+            .eq("id", req.analista_destino_id)
+            .execute()
+        )
 
         if not destino_res.data:
             raise HTTPException(status_code=404, detail="Analista de destino não encontrado")
@@ -2242,7 +2537,7 @@ async def transferir_pasta(req: TransferirPastaRequest, authorization: Optional[
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/api/analista/transferir-massa")
+@app.post("/api/analista/transferir-massa", response_model=TransferBulkResponse)
 async def transferir_pasta_massa(req: TransferirMassaRequest, authorization: Optional[str] = Header(default=None)):
     """Transfere múltiplas pastas de uma vez para o analista destino."""
     try:
@@ -2258,7 +2553,12 @@ async def transferir_pasta_massa(req: TransferirMassaRequest, authorization: Opt
             raise HTTPException(status_code=400, detail="Nenhuma pasta selecionada")
 
         origem_res = supabase.table("analistas").select("id,nome").eq("id", req.analista_origem_id).execute()
-        destino_res = supabase.table("analistas").select("*").eq("id", req.analista_destino_id).execute()
+        destino_res = (
+            supabase.table("analistas")
+            .select("id,nome,status,total_hoje")
+            .eq("id", req.analista_destino_id)
+            .execute()
+        )
 
         if not destino_res.data:
             raise HTTPException(status_code=404, detail="Analista de destino não encontrado")
@@ -2275,11 +2575,13 @@ async def transferir_pasta_massa(req: TransferirMassaRequest, authorization: Opt
 
         for reserva_id in req.reserva_ids:
             try:
-                dist = supabase.table("distribuicoes") \
-                    .select("*") \
-                    .eq("reserva_id", reserva_id) \
-                    .eq("analista_id", req.analista_origem_id) \
+                dist = (
+                    supabase.table("distribuicoes")
+                    .select(DISTRIBUICAO_SELECT_FIELDS)
+                    .eq("reserva_id", reserva_id)
+                    .eq("analista_id", req.analista_origem_id)
                     .execute()
+                )
 
                 if not dist.data:
                     erros.append({"reserva_id": reserva_id, "motivo": "Pasta não encontrada na mesa de origem"})
@@ -2337,7 +2639,7 @@ async def transferir_pasta_massa(req: TransferirMassaRequest, authorization: Opt
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/api/gestor/overview")
+@app.get("/api/gestor/overview", response_model=ManagerOverviewResponse)
 async def manager_overview(
     logs_limit: int = Query(default=200, ge=1, le=1000),
     logs_offset: int = Query(default=0, ge=0),
@@ -2350,15 +2652,20 @@ async def manager_overview(
     today_start = app_now.replace(hour=0, minute=0, second=0, microsecond=0)
     analytics_window_start = app_now - datetime.timedelta(days=365)
     total_crm = _LAST_SYNC_STATE.get("total_no_crm") or 0
-    equipe = supabase.table("analistas").select("*").order("nome").execute().data or []
+    equipe = (
+        supabase.table("analistas")
+        .select(ANALYST_PUBLIC_SELECT_FIELDS)
+        .order("nome")
+        .execute()
+        .data
+        or []
+    )
     equipe_normalizada: List[Dict[str, Any]] = []
     resumo_equipe_map: Dict[int, Dict[str, Any]] = {}
 
     for analista in equipe:
-        analista_normalizado = dict(analista)
         total_hoje = get_effective_total_hoje(analista, reference=now)
-        analista_normalizado["total_hoje"] = total_hoje
-        equipe_normalizada.append(analista_normalizado)
+        equipe_normalizada.append(serialize_team_member(analista, total_hoje))
 
         analista_id = analista.get("id")
         if analista_id is None:
@@ -2388,8 +2695,22 @@ async def manager_overview(
             },
         }
 
-    distribuicao_atual = supabase.table("distribuicoes").select("*").execute().data or []
-    historico_recente = supabase.table("historico").select("*").order("data_fim", desc=True).limit(100).execute().data or []
+    distribuicao_atual = (
+        supabase.table("distribuicoes")
+        .select(DISTRIBUICAO_SELECT_FIELDS)
+        .execute()
+        .data
+        or []
+    )
+    historico_recente = (
+        supabase.table("historico")
+        .select(get_historico_recent_select_fields())
+        .order("data_fim", desc=True)
+        .limit(100)
+        .execute()
+        .data
+        or []
+    )
     atribuicoes_hoje_map: Dict[int, int] = {}
 
     for item in distribuicao_atual:
@@ -2601,12 +2922,12 @@ async def manager_overview(
     try:
         logs_query = (
             supabase.table("logs_transferencias")
-            .select("*", count="exact")
+            .select(TRANSFER_LOG_SELECT_FIELDS, count="exact")
             .order("data_transferencia", desc=True)
             .range(logs_offset, logs_offset + logs_limit - 1)
             .execute()
         )
-        logs_transferencias = logs_query.data or []
+        logs_transferencias = [serialize_transfer_log(item) for item in (logs_query.data or [])]
         logs_total = logs_query.count or 0
     except Exception:
         logs_transferencias = []
@@ -2617,8 +2938,8 @@ async def manager_overview(
         "equipe": equipe_normalizada,
         "resumo_equipe": resumo_equipe,
         "total_pendente_cvcrm": total_crm,
-        "distribuicao_atual": distribuicao_atual,
-        "historico_recente": historico_recente,
+        "distribuicao_atual": [serialize_mesa_item(item) for item in distribuicao_atual],
+        "historico_recente": [serialize_history_recent_item(item) for item in historico_recente],
         "logs_transferencias": logs_transferencias,
         "logs_transferencias_total": logs_total,
         "logs_limit": logs_limit,
