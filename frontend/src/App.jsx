@@ -212,6 +212,7 @@ const App = () => {
     1012: "ANÁLISE VENDA LOTEAMENTO (LOTEAR)",
     1023: "APROVAÇÃO EXPANSÃO (LOTEAR)",
     1016: "CONFECÇÃO DE CONTRATO (LOTEAR)",
+    1021: "ASSINADO (LOTEAR)",
   };
 
   const SIT_COLORS = useMemo(() => {
@@ -226,6 +227,7 @@ const App = () => {
         1012: { text: '#67e8f9', bg: '#164e63' },
         1023: { text: '#c4b5fd', bg: '#4c1d95' },
         1016: { text: '#e9d5ff', bg: '#701a75' },
+        1021: { text: '#fdba74', bg: '#9a3412' },
       };
     }
 
@@ -239,6 +241,7 @@ const App = () => {
       1012: { text: '#0b7285', bg: '#e3f4f7' },
       1023: { text: '#5f3dc4', bg: '#ede9fe' },
       1016: { text: '#9c36b5', bg: '#f8ecfc' },
+      1021: { text: '#9a3412', bg: '#fff1e6' },
     };
   }, [isDarkMode]);
 
