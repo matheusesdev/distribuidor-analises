@@ -644,6 +644,7 @@ load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 ALLOWED_ORIGINS = parse_allowed_origins(os.getenv("ALLOWED_ORIGINS", "http://localhost:5173"))
 SYNC_INTERVAL_SECONDS = int(os.getenv("SYNC_INTERVAL_SECONDS", "25"))
 PORT = int(os.getenv("PORT", "8000"))
+TESTING = parse_bool_env("TESTING", default=False)
 
 SUPABASE_URL = get_required_env("SUPABASE_URL")
 SUPABASE_KEY = get_required_env("SUPABASE_KEY")
@@ -1461,6 +1462,8 @@ async def background_task():
 
 @app.on_event("startup")
 async def startup_event():
+    if TESTING:
+        return
     asyncio.create_task(background_task())
 
 # --- ENDPOINTS ---
