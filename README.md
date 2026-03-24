@@ -204,3 +204,5 @@ Disponível em `http://localhost:5173`.
 ## Documentação Complementar
 
 Para uma explicação mais completa da arquitetura, lógica e funcionamento do sistema, veja [DOCUMENTACAO_PROJETO.md](./DOCUMENTACAO_PROJETO.md).
+
+Para o plano de evolução técnica, prioridades, estimativas e estratégia de branches, veja [BACKLOG_TECNICO_PRIORIZADO.md](./BACKLOG_TECNICO_PRIORIZADO.md).
