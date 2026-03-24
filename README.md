@@ -126,8 +126,6 @@ O gestor/admin consegue:
 - `logs_transferencias`: auditoria de transferências
 - `logs_sessoes_revogadas`: auditoria de revogação de sessão
 
-Observação: a tabela `distribuicoes` é usada no backend, mas a migration dela não aparece entre os arquivos SQL versionados neste repositório.
-
 ## Principais Endpoints
 
 ### Autenticação
@@ -204,3 +202,5 @@ Disponível em `http://localhost:5173`.
 ## Documentação Complementar
 
 Para uma explicação mais completa da arquitetura, lógica e funcionamento do sistema, veja [DOCUMENTACAO_PROJETO.md](./DOCUMENTACAO_PROJETO.md).
+
+As migrations SQL, incluindo a tabela operacional `distribuicoes`, estão documentadas em [backend/db/migrations/README.md](./backend/db/migrations/README.md).

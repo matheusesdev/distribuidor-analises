@@ -28,8 +28,12 @@ Esta pasta concentra os scripts SQL do projeto em ordem de execucao.
    - Cria a tabela `logs_sessoes_revogadas` e indices de consulta.
    - Necessario para persistir auditoria oficial de revogacoes de sessao.
 
+7. `007_distribuicoes_schema.sql`
+   - Cria/ajusta a tabela `distribuicoes` e indices da mesa atual.
+   - Necessario para bootstrap completo do ambiente e para o `upsert` por `reserva_id`.
+
 ## Quando rodar
 
-- Ambiente novo: execute 001 -> 002 -> 003 -> 004 -> 005 -> 006.
+- Ambiente novo: execute 001 -> 002 -> 003 -> 004 -> 005 -> 006 -> 007.
 - Ambiente existente: execute somente o script necessario (todos usam `if not exists` quando aplicavel).
 - Se um endpoint reclamar de tabela ausente, rode o script correspondente e teste novamente.

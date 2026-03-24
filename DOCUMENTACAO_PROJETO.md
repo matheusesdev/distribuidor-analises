@@ -204,8 +204,6 @@ Tabela dos gestores/admins que acessam o painel administrativo.
 
 Tabela operacional da mesa atual. Guarda as reservas que ainda estão em atendimento, com o analista responsável, dados da reserva e situação atual.
 
-Observação: esta tabela é usada extensivamente no backend, mas a migration dela não aparece entre os arquivos SQL versionados neste repositório.
-
 ### `historico`
 
 Tabela de conclusões. Registra cada reserva finalizada, o analista, a situação e a data de fechamento.
