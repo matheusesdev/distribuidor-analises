@@ -681,6 +681,7 @@ SITUACOES_DEFINITIONS: List[Dict[str, Any]] = [
     {"id": 1012, "external_id": 12, "source": "lotear", "nome": "ANÁLISE VENDA LOTEAMENTO (LOTEAR)"},
     {"id": 1023, "external_id": 23, "source": "lotear", "nome": "APROVAÇÃO EXPANSÃO (LOTEAR)"},
     {"id": 1016, "external_id": 16, "source": "lotear", "nome": "CONFECÇÃO DE CONTRATO (LOTEAR)"},
+    {"id": 1021, "external_id": 21, "source": "lotear", "nome": "ASSINADO (LOTEAR)"},
 ]
 
 SITUACOES_NOMES = {item["id"]: item["nome"] for item in SITUACOES_DEFINITIONS}
