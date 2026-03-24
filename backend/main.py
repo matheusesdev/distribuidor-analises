@@ -342,6 +342,25 @@ def require_analyst_auth(authorization: Optional[str], expected_analyst_id: Opti
     return payload
 
 
+def require_authenticated_user(authorization: Optional[str]) -> Dict[str, Any]:
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Autenticação obrigatória.")
+
+    scheme, _, token = authorization.partition(" ")
+    if scheme.lower() != "bearer" or not token:
+        raise HTTPException(status_code=401, detail="Token de autenticação inválido.")
+
+    manager_payload = verify_manager_token(token)
+    if manager_payload:
+        return manager_payload
+
+    analyst_payload = verify_analyst_token(token)
+    if analyst_payload:
+        return analyst_payload
+
+    raise HTTPException(status_code=401, detail="Sessão inválida ou expirada.")
+
+
 def bump_session_version(role: str, user_id: int) -> int:
     table_name = "administradores" if role == "admin" else "analistas"
 
@@ -1651,6 +1670,8 @@ async def login(req: LoginRequest):
             raise HTTPException(status_code=404, detail="Usuário não encontrado")
 
         analista = res.data[0]
+        if analista.get("status") == "inativo":
+            raise HTTPException(status_code=403, detail="Conta desativada. Entre em contato com o administrador.")
         senha_recebida = (req.senha or "").strip()
         senha_cadastrada = str(analista.get("senha") or "").strip()
 
@@ -1897,10 +1918,13 @@ async def set_online_status(req: StatusFilaRequest, authorization: Optional[str]
         raise HTTPException(status_code=500, detail="Erro ao atualizar status da fila")
 
 @app.get("/api/analistas")
-async def listar_analistas():
+async def listar_analistas(authorization: Optional[str] = Header(default=None)):
     try:
+        require_authenticated_user(authorization)
         res = supabase.table("analistas").select("*").order("nome").execute()
         return res.data or []
+    except HTTPException:
+        raise
     except:
         return []
 
@@ -2037,12 +2061,15 @@ async def get_analyst_dashboard(analista_id: int, authorization: Optional[str] =
 
 @app.post("/api/concluir")
 async def concluir(reserva_id: str, resultado: str, authorization: Optional[str] = Header(default=None)):
-    require_analyst_auth(authorization)
+    auth_payload = require_analyst_auth(authorization)
     dist = supabase.table("distribuicoes").select("*").eq("reserva_id", reserva_id).execute()
     if not dist.data:
         raise HTTPException(status_code=404, detail="Reserva não encontrada na mesa atual")
 
     d = dist.data[0]
+    if int(d.get("analista_id") or 0) != int(auth_payload.get("user_id") or 0):
+        raise HTTPException(status_code=403, detail="Você não tem permissão para concluir esta reserva")
+
     historico_payload = {
         "reserva_id": d["reserva_id"],
         "cliente": d["cliente"],

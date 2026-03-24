@@ -62,7 +62,7 @@ const requestWithFallbackPaths = async (paths, options = {}) => {
 };
 
 export const api = {
-  listAnalysts: () => request("/api/analistas"),
+  listAnalysts: () => request("/api/analistas", { headers: getAnalystAuthHeaders() }),
   getMesa: (analystId) => request(`/api/mesa/${analystId}`, { headers: getAnalystAuthHeaders() }),
   getMetrics: (analystId) => request(`/api/metricas/${analystId}`, { headers: getAnalystAuthHeaders() }),
   getAnalystDashboard: (analystId) => request(`/api/analista/dashboard/${analystId}`, { headers: getAnalystAuthHeaders() }),
