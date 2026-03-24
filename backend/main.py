@@ -401,13 +401,13 @@ def send_reset_email(to_email: str, reset_link: str, analyst_name: str) -> bool:
         return False
     try:
         msg = MIMEMultipart("alternative")
-        msg["Subject"] = "Redefinição de senha — VCAHub"
+        msg["Subject"] = "Redefinição de senha — VCACloud"
         msg["From"] = SMTP_FROM
         msg["To"] = to_email
 
         text_body = (
             f"Olá, {analyst_name}!\n\n"
-            f"Recebemos uma solicitação de redefinição de senha para sua conta no VCAHub.\n\n"
+            f"Recebemos uma solicitação de redefinição de senha para sua conta no VCACloud.\n\n"
             f"Clique no link abaixo (válido por {RESET_TOKEN_TTL_MINUTES} minutos):\n{reset_link}\n\n"
             f"Se você não solicitou, desconsidere este e-mail.\n\nVCA Construtora"
         )
@@ -418,12 +418,12 @@ def send_reset_email(to_email: str, reset_link: str, analyst_name: str) -> bool:
 <body style="font-family:Arial,sans-serif;background:#f8fafc;margin:0;padding:24px;">
   <div style="max-width:480px;margin:0 auto;background:white;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.08);">
     <div style="background:#2563eb;padding:32px;text-align:center;">
-      <p style="color:white;font-size:22px;font-weight:900;margin:0;letter-spacing:-0.5px;">VCAHub</p>
+      <p style="color:white;font-size:22px;font-weight:900;margin:0;letter-spacing:-0.5px;">VCACloud</p>
     </div>
     <div style="padding:32px;">
       <p style="color:#1e293b;font-size:16px;font-weight:700;margin:0 0 8px;">Olá, {analyst_name}!</p>
       <p style="color:#64748b;font-size:14px;margin:0 0 24px;">
-        Recebemos uma solicitação de redefinição de senha para sua conta no <strong>VCAHub</strong>.
+        Recebemos uma solicitação de redefinição de senha para sua conta no <strong>VCACloud</strong>.
       </p>
       <a href="{reset_link}"
          style="display:block;background:#2563eb;color:white;text-align:center;padding:14px 24px;border-radius:12px;font-weight:900;font-size:13px;text-decoration:none;letter-spacing:1px;text-transform:uppercase;">
