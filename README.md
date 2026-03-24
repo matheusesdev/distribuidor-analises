@@ -189,6 +189,13 @@ python run.py
 
 Disponível em `http://localhost:8000`.
 
+Testes do backend:
+
+```bash
+python -m pip install -r backend/requirements-test.txt
+python -m pytest backend/tests -q
+```
+
 ### Frontend
 
 ```bash
