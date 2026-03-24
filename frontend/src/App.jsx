@@ -556,10 +556,15 @@ const App = () => {
     if (!silent) setIsGlobalLoading(true);
     setIsSyncing(true);
     try {
-      const resA = await api.listAnalysts();
-      if (resA.ok) setAnalysts(await resA.json());
-
       if (view === 'analyst' && currentUser) {
+        const resA = await api.listAnalysts();
+        if (resA.ok) {
+          setAnalysts(await resA.json());
+        } else if (resA.status === 401) {
+          handleAnalystUnauthorized();
+          return;
+        }
+
         const resM = await api.getMesa(currentUser.id);
         if (resM.ok) {
           setMyTasks(await resM.json());

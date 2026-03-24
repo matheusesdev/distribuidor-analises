@@ -244,6 +244,53 @@ def get_analyst_session_version(analyst: Dict[str, Any]) -> int:
         return 1
 
 
+def serialize_admin_session(admin: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        "id": admin.get("id"),
+        "usuario": admin.get("username"),
+        "email": admin.get("email"),
+        "token": create_manager_token(admin),
+    }
+
+
+def serialize_admin_list_item(admin: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        "id": admin.get("id"),
+        "username": admin.get("username"),
+        "email": admin.get("email"),
+        "ativo": bool(admin.get("ativo", True)),
+        "data_criacao": admin.get("data_criacao"),
+        "updated_at": admin.get("updated_at"),
+    }
+
+
+def serialize_analyst_session(analyst: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        "id": analyst.get("id"),
+        "nome": analyst.get("nome"),
+        "email": analyst.get("email"),
+        "permissoes": [int(item) for item in (analyst.get("permissoes") or []) if item is not None],
+        "status": analyst.get("status") or "ativo",
+        "is_online": bool(analyst.get("is_online")),
+        "total_hoje": int(analyst.get("total_hoje") or 0),
+        "ultima_atribuicao": analyst.get("ultima_atribuicao"),
+        "token": create_analyst_token(analyst),
+    }
+
+
+def serialize_analyst_public(analyst: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        "id": analyst.get("id"),
+        "nome": analyst.get("nome"),
+        "email": analyst.get("email"),
+        "permissoes": [int(item) for item in (analyst.get("permissoes") or []) if item is not None],
+        "status": analyst.get("status") or "ativo",
+        "is_online": bool(analyst.get("is_online")),
+        "total_hoje": int(analyst.get("total_hoje") or 0),
+        "ultima_atribuicao": analyst.get("ultima_atribuicao"),
+    }
+
+
 def create_manager_token(admin: Dict[str, Any]) -> str:
     return create_signed_session_token(
         role="admin",
@@ -340,6 +387,25 @@ def require_analyst_auth(authorization: Optional[str], expected_analyst_id: Opti
         raise HTTPException(status_code=403, detail="Token do analista não autorizado para este usuário.")
 
     return payload
+
+
+def require_authenticated_user(authorization: Optional[str]) -> Dict[str, Any]:
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Autenticação obrigatória.")
+
+    scheme, _, token = authorization.partition(" ")
+    if scheme.lower() != "bearer" or not token:
+        raise HTTPException(status_code=401, detail="Token de autenticação inválido.")
+
+    manager_payload = verify_manager_token(token)
+    if manager_payload:
+        return manager_payload
+
+    analyst_payload = verify_analyst_token(token)
+    if analyst_payload:
+        return analyst_payload
+
+    raise HTTPException(status_code=401, detail="Sessão inválida ou expirada.")
 
 
 def bump_session_version(role: str, user_id: int) -> int:
@@ -1489,34 +1555,20 @@ async def manager_login(req: ManagerLoginRequest):
     if not admin:
         raise HTTPException(status_code=401, detail="Usuário ou senha do admin inválidos")
 
-    return {
-        "id": admin.get("id"),
-        "usuario": admin.get("username"),
-        "email": admin.get("email"),
-        "token": create_manager_token(admin),
-        "session_version": get_admin_session_version(admin),
-    }
+    return serialize_admin_session(admin)
 
 
 @app.get("/api/gestor/admins")
 async def list_admin_users(authorization: Optional[str] = Header(default=None)):
     require_manager_auth(authorization)
     try:
-        try:
-            res = (
-                supabase.table("administradores")
-                .select("id,username,email,ativo,data_criacao,updated_at,session_version")
-                .order("data_criacao", desc=True)
-                .execute()
-            )
-        except Exception:
-            res = (
-                supabase.table("administradores")
-                .select("id,username,email,ativo,data_criacao,updated_at")
-                .order("data_criacao", desc=True)
-                .execute()
-            )
-        return res.data or []
+        res = (
+            supabase.table("administradores")
+            .select("id,username,email,ativo,data_criacao,updated_at")
+            .order("data_criacao", desc=True)
+            .execute()
+        )
+        return [serialize_admin_list_item(item) for item in (res.data or [])]
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -1646,20 +1698,24 @@ async def revoke_user_sessions(req: SessionRevokeRequest, authorization: Optiona
 @app.post("/api/login")
 async def login(req: LoginRequest):
     try:
-        res = supabase.table("analistas").select("*").eq("id", req.analista_id).execute()
+        res = (
+            supabase.table("analistas")
+            .select("id,nome,email,senha,permissoes,status,is_online,total_hoje,ultima_atribuicao,session_version")
+            .eq("id", req.analista_id)
+            .execute()
+        )
         if not res.data:
             raise HTTPException(status_code=404, detail="Usuário não encontrado")
 
         analista = res.data[0]
+        if analista.get("status") == "inativo":
+            raise HTTPException(status_code=403, detail="Conta desativada. Entre em contato com o administrador.")
         senha_recebida = (req.senha or "").strip()
         senha_cadastrada = str(analista.get("senha") or "").strip()
 
         if not validate_analyst_password(req.analista_id, senha_recebida, senha_cadastrada):
             raise HTTPException(status_code=401, detail="Senha incorreta")
-        analyst_payload = dict(analista)
-        analyst_payload["token"] = create_analyst_token(analista)
-        analyst_payload["session_version"] = get_analyst_session_version(analista)
-        return analyst_payload
+        return serialize_analyst_session(analista)
     except HTTPException:
         raise
     except Exception as e:
@@ -1676,7 +1732,12 @@ async def login_email(req: LoginEmailRequest):
         raise HTTPException(status_code=400, detail="E-mail e senha são obrigatórios")
 
     try:
-        res = supabase.table("analistas").select("*").eq("email", email_normalizado).execute()
+        res = (
+            supabase.table("analistas")
+            .select("id,nome,email,senha,permissoes,status,is_online,total_hoje,ultima_atribuicao,session_version")
+            .eq("email", email_normalizado)
+            .execute()
+        )
         if not res.data:
             raise HTTPException(status_code=401, detail="E-mail ou senha incorretos")
 
@@ -1689,10 +1750,7 @@ async def login_email(req: LoginEmailRequest):
         if not validate_analyst_password(analista["id"], senha_recebida, senha_cadastrada):
             raise HTTPException(status_code=401, detail="E-mail ou senha incorretos")
 
-        analyst_payload = dict(analista)
-        analyst_payload["token"] = create_analyst_token(analista)
-        analyst_payload["session_version"] = get_analyst_session_version(analista)
-        return analyst_payload
+        return serialize_analyst_session(analista)
     except HTTPException:
         raise
     except Exception as e:
@@ -1897,10 +1955,18 @@ async def set_online_status(req: StatusFilaRequest, authorization: Optional[str]
         raise HTTPException(status_code=500, detail="Erro ao atualizar status da fila")
 
 @app.get("/api/analistas")
-async def listar_analistas():
+async def listar_analistas(authorization: Optional[str] = Header(default=None)):
     try:
-        res = supabase.table("analistas").select("*").order("nome").execute()
-        return res.data or []
+        require_authenticated_user(authorization)
+        res = (
+            supabase.table("analistas")
+            .select("id,nome,email,permissoes,status,is_online,total_hoje,ultima_atribuicao")
+            .order("nome")
+            .execute()
+        )
+        return [serialize_analyst_public(item) for item in (res.data or [])]
+    except HTTPException:
+        raise
     except:
         return []
 
@@ -2037,12 +2103,15 @@ async def get_analyst_dashboard(analista_id: int, authorization: Optional[str] =
 
 @app.post("/api/concluir")
 async def concluir(reserva_id: str, resultado: str, authorization: Optional[str] = Header(default=None)):
-    require_analyst_auth(authorization)
+    auth_payload = require_analyst_auth(authorization)
     dist = supabase.table("distribuicoes").select("*").eq("reserva_id", reserva_id).execute()
     if not dist.data:
         raise HTTPException(status_code=404, detail="Reserva não encontrada na mesa atual")
 
     d = dist.data[0]
+    if int(d.get("analista_id") or 0) != int(auth_payload.get("user_id") or 0):
+        raise HTTPException(status_code=403, detail="Você não tem permissão para concluir esta reserva")
+
     historico_payload = {
         "reserva_id": d["reserva_id"],
         "cliente": d["cliente"],
@@ -2594,7 +2663,7 @@ async def create_analyst(req: AnalystCreate, authorization: Optional[str] = Head
                 res = supabase.table("analistas").insert(insert_payload).execute()
             else:
                 raise
-        return res.data[0]
+        return serialize_analyst_public(res.data[0])
     except HTTPException:
         raise
     except APIError as e:
@@ -2647,7 +2716,7 @@ async def update_analyst(id: int, req: AnalystUpdate, authorization: Optional[st
         if password_changed:
             bump_session_version("analyst", int(id))
 
-        return res.data[0]
+        return serialize_analyst_public(res.data[0])
     except HTTPException:
         raise
     except APIError as e:
