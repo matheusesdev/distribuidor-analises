@@ -392,24 +392,13 @@ const App = () => {
       return;
     }
 
-    let redistribuiuPastas = false;
-    try {
-      const response = await api.setQueueStatus(currentUser.id, false);
-      if (response?.ok) {
-        const payload = await response.json();
-        redistribuiuPastas = Number(payload?.redistribuidas || 0) > 0;
-      }
-    } catch {
-      // Continua o logout local mesmo em falha de rede.
-    }
-
     clearAnalystSession();
     setIdlePrompt({ visible: false, role: null, secondsLeft: 0 });
     setView('login');
 
     if (reason === 'idle') {
       setLoginNotice('Sua sessão foi encerrada por inatividade. Faça login para retomar o atendimento.');
-      notify('Sessão encerrada por inatividade. As pastas em atendimento foram redistribuídas automaticamente.', 'error');
+      notify('Sess�o encerrada por inatividade.', 'error');
       return;
     }
 
@@ -424,12 +413,7 @@ const App = () => {
       notify('Acesso encerrado pelo gestor. Faça login novamente.', 'error');
       return;
     }
-
-    if (redistribuiuPastas) {
-      notify('Sessão encerrada. Suas pastas foram redistribuídas.', 'success');
-    } else {
-      notify('Sessão encerrada.', 'success');
-    }
+    notify('Sess�o encerrada.', 'success');
   }, [currentUser, clearAnalystSession, notify]);
 
   const handleManagerUnauthorized = useCallback(() => {
@@ -1399,13 +1383,6 @@ const App = () => {
       });
 
       if (res.ok) {
-        try {
-          if (currentUser.is_online) {
-            await api.setQueueStatus(currentUser.id, false);
-          }
-        } catch {
-          // Segue para logout mesmo em falha de rede.
-        }
 
         await handleAnalystLogout({ reason: 'password-change' });
         return true;
@@ -2133,3 +2110,6 @@ const App = () => {
 };
 
 export default App;
+
+
+
