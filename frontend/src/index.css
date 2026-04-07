@@ -203,6 +203,49 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+:root {
+  --fluid-base-font-size: clamp(15px, 14px + 0.28vw, 18px);
+}
+
+html {
+  font-size: var(--fluid-base-font-size);
+}
+
+body {
+  line-height: 1.5;
+}
+
+/* Escala tipografias muito pequenas usadas em classes arbitrarias do Tailwind. */
+[class~='text-[7px]'] {
+  font-size: clamp(0.68rem, 0.64rem + 0.12vw, 0.76rem) !important;
+  line-height: 1.3 !important;
+}
+
+[class~='text-[8px]'] {
+  font-size: clamp(0.72rem, 0.68rem + 0.16vw, 0.8rem) !important;
+  line-height: 1.32 !important;
+}
+
+[class~='text-[9px]'] {
+  font-size: clamp(0.76rem, 0.71rem + 0.2vw, 0.86rem) !important;
+  line-height: 1.34 !important;
+}
+
+[class~='text-[10px]'] {
+  font-size: clamp(0.8rem, 0.75rem + 0.24vw, 0.92rem) !important;
+  line-height: 1.36 !important;
+}
+
+[class~='text-[11px]'] {
+  font-size: clamp(0.86rem, 0.81rem + 0.24vw, 0.98rem) !important;
+  line-height: 1.38 !important;
+}
+
+[class~='text-[12px]'] {
+  font-size: clamp(0.9rem, 0.85rem + 0.2vw, 1.02rem) !important;
+  line-height: 1.4 !important;
+}
+
 :root[data-theme='dark'] {
   color-scheme: dark;
 }

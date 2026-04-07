@@ -547,20 +547,20 @@ const ManagerDashboardTab = ({
       <div className="space-y-5 md:space-y-6">
 
       <section className="rounded-[1.6rem] border border-slate-200/80 bg-white/85 p-5 md:p-6 shadow-[0_20px_45px_-30px_rgba(15,23,42,0.45)] backdrop-blur-sm">
-        <div className="mb-7 flex items-center justify-between px-1">
+        <div className="mb-7 flex flex-wrap items-center justify-between gap-2 px-1">
           <div className="flex items-center gap-2.5"><BarChart3 size={16} className="text-[#0071e3]" /><h3 className="text-[11px] font-semibold tracking-[0.06em] text-slate-700">Fluxo por Situação</h3></div>
-          <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold border transition-all ${isSyncing ? 'bg-sky-50 text-sky-700 border-sky-200 animate-pulse' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}><RefreshCw size={11} className={isSyncing ? 'animate-spin' : ''}/> {isSyncing ? 'Sincronizando' : 'Sincronizado'}</div>
+          <div className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[10px] font-semibold leading-[1.2] border transition-all ${isSyncing ? 'bg-sky-50 text-sky-700 border-sky-200 animate-pulse' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}><RefreshCw size={11} className={isSyncing ? 'animate-spin' : ''}/> {isSyncing ? 'Sincronizando' : 'Sincronizado'}</div>
         </div>
         <div className="mb-4 flex flex-wrap items-center gap-2 px-1">
-          <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold border ${monitorStyle}`}>
+          <span className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[10px] font-semibold leading-[1.2] border ${monitorStyle}`}>
             <CheckSquare size={11} />
             {monitorLabelByScope[syncScope] || 'Monitoramento indisponível'}
           </span>
-          <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold border ${hasSyncFailures ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-slate-50 text-slate-500 border-slate-200'}`}>
+          <span className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[10px] font-semibold leading-[1.2] border ${hasSyncFailures ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-slate-50 text-slate-500 border-slate-200'}`}>
             <AlertTriangle size={11} />
             Falhas: {managerSyncStatus?.situacoes_falharam?.length || 0}
           </span>
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold border bg-slate-50 text-slate-600 border-slate-200">
+          <span className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[10px] font-semibold leading-[1.2] border bg-slate-50 text-slate-600 border-slate-200">
             <Hash size={11} />
             Removidas: {managerSyncStatus?.removidas_na_limpeza || 0}
           </span>
@@ -569,8 +569,8 @@ const ManagerDashboardTab = ({
           {Object.entries(SITUACOES_MAP).map(([id, nome]) => {
             const sitStyle = SIT_COLORS[id] || { text: '#0f172a', bg: '#f8fafc' };
             return (
-              <div key={id} className="p-3 rounded-xl border text-center transition-all hover:-translate-y-0.5 hover:shadow-sm" style={{ backgroundColor: sitStyle.bg, borderColor: sitStyle.bg }}>
-                <p className="text-[7px] font-bold uppercase leading-tight mb-1 h-5 overflow-hidden line-clamp-2" style={{ color: sitStyle.text, opacity: 0.8 }}>{nome}</p>
+              <div key={id} className="p-3.5 md:p-4 rounded-xl border text-center transition-all hover:-translate-y-0.5 hover:shadow-sm min-h-[106px] flex flex-col justify-between" style={{ backgroundColor: sitStyle.bg, borderColor: sitStyle.bg }}>
+                <p className="text-[9px] font-bold uppercase leading-[1.24] tracking-[0.02em] mb-2 line-clamp-2 min-h-[2.5em]" style={{ color: sitStyle.text, opacity: 0.84 }}>{nome}</p>
                 <div className="text-lg md:text-xl font-black leading-none" style={{ color: sitStyle.text }}>{calculatedBreakdown[id] || 0}</div>
               </div>
             );

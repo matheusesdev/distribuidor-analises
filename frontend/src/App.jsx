@@ -1700,7 +1700,7 @@ const App = () => {
         onToggleDarkMode={toggleThemeMode}
       />
 
-      <main className="max-w-7xl mx-auto p-4 md:p-6 space-y-6 flex-1 w-full">
+      <main className="w-full max-w-[min(1680px,96vw)] mx-auto p-4 md:p-6 lg:p-8 xl:p-10 space-y-6 flex-1">
         <section className="w-fit rounded-full border border-slate-200/80 bg-white/80 p-1.5 shadow-[0_16px_34px_-24px_rgba(15,23,42,0.42)] backdrop-blur-xl flex gap-1.5">
           <button onClick={() => handleManagerTabChange('dashboard')} className={`px-4 py-2 rounded-full text-[12px] font-semibold tracking-[0.01em] transition-all inline-flex items-center gap-2 ${managerTab === 'dashboard' ? 'bg-[#0071e3] text-white shadow-[0_12px_24px_-16px_rgba(0,113,227,0.9)]' : 'text-slate-600 hover:bg-slate-100/90'}`}><LayoutDashboard size={13} /> Dashboard</button>
           <button onClick={() => handleManagerTabChange('fila')} className={`px-4 py-2 rounded-full text-[12px] font-semibold tracking-[0.01em] transition-all inline-flex items-center gap-2 ${managerTab === 'fila' ? 'bg-[#0071e3] text-white shadow-[0_12px_24px_-16px_rgba(0,113,227,0.9)]' : 'text-slate-600 hover:bg-slate-100/90'}`}><LineChart size={13} /> Fila</button>
@@ -1927,7 +1927,7 @@ const App = () => {
 
       {isGlobalLoading && <LoadingOverlay />}
       <nav className="sticky top-0 z-100 border-b border-slate-200/80 bg-white/88 backdrop-blur-xl shadow-[0_14px_34px_-24px_rgba(15,23,42,0.45)]">
-        <div className="h-16 md:h-18 px-3 md:px-6 lg:px-8 flex items-center justify-between gap-2 md:gap-3">
+        <div className="min-h-16 md:min-h-18 px-3 md:px-6 lg:px-8 py-2 flex items-center justify-between gap-2 md:gap-3">
           <div className="flex items-center gap-2 md:gap-3 min-w-0">
             <div className="logo-shimmer shrink-0">
               <img
@@ -1942,8 +1942,8 @@ const App = () => {
                 {currentUser?.nome?.charAt(0)}
               </div>
               <div className="min-w-0">
-                <h3 className="font-semibold text-slate-800 leading-none text-[11px] md:text-[12px] truncate max-w-42 md:max-w-60">{currentUser?.nome}</h3>
-                <span className={`mt-1 inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[8px] font-semibold tracking-[0.08em] ${currentUser?.is_online ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-slate-100 text-slate-500'}`}>
+                <h3 className="font-semibold text-slate-800 leading-tight text-[11px] md:text-[12px] truncate max-w-42 md:max-w-60">{currentUser?.nome}</h3>
+                <span className={`mt-1 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[9px] font-semibold tracking-[0.06em] leading-[1.2] ${currentUser?.is_online ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-slate-100 text-slate-500'}`}>
                   <span className={`h-1.5 w-1.5 rounded-full ${currentUser?.is_online ? 'bg-emerald-500 queue-presence-dot' : 'bg-slate-400'}`} />
                   {currentUser?.is_online ? `FILA ATIVA • ${formatIdleCountdown(refreshCountdown)}` : 'FILA PAUSADA'}
                 </span>
@@ -1995,7 +1995,7 @@ const App = () => {
                 </div>
               </div>
             </div>
-            <div className="flex items-center rounded-2xl border border-slate-200/80 bg-slate-50/85 p-1 gap-1">
+            <div className="flex flex-wrap items-center rounded-2xl border border-slate-200/80 bg-slate-50/85 p-1 gap-1">
               <button
                 onClick={() => toggleQueueStatus(!currentUser?.is_online)}
                 className={`inline-flex items-center gap-1.5 px-2.5 md:px-3 py-1.5 rounded-xl text-[9px] font-semibold tracking-[0.03em] transition-all ${currentUser?.is_online ? 'bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100' : 'bg-emerald-600 text-white border border-emerald-600 shadow-[0_12px_18px_-14px_rgba(5,150,105,0.85)] hover:bg-emerald-500'}`}
@@ -2084,7 +2084,7 @@ const App = () => {
         )}
       </nav>
 
-      <main className="max-w-7xl mx-auto p-4 md:p-8 animate-in fade-in duration-700 w-full flex-1">
+      <main className="w-full max-w-[min(1680px,96vw)] mx-auto p-4 md:p-7 lg:p-9 xl:p-10 animate-in fade-in duration-700 flex-1">
         {analystTab === 'settings' ? (
           <AnalystSettingsTab
             isSubmitting={isGlobalLoading}
