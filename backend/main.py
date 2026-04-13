@@ -43,8 +43,16 @@ def get_required_env(name: str) -> str:
 
 
 def parse_allowed_origins(raw: str) -> List[str]:
-    origins = [origin.strip() for origin in raw.split(",") if origin.strip()]
-    return origins or ["http://localhost:5173"]
+    origins = [origin.strip().rstrip("/") for origin in raw.split(",") if origin.strip()]
+    if "*" in origins:
+        raise RuntimeError("ALLOWED_ORIGINS não pode conter '*' quando allow_credentials está habilitado")
+
+    deduplicated: List[str] = []
+    for origin in origins:
+        if origin and origin not in deduplicated:
+            deduplicated.append(origin)
+
+    return deduplicated or ["http://localhost:5173"]
 
 
 def parse_bool_env(name: str, default: bool = False) -> bool:
@@ -653,7 +661,9 @@ CVCRM_TOKEN = get_required_env("CVCRM_TOKEN")
 CVCRM_BASE_URL = (os.getenv("CVCRM_BASE_URL") or "https://vca.cvcrm.com.br/api/v1/comercial/reservas").strip()
 CVCRM_LOTEAR_BASE_URL = (os.getenv("CVCRM_LOTEAR_BASE_URL") or "https://vcalotear.cvcrm.com.br/api/v1/comercial/reservas").strip()
 CVCRM_LOTEAR_TOKEN = (os.getenv("CVCRM_LOTEAR_TOKEN") or "").strip()
-ADMIN_AUTH_SECRET = (os.getenv("ADMIN_AUTH_SECRET") or SUPABASE_KEY).strip()
+ADMIN_AUTH_SECRET = get_required_env("ADMIN_AUTH_SECRET")
+if len(ADMIN_AUTH_SECRET) < 32:
+    raise RuntimeError("ADMIN_AUTH_SECRET deve ter ao menos 32 caracteres")
 MANAGER_TOKEN_TTL_SECONDS = int(os.getenv("MANAGER_TOKEN_TTL_SECONDS", "1800"))
 ANALYST_AUTH_SECRET = (os.getenv("ANALYST_AUTH_SECRET") or ADMIN_AUTH_SECRET).strip()
 ANALYST_TOKEN_TTL_SECONDS = int(os.getenv("ANALYST_TOKEN_TTL_SECONDS", "43200"))
@@ -680,13 +690,9 @@ app = FastAPI(title="VCA Distribuidor - Backend Oficial")
 
 # Configuração de CORS para o Frontend
 if isinstance(ALLOWED_ORIGINS, list):
-    cors_origins = ALLOWED_ORIGINS.copy()
+    cors_origins = [origin.rstrip("/") for origin in ALLOWED_ORIGINS if origin]
 else:
     cors_origins = parse_allowed_origins(str(ALLOWED_ORIGINS))
-
-# Adicionar URL de produção (Vercel) se não estiver já configurada
-if "https://distribuidor-analises.vercel.app" not in cors_origins:
-    cors_origins.append("https://distribuidor-analises.vercel.app")
 
 app.add_middleware(
     CORSMiddleware,
