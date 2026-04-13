@@ -6,7 +6,7 @@ Use este checklist para garantir configuracao consistente e segura entre dev, st
 
 - Nunca commitar segredos em arquivos .env reais.
 - Versionar apenas arquivos de exemplo (.env.example).
-- Definir segredos no provedor (Vercel, Fly, VPS, CI/CD secret store).
+- Definir segredos no provedor (Vercel, VPS, CI/CD secret store).
 - Rotacionar segredos ao trocar ambiente ou suspeita de vazamento.
 
 ## Dev (local)

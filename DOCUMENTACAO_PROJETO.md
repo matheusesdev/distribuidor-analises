@@ -41,7 +41,7 @@ O backend fica em `backend/` e expõe uma API HTTP que concentra autenticação,
 - Supabase como banco principal e camada de acesso aos dados
 - CVCRM como origem das reservas monitoradas
 - SMTP para envio de e-mail de redefinição de senha
-- Fly.io para deploy do backend
+- VPS com Docker e Nginx para deploy do backend
 - Vercel como URL de frontend de produção referenciada no backend
 
 ## 3. Estrutura geral da aplicação

@@ -38,7 +38,7 @@ O sistema cobre quatro frentes principais:
 - Supabase
 - CVCRM
 - SMTP para reset de senha
-- Fly.io no backend
+- VPS (Docker + Nginx) no backend
 - Vercel no frontend
 
 ## Estrutura do Projeto
@@ -205,6 +205,23 @@ npm run dev
 ```
 
 Disponível em `http://localhost:5173`.
+
+## Deploy em VPS (Backend)
+
+Arquivos de infraestrutura para VPS:
+
+- `deploy/vps/docker-compose.yml`
+- `deploy/vps/nginx.conf`
+- `deploy/vps/README.md`
+
+Resumo rápido:
+
+```bash
+cd deploy/vps
+docker compose up -d --build
+```
+
+Antes de subir, configure o arquivo `backend/.env` no servidor com os segredos corretos e ajuste `ALLOWED_ORIGINS` e `FRONTEND_URL` para os domínios de produção.
 
 ## Documentação Complementar
 
