@@ -1,6 +1,6 @@
 # Deploy do Backend em VPS
 
-Este diretório contém uma stack mínima para subir o backend em VPS com Docker Compose e Nginx.
+Este diretório contém uma stack pronta para subir o backend em VPS com Docker Compose e Nginx.
 
 ## Pré-requisitos
 
@@ -14,6 +14,15 @@ Na raiz do projeto:
 
 ```bash
 cd deploy/vps
+chmod +x preflight.sh deploy.sh
+./deploy.sh
+```
+
+Se preferir manualmente:
+
+```bash
+cd deploy/vps
+./preflight.sh
 docker compose up -d --build
 ```
 
@@ -49,3 +58,11 @@ No `backend/.env` da VPS, valide principalmente:
 ## HTTPS
 
 Este exemplo publica HTTP na porta 80. Para produção, coloque HTTPS com um proxy reverso (Nginx + Certbot, Caddy ou Traefik).
+
+## Checklist de prontidão para o dia da migração
+
+- DNS do backend apontando para a VPS
+- Variável `VITE_API_URL` do frontend apontando para a nova API
+- `ALLOWED_ORIGINS` e `FRONTEND_URL` ajustados para domínio final
+- Segredos rotacionados no ambiente de produção
+- Backup/configuração atual documentada antes do cutover
