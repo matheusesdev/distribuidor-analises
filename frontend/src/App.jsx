@@ -80,7 +80,7 @@ const getLocalDateKey = (date = new Date()) => {
 };
 
 const App = () => {
-  // --- ESTADOS DE NAVEGAÃ‡ÃƒO ---
+  // --- ESTADOS DE NAVEGAÇÃO ---
   const [view, setView] = useState('login'); 
   const [currentUser, setCurrentUser] = useState(() => {
     if (typeof window === 'undefined') return null;
@@ -212,15 +212,15 @@ const App = () => {
   };
 
   const SITUACOES_MAP = {
-    62: "ANÃLISE VENDA LOTEAMENTO",
-    66: "ANÃLISE VENDA PARCELAMENTO INCORPORADORA",
-    30: "ANÃLISE VENDA CAIXA",
-    16: "CONFECÃ‡ÃƒO DE CONTRATO",
+    62: "ANÁLISE VENDA LOTEAMENTO",
+    66: "ANÁLISE VENDA PARCELAMENTO INCORPORADORA",
+    30: "ANÁLISE VENDA CAIXA",
+    16: "CONFECÇÃO DE CONTRATO",
     31: "ASSINADO",
-    84: "APROVAÃ‡ÃƒO EXPANSÃƒO",
-    1012: "ANÃLISE VENDA LOTEAMENTO (LOTEAR)",
-    1023: "APROVAÃ‡ÃƒO EXPANSÃƒO (LOTEAR)",
-    1016: "CONFECÃ‡ÃƒO DE CONTRATO (LOTEAR)",
+    84: "APROVAÇÃO EXPANSÃO",
+    1012: "ANÁLISE VENDA LOTEAMENTO (LOTEAR)",
+    1023: "APROVAÇÃO EXPANSÃO (LOTEAR)",
+    1016: "CONFECÇÃO DE CONTRATO (LOTEAR)",
     1021: "ASSINADO (LOTEAR)",
   };
 
@@ -411,26 +411,26 @@ const App = () => {
     setView('login');
 
     if (reason === 'idle') {
-      setSafeLoginNotice('Sua sessÃ£o foi encerrada por inatividade. FaÃ§a login para retomar o atendimento.');
+      setSafeLoginNotice('Sua sessão foi encerrada por inatividade. Faça login para retomar o atendimento.');
       notify('Sessão encerrada por inatividade.', 'error');
       return;
     }
 
     if (reason === 'daily-cutoff') {
-      setSafeLoginNotice('SessÃ£o encerrada automaticamente Ã s 23:59. FaÃ§a login novamente para continuar.');
+      setSafeLoginNotice('Sessão encerrada automaticamente às 23:59. Faça login novamente para continuar.');
       notify('Sessão encerrada automaticamente às 23:59.', 'success');
       return;
     }
 
     if (reason === 'password-change') {
-      setSafeLoginNotice('Senha atualizada com sucesso. Entre novamente para abrir uma nova sessÃ£o segura.');
-      notify('Senha alterada. Por seguranÃ§a, faÃ§a login novamente.', 'success');
+      setSafeLoginNotice('Senha atualizada com sucesso. Entre novamente para abrir uma nova sessão segura.');
+      notify('Senha alterada. Por segurança, faça login novamente.', 'success');
       return;
     }
 
     if (reason === 'manager-revocation') {
-      setSafeLoginNotice('Sua sessÃ£o foi encerrada pelo gestor. FaÃ§a login novamente para continuar.');
-      notify('Acesso encerrado pelo gestor. FaÃ§a login novamente.', 'error');
+      setSafeLoginNotice('Sua sessão foi encerrada pelo gestor. Faça login novamente para continuar.');
+      notify('Acesso encerrado pelo gestor. Faça login novamente.', 'error');
       return;
     }
     notify('Sessão encerrada.', 'success');
@@ -444,8 +444,8 @@ const App = () => {
     setShowManagerPassword(false);
     setManagerTab('dashboard');
     setView('login');
-    setSafeLoginNotice('Sua sessÃ£o de gestor expirou. FaÃ§a login novamente para continuar no painel.');
-    notify('SessÃ£o do admin expirada. FaÃ§a login novamente.', 'error');
+    setSafeLoginNotice('Sua sessão de gestor expirou. Faça login novamente para continuar no painel.');
+    notify('Sessão do admin expirada. Faça login novamente.', 'error');
   }, [clearManagerSession, notify, setSafeLoginNotice]);
 
   const handleAnalystUnauthorized = useCallback(() => {
@@ -458,8 +458,8 @@ const App = () => {
 
     if (!hasAnalystSession) return;
 
-    setSafeLoginNotice('Sua sessÃ£o foi encerrada pelo gestor ou expirou. FaÃ§a login novamente para continuar.');
-    notify('SessÃ£o revogada ou expirada. FaÃ§a login novamente.', 'error');
+    setSafeLoginNotice('Sua sessão foi encerrada pelo gestor ou expirou. Faça login novamente para continuar.');
+    notify('Sessão revogada ou expirada. Faça login novamente.', 'error');
   }, [clearAnalystSession, notify, setSafeLoginNotice]);
 
   const getApiErrorMessage = async (response, fallbackMessage) => {
@@ -526,7 +526,7 @@ const App = () => {
     }));
   }, []);
 
-  // --- CÃLCULOS ANALÃTICOS (FRONTEND PARA EVITAR ZEROS) ---
+  // --- CÁLCULOS ANALÍTICOS (FRONTEND PARA EVITAR ZEROS) ---
   const calculatedStats = useMemo(() => {
     const breakdown = {};
     Object.keys(SITUACOES_MAP).forEach(id => breakdown[id] = 0);
@@ -558,7 +558,7 @@ const App = () => {
     return { breakdown, analistasMapa };
   }, [dashData, managerSyncStatus?.por_situacao, SITUACOES_MAP]);
 
-  // ExtraÃ§Ã£o das variÃ¡veis para uso direto no JSX e evitar ReferenceError
+  // Extração das variáveis para uso direto no JSX e evitar ReferenceError
   const calculatedBreakdown = calculatedStats.breakdown;
   const analistasMapa = calculatedStats.analistasMapa;
 
@@ -679,7 +679,7 @@ const App = () => {
     }
   }, [managerSession, view]);
 
-  // --- ACÃ‡Ã•ES OPERACIONAIS ---
+  // --- AÇÕES OPERACIONAIS ---
   const handleLogin = async (email, senha) => {
     if (!email || !senha) return;
     setIsGlobalLoading(true);
@@ -690,12 +690,12 @@ const App = () => {
         persistAnalystSession(userData);
         setAnalystTab('mesa');
         setSafeLoginNotice(null);
-        notify(`OlÃ¡, ${userData.nome}!`);
+        notify(`Olá, ${userData.nome}!`);
         runLoginSuccessSplash('analyst', () => setView('analyst'));
       } else {
         notify(await getApiErrorMessage(res, "Falha no login"), "error");
       }
-    } catch (e) { notify("Erro de conexÃ£o com o servidor.", "error"); }
+    } catch (e) { notify("Erro de conexão com o servidor.", "error"); }
     finally { setIsGlobalLoading(false); }
   };
 
@@ -733,13 +733,13 @@ const App = () => {
           notify('Painel admin aberto em modo de compatibilidade.');
           runLoginSuccessSplash('manager', () => setView('manager'));
         } else {
-          notify('O backend de produÃ§Ã£o nÃ£o expÃµe o login do admin nem o overview do painel.', 'error');
+          notify('O backend de produção não expõe o login do admin nem o overview do painel.', 'error');
         }
       } else {
         notify(await getApiErrorMessage(res, 'Falha no login do admin'), 'error');
       }
     } catch (e) {
-      notify('Erro de conexÃ£o com o servidor.', 'error');
+      notify('Erro de conexão com o servidor.', 'error');
     } finally {
       setIsGlobalLoading(false);
     }
@@ -828,7 +828,7 @@ const App = () => {
         notify(await getApiErrorMessage(res, 'Erro ao criar administrador'), 'error');
       }
     } catch {
-      notify('Erro de conexÃ£o ao criar administrador.', 'error');
+      notify('Erro de conexão ao criar administrador.', 'error');
     } finally {
       setIsGlobalLoading(false);
     }
@@ -857,13 +857,13 @@ const App = () => {
       }
 
       if (res.ok) {
-        notify('SessÃµes do administrador encerradas com sucesso.');
+        notify('Sessões do administrador encerradas com sucesso.');
         fetchAdminUsers();
       } else {
-        notify(await getApiErrorMessage(res, 'Erro ao revogar sessÃ£o do admin'), 'error');
+        notify(await getApiErrorMessage(res, 'Erro ao revogar sessão do admin'), 'error');
       }
     } catch {
-      notify('Erro de conexÃ£o ao revogar sessÃ£o do admin.', 'error');
+      notify('Erro de conexão ao revogar sessão do admin.', 'error');
     } finally {
       setIsGlobalLoading(false);
     }
@@ -895,10 +895,10 @@ const App = () => {
         notify('Sessão do analista encerrada com sucesso. A fila foi mantida ativa.');
         fetchData(true);
       } else {
-        notify(await getApiErrorMessage(res, 'Erro ao revogar sessÃ£o do analista'), 'error');
+        notify(await getApiErrorMessage(res, 'Erro ao revogar sessão do analista'), 'error');
       }
     } catch {
-      notify('Erro de conexÃ£o ao revogar sessÃ£o do analista.', 'error');
+      notify('Erro de conexão ao revogar sessão do analista.', 'error');
     } finally {
       setIsGlobalLoading(false);
     }
@@ -994,7 +994,7 @@ const App = () => {
       const res = await api.setQueueStatus(currentUser.id, status);
       if (res.ok) {
         persistAnalystSession({ ...currentUser, is_online: status });
-        notify(status ? "VocÃª estÃ¡ Online!" : "Pausado.");
+        notify(status ? "Você está Online!" : "Pausado.");
         fetchData();
       }
     } catch (e) { notify("Erro de status."); }
@@ -1004,11 +1004,11 @@ const App = () => {
   const handleFinish = async (id, outcome) => {
     const isConclusion = outcome === 'Concluido';
     const confirmed = await requestConfirmation({
-      title: isConclusion ? 'Confirmar conclusÃ£o' : 'Enviar para discussÃ£o',
+      title: isConclusion ? 'Confirmar conclusão' : 'Enviar para discussão',
       message: isConclusion
-        ? 'Confirma a conclusÃ£o desta pasta? Essa aÃ§Ã£o registra no histÃ³rico do analista.'
-        : 'Confirma o envio desta pasta para discussÃ£o? Ela ficarÃ¡ sinalizada para revisÃ£o.',
-      confirmLabel: isConclusion ? 'Concluir pasta' : 'Enviar para discussÃ£o',
+        ? 'Confirma a conclusão desta pasta? Essa ação registra no histórico do analista.'
+        : 'Confirma o envio desta pasta para discussão? Ela ficará sinalizada para revisão.',
+      confirmLabel: isConclusion ? 'Concluir pasta' : 'Enviar para discussão',
       tone: 'warning'
     });
     if (!confirmed) return;
@@ -1017,12 +1017,12 @@ const App = () => {
     try {
       const res = await api.finishTask(id, outcome);
       if (res.ok) {
-        notify(isConclusion ? "Pasta concluÃ­da com sucesso." : "Pasta enviada para discussÃ£o.");
+        notify(isConclusion ? "Pasta concluída com sucesso." : "Pasta enviada para discussão.");
         fetchData();
       } else {
         notify(await getApiErrorMessage(res, "Erro ao concluir pasta"), "error");
       }
-    } catch (e) { notify("Erro ao processar conclusÃ£o da pasta.", "error"); }
+    } catch (e) { notify("Erro ao processar conclusão da pasta.", "error"); }
     finally { setIsGlobalLoading(false); }
   };
 
@@ -1045,7 +1045,7 @@ const App = () => {
     if (!transferTask || !transferToId || !currentUser) return;
     const trimmedReason = transferReason.trim();
     if (!trimmedReason) {
-      notify("Informe o motivo da transferÃªncia.", "error");
+      notify("Informe o motivo da transferência.", "error");
       return;
     }
     setIsGlobalLoading(true);
@@ -1099,7 +1099,7 @@ const App = () => {
     if (!bulkTransferToId || !currentUser || selectedTaskIds.size === 0) return;
     const trimmedReason = bulkTransferReason.trim();
     if (!trimmedReason) {
-      notify("Informe o motivo da transferÃªncia.", "error");
+      notify("Informe o motivo da transferência.", "error");
       return;
     }
     setIsGlobalLoading(true);
@@ -1128,7 +1128,7 @@ const App = () => {
 
   const handleRedistribute = async () => {
     const confirmed = await requestConfirmation({
-      title: "Confirmar redistribuiÃ§Ã£o",
+      title: "Confirmar redistribuição",
       message: "Deseja realmente redistribuir as pastas agora?",
       confirmLabel: "Redistribuir",
       tone: "warning"
@@ -1142,7 +1142,7 @@ const App = () => {
         return;
       }
       if (res.ok) {
-        notify("RedistribuiÃ§Ã£o efetuada!");
+        notify("Redistribuição efetuada!");
         fetchData();
       }
     } catch (e) { notify("Erro ao redistribuir."); }
@@ -1152,7 +1152,7 @@ const App = () => {
   const handleResetData = async () => {
     const confirmed = await requestConfirmation({
       title: "Confirmar limpeza da mesa",
-      message: "Deseja realmente zerar os dados da mesa atual e reiniciar a ordem da fila (sem excluir histÃ³rico)?",
+      message: "Deseja realmente zerar os dados da mesa atual e reiniciar a ordem da fila (sem excluir histórico)?",
       confirmLabel: "Zerar Dados",
       tone: "danger"
     });
@@ -1193,7 +1193,7 @@ const App = () => {
       if (res.ok) {
         const data = await res.json();
         if (!nextStatus) {
-          notify(`${data.redistribuidas || 0} pastas redistribuÃ­das, ${data.sem_destino || 0} sem destino.`);
+          notify(`${data.redistribuidas || 0} pastas redistribuídas, ${data.sem_destino || 0} sem destino.`);
         } else {
           notify(`${analyst.nome} ficou online.`);
         }
@@ -1229,8 +1229,8 @@ const App = () => {
     if (!actionable.length) {
       notify(
         targetStatus
-          ? 'Nenhum analista elegÃ­vel para ligar a fila.'
-          : 'Nenhum analista elegÃ­vel para desligar a fila.',
+          ? 'Nenhum analista elegível para ligar a fila.'
+          : 'Nenhum analista elegível para desligar a fila.',
         'error'
       );
       return;
@@ -1239,7 +1239,7 @@ const App = () => {
     if (!targetStatus && isFullSelection) {
       const firstConfirmation = await requestConfirmation({
         title: 'Desligar fila de toda a equipe?',
-        message: `VocÃª selecionou todos os ${totalSelected || uniqueCandidates.length} analistas. Essa aÃ§Ã£o pode interromper novas atribuiÃ§Ãµes atÃ© que alguÃ©m volte a ficar online.`,
+        message: `Você selecionou todos os ${totalSelected || uniqueCandidates.length} analistas. Essa ação pode interromper novas atribuições até que alguém volte a ficar online.`,
         confirmLabel: 'Continuar',
         tone: 'danger',
       });
@@ -1247,7 +1247,7 @@ const App = () => {
       if (!firstConfirmation) return;
 
       const secondConfirmation = await requestConfirmation({
-        title: 'ConfirmaÃ§Ã£o final obrigatÃ³ria',
+        title: 'Confirmação final obrigatória',
         message: 'Confirma desligar a fila de TODOS os analistas selecionados agora?',
         confirmLabel: 'Desligar todos',
         tone: 'danger',
@@ -1308,14 +1308,14 @@ const App = () => {
         notify(`${successes.length} analista(s) ligado(s) na fila${failures.length ? `, ${failures.length} falha(s).` : '.'}`);
       } else {
         notify(
-          `${successes.length} analista(s) desligado(s). RedistribuÃ­das: ${totalRedistribuidas}. Sem destino: ${totalSemDestino}${
+          `${successes.length} analista(s) desligado(s). Redistribuídas: ${totalRedistribuidas}. Sem destino: ${totalSemDestino}${
             failures.length ? `. Falhas: ${failures.length}.` : '.'
           }`
         );
       }
       fetchData(true);
     } else {
-      notify('NÃ£o foi possÃ­vel concluir a operaÃ§Ã£o em massa.', 'error');
+      notify('Não foi possível concluir a operação em massa.', 'error');
     }
 
     setTogglingQueueIds((prev) => prev.filter((id) => !ids.includes(Number(id))));
@@ -1335,7 +1335,7 @@ const App = () => {
     }
 
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      notify('Informe um e-mail de acesso vÃ¡lido.', 'error');
+      notify('Informe um e-mail de acesso válido.', 'error');
       return;
     }
 
@@ -1345,12 +1345,12 @@ const App = () => {
     }
 
     if (!permissoes.length) {
-      notify('Selecione pelo menos uma situaÃ§Ã£o.', 'error');
+      notify('Selecione pelo menos uma situação.', 'error');
       return;
     }
 
     if (status !== 'ativo' && status !== 'inativo') {
-      notify('Status invÃ¡lido.', 'error');
+      notify('Status inválido.', 'error');
       return;
     }
 
@@ -1375,14 +1375,14 @@ const App = () => {
         } else {
             notify(await getApiErrorMessage(res, "Erro ao salvar analista"), "error");
         }
-    } catch (e) { notify("Erro de conexÃ£o.", "error"); }
+    } catch (e) { notify("Erro de conexão.", "error"); }
     finally { setIsGlobalLoading(false); }
   };
 
   const handleDeleteAnalyst = async (analyst) => {
     const analystId = Number(typeof analyst === 'object' ? analyst?.id : analyst);
     if (!Number.isFinite(analystId) || analystId <= 0) {
-      notify('Analista invÃ¡lido para exclusÃ£o.', 'error');
+      notify('Analista inválido para exclusão.', 'error');
       return;
     }
 
@@ -1392,7 +1392,7 @@ const App = () => {
 
     const confirmed = await requestConfirmation({
       title: 'Excluir analista',
-      message: `Deseja excluir ${analystName}? Esta aÃ§Ã£o remove o acesso e nÃ£o pode ser desfeita.`,
+      message: `Deseja excluir ${analystName}? Esta ação remove o acesso e não pode ser desfeita.`,
       confirmLabel: 'Excluir',
       tone: 'danger',
     });
@@ -1433,10 +1433,10 @@ const App = () => {
         return true;
       }
 
-      notify(await getApiErrorMessage(res, 'NÃ£o foi possÃ­vel alterar a senha'), 'error');
+      notify(await getApiErrorMessage(res, 'Não foi possível alterar a senha'), 'error');
       return false;
     } catch (e) {
-      notify('Erro de conexÃ£o ao alterar a senha.', 'error');
+      notify('Erro de conexão ao alterar a senha.', 'error');
       return false;
     } finally {
       setIsGlobalLoading(false);
@@ -1583,11 +1583,11 @@ const App = () => {
           </div>
           <div>
             <h3 className="text-sm font-black uppercase tracking-wide text-slate-800">
-              {idlePrompt.role === 'admin' ? 'SessÃ£o admin quase expirada' : 'Sua sessÃ£o estÃ¡ perto de expirar'}
+              {idlePrompt.role === 'admin' ? 'Sessão admin quase expirada' : 'Sua sessão está perto de expirar'}
             </h3>
             <p className="text-[11px] font-bold text-slate-500 mt-1 leading-relaxed">
               {idlePrompt.role === 'admin'
-                ? 'Sem atividade recente no painel. Confirme sua presenÃ§a para manter o acesso ativo.'
+                ? 'Sem atividade recente no painel. Confirme sua presença para manter o acesso ativo.'
                 : 'Sem atividade recente. Se a sessao expirar, voce sera desconectado e podera entrar novamente sem alterar o status da sua fila.'}
             </p>
           </div>
@@ -1600,8 +1600,8 @@ const App = () => {
                 <Clock size={12} />
               </div>
               <div>
-                <p className="text-[8px] font-semibold uppercase tracking-[0.08em] text-amber-700">ExpiraÃ§Ã£o de sessÃ£o</p>
-                <p className="text-[10px] font-semibold text-slate-700">Tempo restante para logout automÃ¡tico</p>
+                <p className="text-[8px] font-semibold uppercase tracking-[0.08em] text-amber-700">Expiração de sessão</p>
+                <p className="text-[10px] font-semibold text-slate-700">Tempo restante para logout automático</p>
               </div>
             </div>
             <span className="text-base font-semibold text-amber-900 tracking-[0.08em]">{formatIdleCountdown(idlePrompt.secondsLeft)}</span>
@@ -1621,8 +1621,8 @@ const App = () => {
               if (idlePrompt.role === 'admin') {
                 clearManagerSession();
                 setView('login');
-                setSafeLoginNotice('Sua sessÃ£o de gestor foi encerrada por escolha manual. FaÃ§a login novamente quando precisar.');
-                notify('SessÃ£o admin encerrada manualmente.', 'success');
+                setSafeLoginNotice('Sua sessão de gestor foi encerrada por escolha manual. Faça login novamente quando precisar.');
+                notify('Sessão admin encerrada manualmente.', 'success');
               } else {
                 void handleAnalystLogout({ reason: 'idle' });
               }
@@ -1640,7 +1640,7 @@ const App = () => {
             }}
             className="py-2.5 rounded-xl bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-blue-500"
           >
-            {idlePrompt.role === 'admin' ? 'Continuar sessÃ£o' : 'Continuar trabalhando'}
+            {idlePrompt.role === 'admin' ? 'Continuar sessão' : 'Continuar trabalhando'}
           </button>
         </div>
       </div>
@@ -1672,7 +1672,7 @@ const App = () => {
       onSuccess={() => {
         window.history.replaceState({}, '', window.location.pathname);
         setResetToken(null);
-        notify('Senha redefinida com sucesso! FaÃ§a login com a nova senha.');
+        notify('Senha redefinida com sucesso! Faça login com a nova senha.');
       }}
       onBackToLogin={() => {
         window.history.replaceState({}, '', window.location.pathname);
@@ -1726,7 +1726,7 @@ const App = () => {
         <section className="w-fit rounded-full border border-slate-200/80 bg-white/80 p-1.5 shadow-[0_16px_34px_-24px_rgba(15,23,42,0.42)] backdrop-blur-xl flex gap-1.5">
           <button onClick={() => handleManagerTabChange('dashboard')} className={`px-4 py-2 rounded-full text-[12px] font-semibold tracking-[0.01em] transition-all inline-flex items-center gap-2 ${managerTab === 'dashboard' ? 'bg-[#0071e3] text-white shadow-[0_12px_24px_-16px_rgba(0,113,227,0.9)]' : 'text-slate-600 hover:bg-slate-100/90'}`}><LayoutDashboard size={13} /> Dashboard</button>
           <button onClick={() => handleManagerTabChange('fila')} className={`px-4 py-2 rounded-full text-[12px] font-semibold tracking-[0.01em] transition-all inline-flex items-center gap-2 ${managerTab === 'fila' ? 'bg-[#0071e3] text-white shadow-[0_12px_24px_-16px_rgba(0,113,227,0.9)]' : 'text-slate-600 hover:bg-slate-100/90'}`}><LineChart size={13} /> Fila</button>
-          <button onClick={() => handleManagerTabChange('transferencias')} className={`px-4 py-2 rounded-full text-[12px] font-semibold tracking-[0.01em] transition-all inline-flex items-center gap-2 ${managerTab === 'transferencias' ? 'bg-[#0071e3] text-white shadow-[0_12px_24px_-16px_rgba(0,113,227,0.9)]' : 'text-slate-600 hover:bg-slate-100/90'}`}><ArrowRightLeft size={13} /> TransferÃªncias</button>
+          <button onClick={() => handleManagerTabChange('transferencias')} className={`px-4 py-2 rounded-full text-[12px] font-semibold tracking-[0.01em] transition-all inline-flex items-center gap-2 ${managerTab === 'transferencias' ? 'bg-[#0071e3] text-white shadow-[0_12px_24px_-16px_rgba(0,113,227,0.9)]' : 'text-slate-600 hover:bg-slate-100/90'}`}><ArrowRightLeft size={13} /> Transferências</button>
           <button onClick={() => handleManagerTabChange('admins')} className={`px-4 py-2 rounded-full text-[12px] font-semibold tracking-[0.01em] transition-all inline-flex items-center gap-2 ${managerTab === 'admins' ? 'bg-[#0071e3] text-white shadow-[0_12px_24px_-16px_rgba(0,113,227,0.9)]' : 'text-slate-600 hover:bg-slate-100/90'}`}><UserPlus size={13} /> Admins</button>
         </section>
 
@@ -1820,7 +1820,7 @@ const App = () => {
               </div>
               <div className="min-w-0">
                 <h3 className="text-[15px] font-semibold tracking-[-0.01em] text-slate-900">Transferir pasta</h3>
-                <p className="text-[12px] font-medium text-slate-500 mt-1 leading-relaxed truncate">Reserva {transferTask.reserva_id} â€¢ {transferTask.cliente}</p>
+                <p className="text-[12px] font-medium text-slate-500 mt-1 leading-relaxed truncate">Reserva {transferTask.reserva_id} • {transferTask.cliente}</p>
               </div>
             </div>
 
@@ -1845,7 +1845,7 @@ const App = () => {
                   );
                 }) : (
                   <div className="px-2 py-3 text-center text-[11px] font-semibold tracking-[0.02em] text-slate-400">
-                    Nenhum analista ativo disponÃ­vel
+                    Nenhum analista ativo disponível
                   </div>
                 )}
               </div>
@@ -1858,7 +1858,7 @@ const App = () => {
                 )}
               </div>
 
-              <label className="text-[11px] font-semibold tracking-[0.06em] text-slate-600">Motivo da transferÃªncia *</label>
+              <label className="text-[11px] font-semibold tracking-[0.06em] text-slate-600">Motivo da transferência *</label>
               <input
                 type="text"
                 value={transferReason}
@@ -1891,7 +1891,7 @@ const App = () => {
                 <ArrowRightLeft size={16} />
               </div>
               <div className="min-w-0">
-                <h3 className="text-[15px] font-semibold tracking-[-0.01em] text-slate-900">TransferÃªncia em massa</h3>
+                <h3 className="text-[15px] font-semibold tracking-[-0.01em] text-slate-900">Transferência em massa</h3>
                 <p className="text-[12px] font-medium text-slate-500 mt-1 leading-relaxed">{selectedTaskIds.size} pasta{selectedTaskIds.size !== 1 ? 's' : ''} selecionada{selectedTaskIds.size !== 1 ? 's' : ''}</p>
               </div>
             </div>
@@ -1917,17 +1917,17 @@ const App = () => {
                   );
                 }) : (
                   <div className="px-2 py-3 text-center text-[11px] font-semibold tracking-[0.02em] text-slate-400">
-                    Nenhum analista ativo disponÃ­vel
+                    Nenhum analista ativo disponível
                   </div>
                 )}
               </div>
 
-              <label className="text-[11px] font-semibold tracking-[0.06em] text-slate-600">Motivo da transferÃªncia *</label>
+              <label className="text-[11px] font-semibold tracking-[0.06em] text-slate-600">Motivo da transferência *</label>
               <input
                 type="text"
                 value={bulkTransferReason}
                 onChange={(e) => setBulkTransferReason(e.target.value)}
-                placeholder="Ex.: redistribuiÃ§Ã£o para acelerar atendimento"
+                placeholder="Ex.: redistribuição para acelerar atendimento"
                 className="w-full bg-white border border-slate-200 rounded-2xl py-3 px-4 text-[12px] text-slate-700 font-medium outline-none focus:ring-4 focus:ring-blue-100/80 focus:border-blue-300"
                 required
               />
@@ -1967,7 +1967,7 @@ const App = () => {
                 <h3 className="font-semibold text-slate-800 leading-tight text-[11px] md:text-[12px] truncate max-w-42 md:max-w-60">{currentUser?.nome}</h3>
                 <span className={`mt-1 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[9px] font-semibold tracking-[0.06em] leading-[1.2] ${currentUser?.is_online ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-slate-100 text-slate-500'}`}>
                   <span className={`h-1.5 w-1.5 rounded-full ${currentUser?.is_online ? 'bg-emerald-500 queue-presence-dot' : 'bg-slate-400'}`} />
-                  {currentUser?.is_online ? `FILA ATIVA â€¢ ${formatIdleCountdown(refreshCountdown)}` : 'FILA PAUSADA'}
+                  {currentUser?.is_online ? `FILA ATIVA • ${formatIdleCountdown(refreshCountdown)}` : 'FILA PAUSADA'}
                 </span>
               </div>
             </div>
@@ -1980,7 +1980,7 @@ const App = () => {
                  <AlertTriangle size={12} className="shrink-0" />
                </div>
                <div className="min-w-0">
-                 <p className="text-[8px] font-semibold uppercase tracking-[0.08em] text-amber-700">SessÃ£o ativa</p>
+                 <p className="text-[8px] font-semibold uppercase tracking-[0.08em] text-amber-700">Sessão ativa</p>
                  <p className="text-[10px] font-semibold text-slate-700">Expira em {formatIdleCountdown(analystIdleSecondsLeft)}</p>
                  <div className="mt-1 h-1 w-20 rounded-full bg-amber-100 overflow-hidden">
                    <div
@@ -1994,7 +1994,7 @@ const App = () => {
             <button
               onClick={() => setAnalystTab('analytics')}
               className="inline-flex items-center gap-1 md:gap-1.5 px-2.5 md:px-3 py-1.5 rounded-full border border-blue-200 bg-blue-50 text-blue-700 transition-all hover:-translate-y-0.5 active:translate-y-0"
-              title="Abrir dashboard analÃ­tico"
+              title="Abrir dashboard analítico"
             >
               <TrendingUp size={12} className="shrink-0" />
               <span className="text-[9px] font-black uppercase tracking-widest md:hidden">{metrics.hoje}</span>
@@ -2039,16 +2039,16 @@ const App = () => {
               <button
                 onClick={() => setAnalystTab('analytics')}
                 className={`inline-flex items-center gap-1 px-2.5 md:px-3 py-1.5 rounded-xl text-[9px] font-semibold tracking-[0.03em] transition-all ${analystTab === 'analytics' ? 'bg-white text-[#0071e3] border border-blue-100 shadow-[0_10px_14px_-12px_rgba(0,113,227,0.8)]' : 'text-slate-500 hover:text-slate-700'}`}
-                title="Dashboard analÃ­tico"
+                title="Dashboard analítico"
               >
                 <BarChart3 size={14} />
-                <span className="hidden lg:inline">AnalÃ­tico</span>
+                <span className="hidden lg:inline">Analítico</span>
               </button>
 
               <button
                 onClick={() => setAnalystTab('settings')}
                 className={`inline-flex items-center gap-1 px-2.5 md:px-3 py-1.5 rounded-xl text-[9px] font-semibold tracking-[0.03em] transition-all ${analystTab === 'settings' ? 'bg-white text-[#0071e3] border border-blue-100 shadow-[0_10px_14px_-12px_rgba(0,113,227,0.8)]' : 'text-slate-500 hover:text-slate-700'}`}
-                title="ConfiguraÃ§Ãµes"
+                title="Configurações"
               >
                 <Settings size={14} />
                 <span className="hidden lg:inline">Config</span>
@@ -2080,7 +2080,7 @@ const App = () => {
                   <div className="w-6 h-6 rounded-lg bg-amber-100 text-amber-700 inline-flex items-center justify-center shrink-0">
                     <AlertTriangle size={11} />
                   </div>
-                  <p className="text-[10px] font-semibold text-slate-700 truncate">SessÃ£o expira em {formatIdleCountdown(analystIdleSecondsLeft)}</p>
+                  <p className="text-[10px] font-semibold text-slate-700 truncate">Sessão expira em {formatIdleCountdown(analystIdleSecondsLeft)}</p>
                 </div>
                 <div className="inline-flex items-center gap-1.5 shrink-0">
                   <span className="text-[10px] font-semibold text-amber-800 tracking-[0.06em]">{formatIdleCountdown(analystIdleSecondsLeft)}</span>
@@ -2122,7 +2122,7 @@ const App = () => {
         ) : currentUser && !currentUser.is_online && analystTab === 'mesa' ? (
            <div className="py-20 md:py-24 text-center bg-white border border-slate-100 rounded-[2.5rem] md:rounded-[3.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.02)] max-w-md mx-auto flex flex-col items-center animate-in zoom-in-95 px-6">
               <div className="w-14 h-14 bg-slate-50 rounded-full flex items-center justify-center text-slate-300 mb-6 border border-slate-100 shrink-0"><AlertTriangle size={32}/></div>
-              <h2 className="text-xl font-black text-slate-700 mb-2 uppercase tracking-tighter text-center leading-none">VocÃª estÃ¡ Pausado</h2>
+              <h2 className="text-xl font-black text-slate-700 mb-2 uppercase tracking-tighter text-center leading-none">Você está Pausado</h2>
               <p className="text-slate-400 font-bold text-[10px] max-w-xs mx-auto mb-8 text-center uppercase tracking-widest leading-relaxed px-4">Ative sua fila no menu superior para voltar a receber pastas do CRM.</p>
               <button onClick={() => toggleQueueStatus(true)} className="bg-blue-600 text-white px-10 py-4 rounded-xl font-black uppercase text-[10px] shadow-xl active:scale-95 flex items-center gap-3"><Power size={18}/> Ligar Fila</button>
            </div>
@@ -2146,7 +2146,7 @@ const App = () => {
               handleFinish={handleFinish}
             />
           ) : (
-            <div className="space-y-6 py-20 text-center text-slate-300 italic text-[11px] uppercase tracking-[0.4em] font-bold px-6">Nenhum conteÃºdo disponÃ­vel nesta aba.</div>
+            <div className="space-y-6 py-20 text-center text-slate-300 italic text-[11px] uppercase tracking-[0.4em] font-bold px-6">Nenhum conteúdo disponível nesta aba.</div>
           )
         )}
       </main>
@@ -2155,6 +2155,7 @@ const App = () => {
 };
 
 export default App;
+
 
 
 
