@@ -1,7 +1,7 @@
 ﻿import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { 
   RefreshCw, Clock, CheckCircle2, History, Building2, 
-  Hash, LayoutDashboard, AlertTriangle, XCircle, BarChart4, 
+  Hash, LayoutDashboard, AlertTriangle, XCircle, X, BarChart4, 
   TrendingUp, Calendar, LogOut, Lock, Eye, EyeOff,
   UserPlus, Trash2, Power, Settings, CheckSquare, Square, 
   Edit3, UserCheck, Users, ShieldCheck, Save,
@@ -193,10 +193,12 @@ const App = () => {
   const [showTransferModal, setShowTransferModal] = useState(false);
   const [transferTask, setTransferTask] = useState(null);
   const [transferToId, setTransferToId] = useState("");
+  const [transferTargetSearch, setTransferTargetSearch] = useState("");
   const [transferReason, setTransferReason] = useState("");
   const [selectedTaskIds, setSelectedTaskIds] = useState(new Set());
   const [showBulkTransferModal, setShowBulkTransferModal] = useState(false);
   const [bulkTransferToId, setBulkTransferToId] = useState("");
+  const [bulkTransferTargetSearch, setBulkTransferTargetSearch] = useState("");
   const [bulkTransferReason, setBulkTransferReason] = useState("");
   const [idlePrompt, setIdlePrompt] = useState({ visible: false, role: null, secondsLeft: 0 });
   const [mobileIdleWarningDismissUntil, setMobileIdleWarningDismissUntil] = useState(0);
@@ -1045,6 +1047,7 @@ const App = () => {
   const openTransferModal = (task) => {
     setTransferTask(task);
     setTransferToId("");
+    setTransferTargetSearch("");
     setTransferReason("");
     setShowTransferModal(true);
   };
@@ -1099,6 +1102,7 @@ const App = () => {
 
   const openBulkTransferModal = () => {
     setBulkTransferToId("");
+    setBulkTransferTargetSearch("");
     setBulkTransferReason("");
     setShowBulkTransferModal(true);
   };
@@ -1475,6 +1479,31 @@ const App = () => {
     return transferTargetOptions.find(a => String(a.id) === String(transferToId)) || null;
   }, [transferTargetOptions, transferToId]);
 
+  const selectedBulkTransferTarget = useMemo(() => {
+    if (!bulkTransferToId) return null;
+    return transferTargetOptions.find(a => String(a.id) === String(bulkTransferToId)) || null;
+  }, [transferTargetOptions, bulkTransferToId]);
+
+  const filteredTransferTargetOptions = useMemo(() => {
+    const term = transferTargetSearch.trim().toLowerCase();
+    if (!term) return transferTargetOptions;
+    return transferTargetOptions.filter((a) => {
+      const nome = String(a?.nome || '').toLowerCase();
+      const email = String(a?.email || '').toLowerCase();
+      return nome.includes(term) || email.includes(term);
+    });
+  }, [transferTargetOptions, transferTargetSearch]);
+
+  const filteredBulkTransferTargetOptions = useMemo(() => {
+    const term = bulkTransferTargetSearch.trim().toLowerCase();
+    if (!term) return transferTargetOptions;
+    return transferTargetOptions.filter((a) => {
+      const nome = String(a?.nome || '').toLowerCase();
+      const email = String(a?.email || '').toLowerCase();
+      return nome.includes(term) || email.includes(term);
+    });
+  }, [transferTargetOptions, bulkTransferTargetSearch]);
+
   const groupedTransferLogs = useMemo(() => {
     const logs = dashData.logs_transferencias || [];
 
@@ -1821,21 +1850,52 @@ const App = () => {
       {idlePromptModal}
       {showTransferModal && transferTask && (
         <div className="fixed inset-0 bg-slate-950/55 backdrop-blur-md z-450 flex items-center justify-center p-3 sm:p-4" onClick={() => setShowTransferModal(false)}>
-          <div className="w-full max-w-xl border border-white/80 rounded-3xl bg-white/95 p-5 sm:p-6 shadow-[0_36px_70px_-30px_rgba(15,23,42,0.88)] animate-in zoom-in-95 duration-300" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-start gap-3.5 mb-5">
-              <div className="w-10 h-10 rounded-2xl flex items-center justify-center bg-blue-50 border border-blue-100 text-[#0071e3]">
-                <ArrowRightLeft size={16} />
+          <div className="w-full max-w-2xl border border-white/80 rounded-3xl bg-white/95 p-5 sm:p-6 shadow-[0_36px_70px_-30px_rgba(15,23,42,0.88)] animate-in zoom-in-95 duration-300" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between gap-3.5 mb-4">
+              <div className="flex items-start gap-3.5 min-w-0">
+                <div className="w-11 h-11 rounded-2xl flex items-center justify-center bg-blue-50 border border-blue-100 text-[#0071e3] shrink-0">
+                  <ArrowRightLeft size={17} />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-[16px] font-semibold tracking-[-0.01em] text-slate-900">Transferir pasta</h3>
+                  <p className="text-[12px] font-semibold text-slate-500 mt-1 leading-relaxed truncate">Reserva {transferTask.reserva_id} • {transferTask.cliente}</p>
+                </div>
               </div>
-              <div className="min-w-0">
-                <h3 className="text-[15px] font-semibold tracking-[-0.01em] text-slate-900">Transferir pasta</h3>
-                <p className="text-[12px] font-medium text-slate-500 mt-1 leading-relaxed truncate">Reserva {transferTask.reserva_id} • {transferTask.cliente}</p>
+              <button
+                type="button"
+                onClick={() => setShowTransferModal(false)}
+                className="w-9 h-9 rounded-xl border border-slate-200 bg-white text-slate-500 inline-flex items-center justify-center hover:bg-slate-50 hover:text-slate-700 transition-all"
+                aria-label="Fechar modal"
+              >
+                <X size={15} />
+              </button>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/80 px-3.5 py-3 mb-4">
+              <p className="text-[10px] font-semibold tracking-[0.08em] text-slate-500 uppercase">Resumo rápido</p>
+              <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px] font-semibold text-slate-700">
+                <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-2.5 py-1">#{getReservaDisplayId(transferTask.reserva_id)}</span>
+                <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-2.5 py-1">{transferTask.situacao_nome || 'Sem situação'}</span>
               </div>
             </div>
 
             <div className="space-y-4">
-              <label className="text-[11px] font-semibold tracking-[0.06em] text-slate-600">Analista destino</label>
-              <div className="bg-slate-50/80 border border-slate-200 rounded-2xl p-2.5 max-h-52 overflow-y-auto custom-scrollbar space-y-2">
-                {transferTargetOptions.length > 0 ? transferTargetOptions.map(a => {
+              <div>
+                <label className="text-[11px] font-semibold tracking-[0.06em] text-slate-600">Analista destino</label>
+                <div className="mt-2 flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2.5">
+                  <Search size={14} className="text-slate-400 shrink-0" />
+                  <input
+                    type="text"
+                    value={transferTargetSearch}
+                    onChange={(e) => setTransferTargetSearch(e.target.value)}
+                    placeholder="Buscar analista por nome"
+                    className="w-full bg-transparent text-[12px] font-medium text-slate-700 outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="bg-slate-50/80 border border-slate-200 rounded-2xl p-2.5 max-h-56 overflow-y-auto custom-scrollbar space-y-2">
+                {filteredTransferTargetOptions.length > 0 ? filteredTransferTargetOptions.map(a => {
                   const isSelected = String(transferToId) === String(a.id);
                   return (
                     <button
@@ -1852,8 +1912,8 @@ const App = () => {
                     </button>
                   );
                 }) : (
-                  <div className="px-2 py-3 text-center text-[11px] font-semibold tracking-[0.02em] text-slate-400">
-                    Nenhum analista ativo disponível
+                  <div className="px-2 py-4 text-center text-[11px] font-semibold tracking-[0.02em] text-slate-400">
+                    Nenhum analista encontrado para esse filtro
                   </div>
                 )}
               </div>
@@ -1866,15 +1926,17 @@ const App = () => {
                 )}
               </div>
 
-              <label className="text-[11px] font-semibold tracking-[0.06em] text-slate-600">Motivo da transferência *</label>
-              <input
-                type="text"
-                value={transferReason}
-                onChange={(e) => setTransferReason(e.target.value)}
-                placeholder="Ex.: balanceamento de carga da fila"
-                className="w-full bg-white border border-slate-200 rounded-2xl py-3 px-4 text-[12px] text-slate-700 font-medium outline-none focus:ring-4 focus:ring-blue-100/80 focus:border-blue-300"
-                required
-              />
+              <div>
+                <label className="text-[11px] font-semibold tracking-[0.06em] text-slate-600">Motivo da transferência *</label>
+                <input
+                  type="text"
+                  value={transferReason}
+                  onChange={(e) => setTransferReason(e.target.value)}
+                  placeholder="Ex.: balanceamento de carga da fila"
+                  className="mt-2 w-full bg-white border border-slate-200 rounded-2xl py-3 px-4 text-[12px] text-slate-700 font-medium outline-none focus:ring-4 focus:ring-blue-100/80 focus:border-blue-300"
+                  required
+                />
+              </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mt-5">
@@ -1884,7 +1946,7 @@ const App = () => {
                 onClick={handleTransferTask}
                 className="py-2.5 rounded-2xl text-[11px] font-semibold text-white bg-[linear-gradient(135deg,#0071e3_0%,#005bb7_100%)] disabled:bg-blue-300 disabled:cursor-not-allowed transition-all hover:-translate-y-0.5 active:translate-y-0"
               >
-                Transferir
+                Transferir pasta
               </button>
             </div>
           </div>
@@ -1893,21 +1955,54 @@ const App = () => {
 
       {showBulkTransferModal && (
         <div className="fixed inset-0 bg-slate-950/55 backdrop-blur-md z-450 flex items-center justify-center p-3 sm:p-4" onClick={() => setShowBulkTransferModal(false)}>
-          <div className="w-full max-w-xl border border-white/80 rounded-3xl bg-white/95 p-5 sm:p-6 shadow-[0_36px_70px_-30px_rgba(15,23,42,0.88)] animate-in zoom-in-95 duration-300" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-start gap-3.5 mb-5">
-              <div className="w-10 h-10 rounded-2xl flex items-center justify-center bg-blue-50 border border-blue-100 text-[#0071e3] shrink-0">
-                <ArrowRightLeft size={16} />
+          <div className="w-full max-w-2xl border border-white/80 rounded-3xl bg-white/95 p-5 sm:p-6 shadow-[0_36px_70px_-30px_rgba(15,23,42,0.88)] animate-in zoom-in-95 duration-300" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between gap-3.5 mb-4">
+              <div className="flex items-start gap-3.5 min-w-0">
+                <div className="w-11 h-11 rounded-2xl flex items-center justify-center bg-blue-50 border border-blue-100 text-[#0071e3] shrink-0">
+                  <ArrowRightLeft size={17} />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-[16px] font-semibold tracking-[-0.01em] text-slate-900">Transferência em massa</h3>
+                  <p className="text-[12px] font-semibold text-slate-500 mt-1 leading-relaxed">{selectedTaskIds.size} pasta{selectedTaskIds.size !== 1 ? 's' : ''} selecionada{selectedTaskIds.size !== 1 ? 's' : ''}</p>
+                </div>
               </div>
-              <div className="min-w-0">
-                <h3 className="text-[15px] font-semibold tracking-[-0.01em] text-slate-900">Transferência em massa</h3>
-                <p className="text-[12px] font-medium text-slate-500 mt-1 leading-relaxed">{selectedTaskIds.size} pasta{selectedTaskIds.size !== 1 ? 's' : ''} selecionada{selectedTaskIds.size !== 1 ? 's' : ''}</p>
+              <button
+                type="button"
+                onClick={() => setShowBulkTransferModal(false)}
+                className="w-9 h-9 rounded-xl border border-slate-200 bg-white text-slate-500 inline-flex items-center justify-center hover:bg-slate-50 hover:text-slate-700 transition-all"
+                aria-label="Fechar modal"
+              >
+                <X size={15} />
+              </button>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/80 px-3.5 py-3 mb-4">
+              <p className="text-[10px] font-semibold tracking-[0.08em] text-slate-500 uppercase">Resumo rápido</p>
+              <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px] font-semibold text-slate-700">
+                <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-2.5 py-1">{selectedTaskIds.size} itens</span>
+                {selectedBulkTransferTarget && (
+                  <span className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-[#0071e3]">Destino: {selectedBulkTransferTarget.nome}</span>
+                )}
               </div>
             </div>
 
             <div className="space-y-4">
-              <label className="text-[11px] font-semibold tracking-[0.06em] text-slate-600">Analista destino</label>
-              <div className="bg-slate-50/80 border border-slate-200 rounded-2xl p-2.5 max-h-52 overflow-y-auto custom-scrollbar space-y-2">
-                {transferTargetOptions.length > 0 ? transferTargetOptions.map(a => {
+              <div>
+                <label className="text-[11px] font-semibold tracking-[0.06em] text-slate-600">Analista destino</label>
+                <div className="mt-2 flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2.5">
+                  <Search size={14} className="text-slate-400 shrink-0" />
+                  <input
+                    type="text"
+                    value={bulkTransferTargetSearch}
+                    onChange={(e) => setBulkTransferTargetSearch(e.target.value)}
+                    placeholder="Buscar analista por nome"
+                    className="w-full bg-transparent text-[12px] font-medium text-slate-700 outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="bg-slate-50/80 border border-slate-200 rounded-2xl p-2.5 max-h-56 overflow-y-auto custom-scrollbar space-y-2">
+                {filteredBulkTransferTargetOptions.length > 0 ? filteredBulkTransferTargetOptions.map(a => {
                   const isSelected = String(bulkTransferToId) === String(a.id);
                   return (
                     <button
@@ -1924,21 +2019,23 @@ const App = () => {
                     </button>
                   );
                 }) : (
-                  <div className="px-2 py-3 text-center text-[11px] font-semibold tracking-[0.02em] text-slate-400">
-                    Nenhum analista ativo disponível
+                  <div className="px-2 py-4 text-center text-[11px] font-semibold tracking-[0.02em] text-slate-400">
+                    Nenhum analista encontrado para esse filtro
                   </div>
                 )}
               </div>
 
-              <label className="text-[11px] font-semibold tracking-[0.06em] text-slate-600">Motivo da transferência *</label>
-              <input
-                type="text"
-                value={bulkTransferReason}
-                onChange={(e) => setBulkTransferReason(e.target.value)}
-                placeholder="Ex.: redistribuição para acelerar atendimento"
-                className="w-full bg-white border border-slate-200 rounded-2xl py-3 px-4 text-[12px] text-slate-700 font-medium outline-none focus:ring-4 focus:ring-blue-100/80 focus:border-blue-300"
-                required
-              />
+              <div>
+                <label className="text-[11px] font-semibold tracking-[0.06em] text-slate-600">Motivo da transferência *</label>
+                <input
+                  type="text"
+                  value={bulkTransferReason}
+                  onChange={(e) => setBulkTransferReason(e.target.value)}
+                  placeholder="Ex.: redistribuição para acelerar atendimento"
+                  className="mt-2 w-full bg-white border border-slate-200 rounded-2xl py-3 px-4 text-[12px] text-slate-700 font-medium outline-none focus:ring-4 focus:ring-blue-100/80 focus:border-blue-300"
+                  required
+                />
+              </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mt-5">
@@ -1948,7 +2045,7 @@ const App = () => {
                 onClick={handleBulkTransfer}
                 className="py-2.5 rounded-2xl text-[11px] font-semibold text-white bg-[linear-gradient(135deg,#0071e3_0%,#005bb7_100%)] disabled:bg-blue-300 disabled:cursor-not-allowed transition-all hover:-translate-y-0.5 active:translate-y-0"
               >
-                Transferir {selectedTaskIds.size} Pasta{selectedTaskIds.size !== 1 ? 's' : ''}
+                Transferir {selectedTaskIds.size} pasta{selectedTaskIds.size !== 1 ? 's' : ''}
               </button>
             </div>
           </div>
