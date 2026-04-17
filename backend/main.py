@@ -1296,6 +1296,66 @@ async def get_next_analyst(sit_id: int, exclude_ids: Optional[List[int]] = None)
         print(f"Erro na fila de analistas: {e}")
     return None
 
+
+async def reconcile_analyst_mesa(analyst_id: int, *, allowed_situations: Optional[List[int]] = None, force_reassign_all: bool = False) -> Dict[str, int]:
+    """Reatribui pastas quando a mesa atual não combina mais com as permissões do analista."""
+    mesa = supabase.table("distribuicoes").select("reserva_id,situacao_id").eq("analista_id", analyst_id).execute()
+    itens_mesa = mesa.data or []
+    redistribuidas = 0
+    sem_destino = 0
+    allowed_set = {int(item) for item in (allowed_situations or []) if item is not None}
+
+    for item in itens_mesa:
+        sit_id = int(item.get("situacao_id") or 0)
+        if not force_reassign_all and sit_id in allowed_set:
+            continue
+
+        proximo = await get_next_analyst(sit_id, exclude_ids=[analyst_id])
+        if not proximo:
+            supabase.table("distribuicoes").update({
+                "analista_id": None,
+                "data_atribuicao": None,
+            }).eq("reserva_id", item["reserva_id"]).execute()
+            sem_destino += 1
+            continue
+
+        now = datetime.datetime.now().isoformat()
+        supabase.table("distribuicoes").update({
+            "analista_id": proximo["id"],
+            "data_atribuicao": now,
+        }).eq("reserva_id", item["reserva_id"]).execute()
+
+        supabase.table("analistas").update({
+            "ultima_atribuicao": now,
+            "total_hoje": build_next_total_hoje(proximo),
+        }).eq("id", proximo["id"]).execute()
+        redistribuidas += 1
+
+    return {"redistribuidas": redistribuidas, "sem_destino": sem_destino}
+
+
+async def reconcile_analyst_mesa_against_current_permissions(analyst_id: int) -> Dict[str, int]:
+    analyst_response = (
+        supabase.table("analistas")
+        .select("permissoes,status")
+        .eq("id", analyst_id)
+        .limit(1)
+        .execute()
+    )
+
+    if not analyst_response.data:
+        return {"redistribuidas": 0, "sem_destino": 0}
+
+    analyst = analyst_response.data[0]
+    status = str(analyst.get("status") or "ativo").strip().lower()
+    permissions = [int(item) for item in (analyst.get("permissoes") or []) if item is not None]
+
+    return await reconcile_analyst_mesa(
+        analyst_id,
+        allowed_situations=permissions,
+        force_reassign_all=status == "inativo",
+    )
+
 async def perform_sync():
     """
     Sincroniza reservas do CVCRM com a mesa local.
@@ -2004,6 +2064,7 @@ async def listar_analistas(authorization: Optional[str] = Header(default=None)):
 @app.get("/api/mesa/{analista_id}")
 async def get_mesa(analista_id: int, authorization: Optional[str] = Header(default=None)):
     require_analyst_auth(authorization, expected_analyst_id=analista_id)
+    await reconcile_analyst_mesa_against_current_permissions(analista_id)
     res = supabase.table("distribuicoes").select("*").eq("analista_id", analista_id).execute()
     return res.data or []
 
@@ -2711,6 +2772,20 @@ async def update_analyst(id: int, req: AnalystUpdate, authorization: Optional[st
         data = {k: v for k, v in req.dict().items() if v is not None}
         password_changed = False
 
+        current_response = (
+            supabase.table("analistas")
+            .select("permissoes,status")
+            .eq("id", id)
+            .limit(1)
+            .execute()
+        )
+        if not current_response.data:
+            raise HTTPException(status_code=404, detail="Analista não encontrado")
+
+        current_analyst = current_response.data[0]
+        current_permissions = [int(item) for item in (current_analyst.get("permissoes") or []) if item is not None]
+        current_status = str(current_analyst.get("status") or "ativo").strip().lower()
+
         if "nome" in data:
             data["nome"] = str(data["nome"] or "").strip()
             if not data["nome"]:
@@ -2739,10 +2814,25 @@ async def update_analyst(id: int, req: AnalystUpdate, authorization: Optional[st
             if data["status"] == "inativo":
                 data["is_online"] = False
 
+        updated_permissions = current_permissions
+        permissions_changed = False
+        if "permissoes" in data:
+            updated_permissions = [int(item) for item in (data.get("permissoes") or []) if item is not None]
+            permissions_changed = set(updated_permissions) != set(current_permissions)
+
         if not data:
             raise HTTPException(status_code=400, detail="Nenhum campo válido para atualizar")
 
         res = supabase.table("analistas").update(data).eq("id", id).execute()
+
+        updated_status = str(data.get("status", current_status) or current_status).strip().lower()
+        should_reconcile_mesa = permissions_changed or updated_status == "inativo"
+        if should_reconcile_mesa:
+            await reconcile_analyst_mesa(
+                id,
+                allowed_situations=updated_permissions,
+                force_reassign_all=updated_status == "inativo",
+            )
 
         if password_changed:
             bump_session_version("analyst", int(id))
