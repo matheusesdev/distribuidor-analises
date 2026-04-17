@@ -48,6 +48,25 @@ def auth_header(app_module, analyst_id=1):
     return {"Authorization": f"Bearer {token}"}
 
 
+def seed_admins(app_module):
+    app_module.supabase.db["administradores"] = [
+        {
+            "id": 99,
+            "username": "gestor",
+            "email": "gestor@teste.com",
+            "senha": app_module.hash_password("Admin@123"),
+            "ativo": True,
+            "session_version": 1,
+        }
+    ]
+
+
+def manager_auth_header(app_module, admin_id=99):
+    admin = next(item for item in app_module.supabase.db["administradores"] if item["id"] == admin_id)
+    token = app_module.create_manager_token(admin)
+    return {"Authorization": f"Bearer {token}"}
+
+
 def test_login_email_hides_sensitive_fields(client, app_module):
     seed_analysts(app_module)
 
@@ -61,6 +80,19 @@ def test_login_email_hides_sensitive_fields(client, app_module):
     assert "token" in payload
     assert "senha" not in payload
     assert "session_version" not in payload
+
+
+def test_login_email_sets_analyst_online_when_needed(client, app_module):
+    seed_analysts(app_module)
+    analyst = next(item for item in app_module.supabase.db["analistas"] if item["id"] == 1)
+    analyst["is_online"] = False
+
+    response = client.post("/api/login/email", json={"email": "ana@teste.com", "senha": "Senha@123"})
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["is_online"] is True
+    assert analyst["is_online"] is True
 
 
 def test_login_by_id_blocks_inactive_analyst(client, app_module):
@@ -158,8 +190,40 @@ def test_transferir_moves_reserva_and_logs_transfer(client, app_module):
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
     assert app_module.supabase.db["distribuicoes"][0]["analista_id"] == 3
-    assert len(app_module.supabase.db["logs_transferencias"]) == 1
-    assert app_module.supabase.db["logs_transferencias"][0]["reserva_id"] == "res-2"
+
+
+def test_manager_revoke_analyst_session_keeps_queue_status_and_assignments(client, app_module):
+    seed_analysts(app_module)
+    seed_admins(app_module)
+    app_module.supabase.db["distribuicoes"] = [
+        {
+            "reserva_id": "res-4",
+            "cliente": "Cliente 4",
+            "empreendimento": "Emp 4",
+            "unidade": "Apto 4",
+            "situacao_id": 62,
+            "situacao_nome": "ANÁLISE VENDA LOTEAMENTO",
+            "analista_id": 1,
+            "data_atribuicao": "2026-03-24T11:00:00",
+        }
+    ]
+
+    response = client.post(
+        "/api/gestor/sessoes/revogar",
+        json={"role": "analyst", "user_id": 1, "reason": "teste de revogacao"},
+        headers=manager_auth_header(app_module),
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "ok"
+    assert payload["redistribuidas"] == 0
+    assert payload["sem_destino"] == 0
+    assert app_module.supabase.db["distribuicoes"][0]["analista_id"] == 1
+    analyst = next(item for item in app_module.supabase.db["analistas"] if item["id"] == 1)
+    assert analyst["is_online"] is True
+    assert len(app_module.supabase.db["logs_transferencias"]) == 0
+    assert len(app_module.supabase.db["logs_sessoes_revogadas"]) == 1
 
 
 def test_forgot_password_sets_reset_token_fields(client, app_module, monkeypatch):

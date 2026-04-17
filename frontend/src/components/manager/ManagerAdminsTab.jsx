@@ -152,7 +152,7 @@ const ManagerAdminsTab = ({
           </div>
 
           <p className="text-[11px] font-medium text-slate-500 mb-3 leading-relaxed">
-            Ao encerrar o acesso do analista, ele sai da plataforma, fica em pausa na fila e as pastas em andamento são redistribuídas.
+            Ao encerrar o acesso do analista, ele sai da plataforma e precisa fazer login novamente. A fila permanece no estado atual.
           </p>
 
           <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
@@ -176,7 +176,7 @@ const ManagerAdminsTab = ({
                           : 'border-red-200 text-red-700 bg-red-50 hover:bg-red-100 hover:-translate-y-0.5 active:translate-y-0'
                       }`}
                     >
-                      <RotateCcw size={11} /> Encerrar e Pausar
+                      <RotateCcw size={11} /> Encerrar Acesso
                     </button>
                   </div>
                 </div>

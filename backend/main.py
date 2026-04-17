@@ -299,6 +299,35 @@ def serialize_analyst_public(analyst: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def ensure_analyst_online_on_login(analyst: Dict[str, Any]) -> Dict[str, Any]:
+    """Garante que o analista volte online ao efetuar login."""
+    analyst_id = int(analyst.get("id") or 0)
+    if not analyst_id:
+        return analyst
+
+    if bool(analyst.get("is_online")):
+        return analyst
+
+    try:
+        updated = (
+            supabase.table("analistas")
+            .update({"is_online": True})
+            .eq("id", analyst_id)
+            .execute()
+            .data
+            or []
+        )
+        if updated:
+            return updated[0]
+    except Exception:
+        # Falha ao persistir online não deve bloquear o login.
+        pass
+
+    analyst_copy = dict(analyst)
+    analyst_copy["is_online"] = True
+    return analyst_copy
+
+
 def create_manager_token(admin: Dict[str, Any]) -> str:
     return create_signed_session_token(
         role="admin",
@@ -1673,17 +1702,8 @@ async def revoke_user_sessions(req: SessionRevokeRequest, authorization: Optiona
     redistribuidas = 0
     sem_destino = 0
 
-    if role == "analyst":
-        try:
-            offline_result = await set_online_status(
-                StatusFilaRequest(analista_id=user_id, online=False),
-                authorization=authorization,
-            )
-            redistribuidas = int(offline_result.get("redistribuidas") or 0)
-            sem_destino = int(offline_result.get("sem_destino") or 0)
-        except Exception:
-            # revogação de sessão continua válida mesmo sem conseguir ajustar fila.
-            pass
+    # Regra de negócio: revogar sessão NÃO altera o status da fila do analista.
+    # A pausa/ativação da fila deve acontecer somente pela ação explícita de status-fila.
 
     record_session_revoke_audit(
         actor=actor,
@@ -1724,6 +1744,7 @@ async def login(req: LoginRequest):
 
         if not validate_analyst_password(req.analista_id, senha_recebida, senha_cadastrada):
             raise HTTPException(status_code=401, detail="Senha incorreta")
+        analista = ensure_analyst_online_on_login(analista)
         return serialize_analyst_session(analista)
     except HTTPException:
         raise
@@ -1759,6 +1780,7 @@ async def login_email(req: LoginEmailRequest):
         if not validate_analyst_password(analista["id"], senha_recebida, senha_cadastrada):
             raise HTTPException(status_code=401, detail="E-mail ou senha incorretos")
 
+        analista = ensure_analyst_online_on_login(analista)
         return serialize_analyst_session(analista)
     except HTTPException:
         raise

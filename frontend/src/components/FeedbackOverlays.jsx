@@ -1,5 +1,6 @@
 import React from 'react';
 import { AlertTriangle, CheckCircle, CheckCircle2, RefreshCw, ShieldAlert } from 'lucide-react';
+import { normalizeUiText } from '../utils/textEncoding';
 
 export const LoadingOverlay = () => (
   <div className="fixed inset-0 z-9999 flex flex-col items-center justify-center bg-slate-950/35 backdrop-blur-sm">
@@ -13,7 +14,7 @@ export const LoadingOverlay = () => (
 export const StatusToast = ({ toast }) => (
   <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-9999 flex items-center gap-3 px-6 py-3 rounded-2xl shadow-[0_20px_36px_-22px_rgba(15,23,42,0.65)] border transition-all duration-500 transform ${toast.show ? 'translate-y-0 opacity-100' : 'translate-y-20 opacity-0 pointer-events-none'} ${toast.type === 'success' ? 'bg-[#0071e3] border-blue-400/40' : 'bg-rose-500 border-rose-300/40'} text-white`}>
     {toast.type === 'success' ? <CheckCircle size={16} /> : <AlertTriangle size={16} />}
-    <span className="font-semibold text-[12px] tracking-[0.01em]">{toast.message}</span>
+    <span className="font-semibold text-[12px] tracking-[0.01em]">{normalizeUiText(toast.message)}</span>
   </div>
 );
 
@@ -63,7 +64,7 @@ export const RevokeAccessModal = ({ revokeAction, onClose }) => {
       ]
     : [
         'O analista será desconectado imediatamente da sessão atual.',
-        'O usuário ficará em pausa e as pastas podem ser redistribuídas.',
+        'A fila do analista permanece no estado atual (não será pausada automaticamente).',
         'A ação será registrada para auditoria com data, alvo e responsável.',
       ];
 

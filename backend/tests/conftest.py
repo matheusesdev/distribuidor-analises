@@ -183,8 +183,8 @@ def app_module(monkeypatch):
     monkeypatch.setenv("SUPABASE_KEY", "test-key")
     monkeypatch.setenv("CVCRM_EMAIL", "test@example.com")
     monkeypatch.setenv("CVCRM_TOKEN", "test-token")
-    monkeypatch.setenv("ADMIN_AUTH_SECRET", "admin-secret")
-    monkeypatch.setenv("ANALYST_AUTH_SECRET", "analyst-secret")
+    monkeypatch.setenv("ADMIN_AUTH_SECRET", "admin-secret-32-chars-min-1234567890")
+    monkeypatch.setenv("ANALYST_AUTH_SECRET", "analyst-secret-32-chars-min-123456")
     monkeypatch.setenv("TESTING", "1")
 
     fake_supabase = FakeSupabase()
