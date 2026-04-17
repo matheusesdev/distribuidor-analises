@@ -19,7 +19,10 @@ const MesaView = ({
   handleFinish,
 }) => {
   const [isSituacaoMenuOpen, setIsSituacaoMenuOpen] = useState(false);
+  const [finishingTaskIds, setFinishingTaskIds] = useState(() => new Set());
+  const [concludedFxTaskIds, setConcludedFxTaskIds] = useState(() => new Set());
   const situacaoMenuRef = useRef(null);
+  const concludedFxTimersRef = useRef(new Map());
 
   const situacaoOptions = useMemo(() => {
     return [
@@ -44,6 +47,61 @@ const MesaView = ({
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    return () => {
+      concludedFxTimersRef.current.forEach((timerId) => clearTimeout(timerId));
+      concludedFxTimersRef.current.clear();
+    };
+  }, []);
+
+  const markTaskAsConcludedFx = (taskId) => {
+    setConcludedFxTaskIds((prev) => {
+      const next = new Set(prev);
+      next.add(taskId);
+      return next;
+    });
+
+    if (concludedFxTimersRef.current.has(taskId)) {
+      clearTimeout(concludedFxTimersRef.current.get(taskId));
+    }
+
+    const timerId = setTimeout(() => {
+      setConcludedFxTaskIds((prev) => {
+        const next = new Set(prev);
+        next.delete(taskId);
+        return next;
+      });
+      concludedFxTimersRef.current.delete(taskId);
+    }, 1500);
+
+    concludedFxTimersRef.current.set(taskId, timerId);
+  };
+
+  const handleConcludeTask = async (taskId) => {
+    if (finishingTaskIds.has(taskId)) return;
+
+    setFinishingTaskIds((prev) => {
+      const next = new Set(prev);
+      next.add(taskId);
+      return next;
+    });
+
+    const result = await handleFinish(taskId, 'Concluido');
+
+    if (result?.success) {
+      // Dispara o feedback visual somente quando a conclusão realmente foi confirmada no backend.
+      markTaskAsConcludedFx(taskId);
+    }
+
+    setFinishingTaskIds((prev) => {
+      const next = new Set(prev);
+      next.delete(taskId);
+      return next;
+    });
+
+    return result;
+  };
 
   const formatQuadraUnidade = (task) => {
     const quadra = task.quadra || task.quadra_nome || task.bloco || '';
@@ -158,12 +216,14 @@ const MesaView = ({
           {filteredTasks.length > 0 ? filteredTasks.map((task) => {
             const sitStyle = SIT_COLORS[task.situacao_id] || { text: '#2563eb', bg: '#eff6ff' };
             const isSelected = selectedTaskIds.has(task.reserva_id);
+            const isFinishing = finishingTaskIds.has(task.reserva_id);
+            const isConcludedFx = concludedFxTaskIds.has(task.reserva_id);
             const displayReservaId = getReservaDisplayId ? getReservaDisplayId(task.reserva_id) : task.reserva_id;
 
             return (
               <article
                 key={task.reserva_id}
-                className={`rounded-3xl border bg-white/90 p-3.5 md:p-4 shadow-[0_16px_34px_-30px_rgba(15,23,42,0.8)] transition-all hover:-translate-y-0.5 hover:shadow-[0_24px_40px_-30px_rgba(15,23,42,0.95)] cursor-pointer ${isSelected ? 'border-blue-300 ring-4 ring-blue-100/70' : 'border-slate-200/70'}`}
+                className={`relative overflow-hidden rounded-3xl border bg-white/90 p-3.5 md:p-4 shadow-[0_16px_34px_-30px_rgba(15,23,42,0.8)] transition-all hover:-translate-y-0.5 hover:shadow-[0_24px_40px_-30px_rgba(15,23,42,0.95)] cursor-pointer ${isConcludedFx ? 'border-emerald-300 ring-4 ring-emerald-100/80' : isSelected ? 'border-blue-300 ring-4 ring-blue-100/70' : 'border-slate-200/70'}`}
                 onClick={() => openReservaInCRM(task.reserva_id)}
                 role="button"
                 tabIndex={0}
@@ -175,6 +235,10 @@ const MesaView = ({
                 }}
                 title="Abrir pasta no CRM"
               >
+                {isConcludedFx && (
+                  <div className="pointer-events-none absolute inset-0 bg-emerald-100/65 animate-pulse" />
+                )}
+
                 <div className="grid grid-cols-1 xl:grid-cols-[88px_110px_minmax(180px,1.35fr)_minmax(220px,1.45fr)_minmax(210px,1.3fr)_96px_112px] gap-3 md:gap-4 items-start xl:items-center xl:justify-items-center">
                   <div className="min-w-0 xl:text-center">
                     <button
@@ -220,14 +284,15 @@ const MesaView = ({
                   <div className="min-w-0 xl:w-full xl:flex xl:flex-col xl:items-center xl:justify-center xl:text-center">
                     <p className="text-[10px] font-semibold tracking-[0.08em] text-slate-400 xl:hidden uppercase">Concluir</p>
                     <button
-                      onClick={(e) => {
+                      onClick={async (e) => {
                         e.stopPropagation();
-                        handleFinish(task.reserva_id, 'Concluido');
+                        await handleConcludeTask(task.reserva_id);
                       }}
-                      className="inline-flex min-w-20 items-center justify-center whitespace-nowrap rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-1 text-[10px] font-semibold text-emerald-700 transition-all hover:bg-emerald-100"
+                      disabled={isFinishing}
+                      className={`inline-flex min-w-20 items-center justify-center whitespace-nowrap rounded-lg border px-2 py-1 text-[10px] font-semibold transition-all ${isFinishing ? 'cursor-not-allowed border-emerald-200 bg-emerald-100 text-emerald-700/80' : 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'}`}
                       title="Concluir pasta"
                     >
-                      Concluir
+                      {isFinishing ? 'Concluindo...' : 'Concluir'}
                     </button>
                   </div>
 

@@ -1001,7 +1001,7 @@ const App = () => {
     finally { setIsGlobalLoading(false); }
   };
 
-  const handleFinish = async (id, outcome) => {
+  const handleFinish = async (id, outcome, options = {}) => {
     const isConclusion = outcome === 'Concluido';
     const confirmed = await requestConfirmation({
       title: isConclusion ? 'Confirmar conclusão' : 'Enviar para discussão',
@@ -1011,7 +1011,11 @@ const App = () => {
       confirmLabel: isConclusion ? 'Concluir pasta' : 'Enviar para discussão',
       tone: 'warning'
     });
-    if (!confirmed) return;
+    if (!confirmed) return { success: false, confirmed: false };
+
+    if (typeof options?.onConfirmed === 'function') {
+      options.onConfirmed();
+    }
 
     setIsGlobalLoading(true);
     try {
@@ -1019,11 +1023,15 @@ const App = () => {
       if (res.ok) {
         notify(isConclusion ? "Pasta concluída com sucesso." : "Pasta enviada para discussão.");
         fetchData();
+        return { success: true, confirmed: true };
       } else {
         notify(await getApiErrorMessage(res, "Erro ao concluir pasta"), "error");
+        return { success: false, confirmed: true };
       }
-    } catch (e) { notify("Erro ao processar conclusão da pasta.", "error"); }
-    finally { setIsGlobalLoading(false); }
+    } catch (e) {
+      notify("Erro ao processar conclusão da pasta.", "error");
+      return { success: false, confirmed: true };
+    } finally { setIsGlobalLoading(false); }
   };
 
   const openReservaInCRM = (reservaId) => {
