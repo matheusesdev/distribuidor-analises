@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { BarChart3, Building2, CalendarDays, Download, FileSpreadsheet, FileText, FolderKanban, Layers3, TrendingUp } from 'lucide-react';
-import { utils, writeFile } from 'xlsx';
+import ExcelJS from 'exceljs';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -24,12 +24,75 @@ const getSafeFilePart = (value) =>
 const getMaxValue = (items) => Math.max(...items.map((item) => item.total || 0), 1);
 const getShare = (total, base) => (base ? ((total || 0) / base) * 100 : 0);
 
-const addWorksheet = (workbook, name, rows, columns) => {
-  const worksheet = utils.json_to_sheet(rows);
-  if (columns?.length) {
-    worksheet['!cols'] = columns.map((width) => ({ wch: width }));
-  }
-  utils.book_append_sheet(workbook, worksheet, name);
+const EXCEL_DAILY_COLUMNS = [
+  { header: 'DATA', key: 'DATA', width: 18 },
+  { header: 'RESERVAS (ID)', key: 'RESERVAS (ID)', width: 18 },
+  { header: 'NOME DO CLIENTE', key: 'NOME DO CLIENTE', width: 34 },
+  { header: 'EMPREENDIMENTO', key: 'EMPREENDIMENTO', width: 40 },
+  { header: 'UNIDADE', key: 'UNIDADE', width: 20 },
+  { header: 'TIPO', key: 'TIPO', width: 42 },
+  { header: 'RESULTADO', key: 'RESULTADO', width: 16 },
+];
+
+const downloadWorkbook = async (workbook, filename) => {
+  const buffer = await workbook.xlsx.writeBuffer();
+  const blob = new Blob([
+    buffer,
+  ], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+};
+
+const buildDailyZebraWorksheet = (workbook, rows) => {
+  const worksheet = workbook.addWorksheet('Por Dia', {
+    views: [{ state: 'frozen', ySplit: 1 }],
+  });
+  worksheet.properties.defaultRowHeight = 20;
+
+  worksheet.columns = EXCEL_DAILY_COLUMNS;
+  worksheet.autoFilter = {
+    from: 'A1',
+    to: 'G1',
+  };
+
+  const headerRow = worksheet.getRow(1);
+  headerRow.height = 22;
+  headerRow.eachCell((cell) => {
+    cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } };
+    cell.alignment = { vertical: 'middle', horizontal: 'center' };
+    cell.border = {
+      top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+      left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+      bottom: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+      right: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+    };
+  });
+
+  rows.forEach((row, index) => {
+    const rowRef = worksheet.addRow(row);
+    const zebraColor = index % 2 === 0 ? 'FFF8FAFC' : 'FFFFFFFF';
+    rowRef.eachCell((cell, colNumber) => {
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: zebraColor } };
+      cell.font = { color: { argb: 'FF0F172A' } };
+      cell.alignment = {
+        vertical: 'middle',
+        horizontal: colNumber === 1 || colNumber === 2 || colNumber === 7 ? 'center' : 'left',
+        wrapText: false,
+        shrinkToFit: true,
+      };
+      cell.border = {
+        top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+        left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+        bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+        right: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+      };
+    });
+  });
 };
 
 const getTopItem = (items) => items.find((item) => (item.total || 0) > 0) || null;
@@ -193,16 +256,14 @@ const AnalystAnalyticsTab = ({ analyticsData, currentUser, notify }) => {
     { campo: 'Rastreamento de tipo', valor: hasSituationTracking ? 'Ativo' : 'Pendente de schema / backfill' },
   ]), [currentUser, generatedAt, records.length, totalRecords, daySeries, monthSeries, hasSituationTracking]);
 
-  const detailedRecordsRows = useMemo(() => records.map((row, index) => ({
-    ordem: index + 1,
-    data_finalizacao: row.data_fim_label,
-    data_iso: row.data_fim,
-    reserva_id: row.reserva_id,
-    cliente: row.cliente,
-    empreendimento: row.empreendimento,
-    unidade: row.unidade,
-    tipo_pasta: row.situacao_nome,
-    resultado: row.resultado,
+  const dailyExcelRows = useMemo(() => records.map((row) => ({
+    'DATA': row.data_fim_label || row.data_fim || '-',
+    'RESERVAS (ID)': Number.isFinite(Number(row.reserva_id)) ? Number(row.reserva_id) : (row.reserva_id || '-'),
+    'NOME DO CLIENTE': row.cliente || '-',
+    'EMPREENDIMENTO': row.empreendimento || '-',
+    'UNIDADE': row.unidade || '-',
+    'TIPO': row.situacao_nome || '-',
+    'RESULTADO': row.resultado || '-',
   })), [records]);
 
   const exportBaseName = useMemo(() => {
@@ -213,30 +274,20 @@ const AnalystAnalyticsTab = ({ analyticsData, currentUser, notify }) => {
 
   const revealStyle = (index) => ({ animationDelay: `${index * 70}ms` });
 
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
     if (!records.length) {
       notify('Não há dados para exportar.', 'error');
       return;
     }
 
-    const workbook = utils.book_new();
-
-    addWorksheet(workbook, 'Capa', metadataRows, [24, 44]);
-    addWorksheet(workbook, 'Resumo', summaryRows.map((item) => ({
-      indicador: item.indicador,
-      valor: typeof item.valor === 'number' ? formatDecimal(item.valor) : item.valor,
-      descricao: item.descricao,
-    })), [28, 16, 56]);
-    addWorksheet(workbook, 'Insights', insightRows, [28, 48]);
-    addWorksheet(workbook, 'Serie Diaria', dailyRows, [14, 14, 12, 14]);
-    addWorksheet(workbook, 'Serie Mensal', monthlyRows, [14, 14, 12, 14]);
-    addWorksheet(workbook, 'Ranking Tipos', situationRows.length ? situationRows : [{ posicao: '-', tipo_pasta: hasSituationTracking ? 'Sem dados' : 'Schema ainda sem rastreamento de tipo', total: '-', participacao: '-' }], [10, 44, 12, 14]);
-    addWorksheet(workbook, 'Ranking Empresas', enterpriseRows, [10, 44, 12, 14]);
-    addWorksheet(workbook, 'Ranking Resultados', resultRows, [10, 28, 12, 14]);
-    addWorksheet(workbook, 'Registros', detailedRecordsRows, [10, 20, 24, 14, 26, 26, 18, 26, 16]);
-
-    writeFile(workbook, `${exportBaseName}.xlsx`);
-    notify('Relatório em Excel exportado.');
+    try {
+      const workbook = new ExcelJS.Workbook();
+      buildDailyZebraWorksheet(workbook, dailyExcelRows);
+      await downloadWorkbook(workbook, `${exportBaseName}.xlsx`);
+      notify('Relatório analítico diário em Excel exportado.');
+    } catch (error) {
+      notify('Erro ao exportar Excel.', 'error');
+    }
   };
 
   const handleExportPdf = () => {
