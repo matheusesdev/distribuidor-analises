@@ -288,3 +288,59 @@ def test_status_fila_offline_redistributes_owned_items(client, app_module):
     assert payload["redistribuidas"] == 1
     assert payload["sem_destino"] == 0
     assert app_module.supabase.db["distribuicoes"][0]["analista_id"] == 3
+
+
+def test_update_analyst_permission_removal_redistributes_mesa_items(client, app_module):
+    seed_analysts(app_module)
+    seed_admins(app_module)
+    app_module.supabase.db["distribuicoes"] = [
+        {
+            "reserva_id": "res-5",
+            "cliente": "Cliente 5",
+            "empreendimento": "Emp 5",
+            "unidade": "Apto 5",
+            "situacao_id": 62,
+            "situacao_nome": "ANÁLISE VENDA LOTEAMENTO",
+            "analista_id": 1,
+            "data_atribuicao": "2026-03-24T10:00:00",
+        }
+    ]
+
+    response = client.patch(
+        "/api/gestor/analistas/1",
+        json={"permissoes": [31]},
+        headers=manager_auth_header(app_module),
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["permissoes"] == [31]
+    assert app_module.supabase.db["distribuicoes"][0]["analista_id"] == 3
+
+
+def test_get_mesa_reconciles_after_permission_change(client, app_module):
+    seed_analysts(app_module)
+    app_module.supabase.db["distribuicoes"] = [
+        {
+            "reserva_id": "res-6",
+            "cliente": "Cliente 6",
+            "empreendimento": "Emp 6",
+            "unidade": "Apto 6",
+            "situacao_id": 62,
+            "situacao_nome": "ANÁLISE VENDA LOTEAMENTO",
+            "analista_id": 1,
+            "data_atribuicao": "2026-03-24T10:00:00",
+        }
+    ]
+
+    analyst = next(item for item in app_module.supabase.db["analistas"] if item["id"] == 1)
+    analyst["permissoes"] = [31]
+
+    response = client.get(
+        "/api/mesa/1",
+        headers=auth_header(app_module, analyst_id=1),
+    )
+
+    assert response.status_code == 200
+    assert response.json() == []
+    assert app_module.supabase.db["distribuicoes"][0]["analista_id"] == 3
