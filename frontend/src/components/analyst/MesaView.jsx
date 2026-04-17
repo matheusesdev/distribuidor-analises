@@ -16,6 +16,7 @@ const MesaView = ({
   openReservaInCRM,
   getReservaDisplayId,
   openTransferModal,
+  handleFinish,
 }) => {
   const [isSituacaoMenuOpen, setIsSituacaoMenuOpen] = useState(false);
   const situacaoMenuRef = useRef(null);
@@ -217,16 +218,16 @@ const MesaView = ({
                   </div>
 
                   <div className="min-w-0 xl:w-full xl:flex xl:flex-col xl:items-center xl:justify-center xl:text-center">
-                    <p className="text-[10px] font-semibold tracking-[0.08em] text-slate-400 xl:hidden uppercase">Abrir</p>
+                    <p className="text-[10px] font-semibold tracking-[0.08em] text-slate-400 xl:hidden uppercase">Concluir</p>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        openReservaInCRM(task.reserva_id);
+                        handleFinish(task.reserva_id, 'Concluido');
                       }}
-                      className="inline-flex min-w-20 items-center justify-center whitespace-nowrap rounded-lg border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold text-slate-700 transition-all hover:border-blue-200 hover:text-blue-700"
-                      title="Abrir no CRM"
+                      className="inline-flex min-w-20 items-center justify-center whitespace-nowrap rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-1 text-[10px] font-semibold text-emerald-700 transition-all hover:bg-emerald-100"
+                      title="Concluir pasta"
                     >
-                      Abrir
+                      Concluir
                     </button>
                   </div>
 
