@@ -116,7 +116,7 @@ const MesaView = ({
   return (
     <div className="space-y-4 md:space-y-5 min-w-0">
       <section className="space-y-4 md:space-y-5 min-w-0">
-        <div className="rounded-3xl border border-slate-200/80 bg-white/90 p-4 md:p-5 shadow-[0_20px_45px_-34px_rgba(15,23,42,0.65)] backdrop-blur-sm">
+        <div className="relative z-40 overflow-visible rounded-3xl border border-slate-200/80 bg-white/90 p-4 md:p-5 shadow-[0_20px_45px_-34px_rgba(15,23,42,0.65)] backdrop-blur-sm">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 md:gap-4">
             <div className="flex flex-wrap items-center gap-2">
               <span className="inline-flex h-8 w-8 items-center justify-center rounded-2xl bg-blue-50 text-[#0071e3] border border-blue-100">
@@ -157,7 +157,7 @@ const MesaView = ({
                   onChange={(e) => setTaskSearch(e.target.value)}
                 />
               </div>
-              <div ref={situacaoMenuRef} className="relative">
+              <div ref={situacaoMenuRef} className="relative z-50">
                 <button
                   type="button"
                   onClick={() => setIsSituacaoMenuOpen((prev) => !prev)}
@@ -170,7 +170,7 @@ const MesaView = ({
                 </button>
 
                 {isSituacaoMenuOpen && (
-                  <div className="absolute right-0 z-30 mt-1.5 max-h-72 min-w-[320px] overflow-y-auto rounded-2xl border border-slate-200 bg-white p-1.5 shadow-[0_18px_38px_-24px_rgba(15,23,42,0.65)]">
+                  <div className="absolute right-0 z-60 mt-1.5 max-h-72 min-w-[320px] overflow-y-auto rounded-2xl border border-slate-200 bg-white p-1.5 shadow-[0_18px_38px_-24px_rgba(15,23,42,0.65)]">
                     <ul className="space-y-1" role="listbox" aria-label="Filtrar por situação">
                       {situacaoOptions.map((option) => {
                         const isSelected = String(filterSit) === String(option.id);
@@ -200,7 +200,7 @@ const MesaView = ({
           </div>
         </div>
 
-        <div className="space-y-3">
+        <div className="relative z-0 space-y-3">
           {filteredTasks.length > 0 && (
             <div className="hidden xl:grid xl:grid-cols-[88px_110px_minmax(180px,1.35fr)_minmax(220px,1.45fr)_minmax(210px,1.3fr)_96px_112px] gap-3 px-4 py-2 text-[10px] font-semibold tracking-[0.08em] text-slate-500 uppercase">
               <span className="text-center">Selecionar</span>
