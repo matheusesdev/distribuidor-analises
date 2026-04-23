@@ -21,8 +21,21 @@ const MesaView = ({
   const [isSituacaoMenuOpen, setIsSituacaoMenuOpen] = useState(false);
   const [finishingTaskIds, setFinishingTaskIds] = useState(() => new Set());
   const [concludedFxTaskIds, setConcludedFxTaskIds] = useState(() => new Set());
+  const [taskContextMenu, setTaskContextMenu] = useState({
+    visible: false,
+    x: 0,
+    y: 0,
+    task: null,
+  });
+  const [contextClickFx, setContextClickFx] = useState({
+    visible: false,
+    x: 0,
+    y: 0,
+  });
   const situacaoMenuRef = useRef(null);
   const concludedFxTimersRef = useRef(new Map());
+  const taskContextMenuRef = useRef(null);
+  const contextClickFxTimerRef = useRef(null);
 
   const situacaoOptions = useMemo(() => {
     return [
@@ -42,16 +55,41 @@ const MesaView = ({
       if (!situacaoMenuRef.current.contains(event.target)) {
         setIsSituacaoMenuOpen(false);
       }
+
+      if (taskContextMenuRef.current && !taskContextMenuRef.current.contains(event.target)) {
+        setTaskContextMenu((prev) => ({ ...prev, visible: false }));
+      }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  useEffect(() => {
+    const closeContextMenu = () => setTaskContextMenu((prev) => ({ ...prev, visible: false }));
+    const handleEsc = (event) => {
+      if (event.key === 'Escape') closeContextMenu();
+    };
+
+    window.addEventListener('scroll', closeContextMenu, true);
+    window.addEventListener('resize', closeContextMenu);
+    document.addEventListener('keydown', handleEsc);
+    return () => {
+      window.removeEventListener('scroll', closeContextMenu, true);
+      window.removeEventListener('resize', closeContextMenu);
+      document.removeEventListener('keydown', handleEsc);
+    };
   }, []);
 
   useEffect(() => {
     return () => {
       concludedFxTimersRef.current.forEach((timerId) => clearTimeout(timerId));
       concludedFxTimersRef.current.clear();
+      if (contextClickFxTimerRef.current) {
+        clearTimeout(contextClickFxTimerRef.current);
+      }
     };
   }, []);
 
@@ -101,6 +139,38 @@ const MesaView = ({
     });
 
     return result;
+  };
+
+  const openTaskContextMenu = (event, task) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const menuWidth = 196;
+    const menuHeight = 104;
+    const viewportWidth = window.innerWidth || 0;
+    const viewportHeight = window.innerHeight || 0;
+    const x = Math.min(event.clientX, Math.max(8, viewportWidth - menuWidth - 8));
+    const y = Math.min(event.clientY, Math.max(8, viewportHeight - menuHeight - 8));
+
+    setContextClickFx({
+      visible: true,
+      x: event.clientX,
+      y: event.clientY,
+    });
+    if (contextClickFxTimerRef.current) {
+      clearTimeout(contextClickFxTimerRef.current);
+    }
+    contextClickFxTimerRef.current = setTimeout(() => {
+      setContextClickFx((prev) => ({ ...prev, visible: false }));
+      contextClickFxTimerRef.current = null;
+    }, 420);
+
+    setTaskContextMenu({
+      visible: true,
+      x,
+      y,
+      task,
+    });
   };
 
   const formatQuadraUnidade = (task) => {
@@ -225,6 +295,7 @@ const MesaView = ({
                 key={task.reserva_id}
                 className={`relative overflow-hidden rounded-3xl border bg-white/90 p-3.5 md:p-4 shadow-[0_16px_34px_-30px_rgba(15,23,42,0.8)] transition-all hover:-translate-y-0.5 hover:shadow-[0_24px_40px_-30px_rgba(15,23,42,0.95)] cursor-pointer ${isConcludedFx ? 'border-emerald-300 ring-4 ring-emerald-100/80' : isSelected ? 'border-blue-300 ring-4 ring-blue-100/70' : 'border-slate-200/70'}`}
                 onClick={() => openReservaInCRM(task.reserva_id)}
+                onContextMenu={(event) => openTaskContextMenu(event, task)}
                 role="button"
                 tabIndex={0}
                 onKeyDown={(e) => {
@@ -321,6 +392,52 @@ const MesaView = ({
           )}
         </div>
       </section>
+
+      {taskContextMenu.visible && taskContextMenu.task && (
+        <div
+          ref={taskContextMenuRef}
+          className="context-menu-apple fixed z-[160] min-w-[188px] rounded-2xl border border-slate-200/90 bg-white/92 p-1.5 shadow-[0_22px_44px_-24px_rgba(15,23,42,0.85)] backdrop-blur-xl"
+          style={{ left: taskContextMenu.x, top: taskContextMenu.y }}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <button
+            type="button"
+            onClick={async () => {
+              setTaskContextMenu((prev) => ({ ...prev, visible: false }));
+              await handleConcludeTask(taskContextMenu.task.reserva_id);
+            }}
+            disabled={finishingTaskIds.has(taskContextMenu.task.reserva_id)}
+            className={`w-full flex items-center gap-2 rounded-xl px-3 py-2 text-left text-[11px] font-semibold transition-all ${
+              finishingTaskIds.has(taskContextMenu.task.reserva_id)
+                ? 'bg-emerald-50 text-emerald-600 cursor-not-allowed'
+                : 'text-emerald-700 hover:bg-emerald-50'
+            }`}
+          >
+            <CheckCircle2 size={14} />
+            {finishingTaskIds.has(taskContextMenu.task.reserva_id) ? 'Concluindo...' : 'Concluir'}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setTaskContextMenu((prev) => ({ ...prev, visible: false }));
+              openTransferModal(taskContextMenu.task);
+            }}
+            className="w-full flex items-center gap-2 rounded-xl px-3 py-2 text-left text-[11px] font-semibold text-blue-700 transition-all hover:bg-blue-50"
+          >
+            <ArrowRightLeft size={14} />
+            Transferir
+          </button>
+        </div>
+      )}
+
+      {contextClickFx.visible && (
+        <span
+          className="context-click-fx fixed z-[159] pointer-events-none"
+          style={{ left: contextClickFx.x, top: contextClickFx.y }}
+          aria-hidden="true"
+        />
+      )}
     </div>
   );
 };
