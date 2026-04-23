@@ -539,7 +539,7 @@ const AnalystAnalyticsTab = ({ analyticsData, currentUser, notify }) => {
           items={bySituation}
           accentClass="bg-blue-50 text-blue-600"
           barClass="bg-blue-500"
-          emptyMessage={records.length > 0 && !hasSituationTracking ? 'Atualize a tabela historico para rastrear o tipo da pasta' : 'Sem dados suficientes'}
+          emptyMessage={records.length > 0 && !hasSituationTracking ? 'Atualize a tabela histórico para rastrear o tipo da pasta' : 'Sem dados suficientes'}
         />
         <RankingCard title="Por empreendimento" icon={Building2} items={byEnterprise} accentClass="bg-emerald-50 text-emerald-600" barClass="bg-emerald-500" />
         <RankingCard title="Por resultado" icon={TrendingUp} items={byResult} accentClass="bg-amber-50 text-amber-600" barClass="bg-amber-500" />

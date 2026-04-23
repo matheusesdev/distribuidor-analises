@@ -1667,7 +1667,7 @@ const App = () => {
             <p className="text-[11px] font-bold text-slate-500 mt-1 leading-relaxed">
               {idlePrompt.role === 'admin'
                 ? 'Sem atividade recente no painel. Confirme sua presença para manter o acesso ativo.'
-                : 'Sem atividade recente. Se a sessao expirar, voce sera desconectado e podera entrar novamente sem alterar o status da sua fila.'}
+                : 'Sem atividade recente. Se a sessão expirar, você será desconectado e poderá entrar novamente sem alterar o status da sua fila.'}
             </p>
           </div>
         </div>

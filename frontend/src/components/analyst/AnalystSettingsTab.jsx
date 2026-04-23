@@ -37,11 +37,11 @@ const AnalystSettingsTab = ({ isSubmitting, onSubmit, onClose }) => {
         ok: form.newPassword.trim().length >= 8,
       },
       {
-        label: 'Letras maiusculas e minusculas',
+        label: 'Letras maiúsculas e minúsculas',
         ok: /[A-Z]/.test(form.newPassword) && /[a-z]/.test(form.newPassword),
       },
       {
-        label: 'Numero e simbolo',
+        label: 'Número e símbolo',
         ok: /\d/.test(form.newPassword) && /[^A-Za-z0-9]/.test(form.newPassword),
       },
     ],
@@ -102,9 +102,9 @@ const AnalystSettingsTab = ({ isSubmitting, onSubmit, onClose }) => {
         </button>
 
         <div className="min-w-0">
-          <h1 className="text-xl md:text-2xl font-semibold tracking-[-0.02em] text-slate-900">Configuracoes de seguranca</h1>
+          <h1 className="text-xl md:text-2xl font-semibold tracking-[-0.02em] text-slate-900">Configurações de segurança</h1>
           <p className="text-slate-500 text-[12px] font-medium mt-1">
-            Atualize sua senha com validacao clara e feedback imediato.
+            Atualize sua senha com validação clara e feedback imediato.
           </p>
         </div>
       </div>
@@ -118,7 +118,7 @@ const AnalystSettingsTab = ({ isSubmitting, onSubmit, onClose }) => {
               </div>
               <div>
                 <p className="text-[11px] font-semibold text-slate-700">Alterar senha de acesso</p>
-                <p className="text-[10px] text-slate-500">Use uma senha unica para este sistema.</p>
+                <p className="text-[10px] text-slate-500">Use uma senha única para este sistema.</p>
               </div>
             </div>
 
@@ -180,7 +180,7 @@ const AnalystSettingsTab = ({ isSubmitting, onSubmit, onClose }) => {
             {hasNewPassword && (
               <div className="rounded-xl border border-slate-200 bg-white p-3 space-y-2.5">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-[10px] font-medium text-slate-500">Forca da senha</span>
+                  <span className="text-[10px] font-medium text-slate-500">Força da senha</span>
                   <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${strengthClass}`}>
                     {passwordStrength?.label || 'Fraca'}
                   </span>
@@ -237,13 +237,13 @@ const AnalystSettingsTab = ({ isSubmitting, onSubmit, onClose }) => {
 
             {passwordMatches && (
               <p className="text-[11px] font-medium text-emerald-700 bg-emerald-50 px-3 py-2 rounded-lg border border-emerald-200 inline-flex items-center gap-2">
-                <CheckCircle2 size={14} /> Confirmacao correta
+                <CheckCircle2 size={14} /> Confirmação correta
               </p>
             )}
 
             {hasConfirmPassword && !passwordMatches && (
               <p className="text-[11px] font-medium text-rose-700 bg-rose-50 px-3 py-2 rounded-lg border border-rose-200 inline-flex items-center gap-2">
-                <AlertCircle size={14} /> A confirmacao nao confere
+                <AlertCircle size={14} /> A confirmação não confere
               </p>
             )}
           </div>

@@ -1,6 +1,6 @@
-# Checklist de Variaveis por Ambiente
+﻿# Checklist de Variáveis por Ambiente
 
-Use este checklist para garantir configuracao consistente e segura entre dev, staging e producao.
+Use este checklist para garantir configuração consistente e segura entre dev, staging e produção.
 
 ## Regras gerais
 
@@ -17,7 +17,7 @@ Backend:
 - [ ] CVCRM_EMAIL
 - [ ] CVCRM_TOKEN
 - [ ] ADMIN_AUTH_SECRET (>= 32 chars)
-- [ ] ANALYST_AUTH_SECRET (opcional, padrao usa ADMIN_AUTH_SECRET)
+- [ ] ANALYST_AUTH_SECRET (opcional, padrão usa ADMIN_AUTH_SECRET)
 - [ ] ALLOWED_ORIGINS=http://localhost:5173
 - [ ] FRONTEND_URL=http://localhost:5173
 
@@ -33,9 +33,9 @@ Backend:
 - [ ] CVCRM_TOKEN (token de teste)
 - [ ] CVCRM_BASE_URL
 - [ ] CVCRM_LOTEAR_BASE_URL
-- [ ] CVCRM_LOTEAR_TOKEN (se aplicavel)
-- [ ] ADMIN_AUTH_SECRET (unico do staging)
-- [ ] ANALYST_AUTH_SECRET (recomendado unico)
+- [ ] CVCRM_LOTEAR_TOKEN (se aplicável)
+- [ ] ADMIN_AUTH_SECRET (único do staging)
+- [ ] ANALYST_AUTH_SECRET (recomendado único)
 - [ ] ALLOWED_ORIGINS=https://staging-seu-frontend
 - [ ] FRONTEND_URL=https://staging-seu-frontend
 - [ ] SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM
@@ -43,7 +43,7 @@ Backend:
 Frontend:
 - [ ] VITE_API_URL=https://staging-sua-api
 
-## Producao
+## Produção
 
 Backend:
 - [ ] SUPABASE_URL (projeto prod)
@@ -52,7 +52,7 @@ Backend:
 - [ ] CVCRM_TOKEN
 - [ ] CVCRM_BASE_URL
 - [ ] CVCRM_LOTEAR_BASE_URL
-- [ ] CVCRM_LOTEAR_TOKEN (se aplicavel)
+- [ ] CVCRM_LOTEAR_TOKEN (se aplicável)
 - [ ] ADMIN_AUTH_SECRET (forte e exclusivo)
 - [ ] ANALYST_AUTH_SECRET (forte e exclusivo)
 - [ ] ALLOWED_ORIGINS=https://seu-frontend-prod
@@ -65,10 +65,12 @@ Backend:
 Frontend:
 - [ ] VITE_API_URL=https://sua-api-prod
 
-## Validacao rapida antes de deploy
+## Validação rápida antes de deploy
 
-- [ ] API sobe sem erro de variavel obrigatoria
+- [ ] API sobe sem erro de variável obrigatória
 - [ ] Login de analista e gestor funcionando
-- [ ] CORS permite apenas dominios esperados
+- [ ] CORS permite apenas domínios esperados
 - [ ] Fluxo de reset de senha envia link correto
 - [ ] Nenhum arquivo .env real aparece em git status
+
+

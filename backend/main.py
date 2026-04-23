@@ -921,7 +921,7 @@ async def fetch_all_reservas_for_situacao(sit_id: int) -> List[Dict[str, Any]]:
         try:
             data = response.json()
         except Exception as exc:
-            print(f"[SYNC] Situacao {sit_id} pagina {page}: resposta nao e JSON valido")
+            print(f"[SYNC] Situação {sit_id} página {page}: resposta não é JSON válido")
             raise RuntimeError(f"Resposta invalida do CVCRM na situacao {sit_id}, pagina {page}") from exc
 
         pairs, total_pages = extract_reservas_from_response(data)
@@ -1525,7 +1525,7 @@ async def perform_sync():
             else:
                 limpeza_escopo = "ignorada"
         except Exception as rem_err:
-            erros_sync.append(f"Remocao: {rem_err}")
+            erros_sync.append(f"Remoção: {rem_err}")
 
         fim = datetime.datetime.now(datetime.timezone.utc)
         _LAST_SYNC_STATE["timestamp"] = fim.isoformat()
@@ -1541,7 +1541,7 @@ async def perform_sync():
 
         if erros_sync:
             print(
-                f"[SYNC] Concluido com {len(erros_sync)} erros. "
+                f"[SYNC] Concluído com {len(erros_sync)} erros. "
                 f"Total CRM: {len(ids_no_crm)}. Limpeza: {limpeza_escopo}, removidas: {removidas_na_limpeza}"
             )
         else:
@@ -2586,7 +2586,7 @@ async def manager_overview(
         day_key = finished_local.strftime("%Y-%m-%d")
         month_key = finished_local.strftime("%Y-%m")
         situacao_id = int(item.get("situacao_id") or 0)
-        situacao_nome = item.get("situacao_nome") or SITUACOES_NOMES.get(situacao_id, "Nao informado")
+        situacao_nome = item.get("situacao_nome") or SITUACOES_NOMES.get(situacao_id, "Não informado")
 
         bucket["por_dia"][day_key] = bucket["por_dia"].get(day_key, 0) + 1
         bucket["por_mes"][month_key] = bucket["por_mes"].get(month_key, 0) + 1
