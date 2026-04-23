@@ -23,6 +23,28 @@ const getSafeFilePart = (value) =>
 
 const getMaxValue = (items) => Math.max(...items.map((item) => item.total || 0), 1);
 const getShare = (total, base) => (base ? ((total || 0) / base) * 100 : 0);
+const normalizeText = (value) => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
+const SITUATION_BADGE_STYLES = [
+  { match: 'analise venda loteamento (lotear)', style: { color: '#0b7285', backgroundColor: '#e3f4f7' } },
+  { match: 'analise venda loteamento', style: { color: '#355e3b', backgroundColor: '#e8f3eb' } },
+  { match: 'analise venda parcelamento incorporadora', style: { color: '#2f6b2f', backgroundColor: '#e4f2e4' } },
+  { match: 'analise venda caixa', style: { color: '#3b6b2f', backgroundColor: '#edf7e7' } },
+  { match: 'aprovacao expansao (lotear)', style: { color: '#5f3dc4', backgroundColor: '#ede9fe' } },
+  { match: 'aprovacao expansao', style: { color: '#1f6b5f', backgroundColor: '#e2f3ef' } },
+  { match: 'confeccao de contrato (lotear)', style: { color: '#9c36b5', backgroundColor: '#f8ecfc' } },
+  { match: 'confeccao de contrato', style: { color: '#7a6632', backgroundColor: '#faf5e2' } },
+  { match: 'assinado (lotear)', style: { color: '#9a3412', backgroundColor: '#fff1e6' } },
+  { match: 'assinado', style: { color: '#8a5a2b', backgroundColor: '#fbeee3' } },
+];
+
+const getSituationBadgeStyle = (situationName) => {
+  const normalized = normalizeText(situationName);
+  const match = SITUATION_BADGE_STYLES.find((item) => normalized.includes(item.match));
+  return match?.style || { color: '#475569', backgroundColor: '#f1f5f9' };
+};
+
+const isCompletedResult = (result) => normalizeText(result).includes('conclu');
 
 const EXCEL_DAILY_COLUMNS = [
   { header: 'DATA', key: 'DATA', width: 18 },
@@ -107,37 +129,37 @@ const ensurePdfSpace = (doc, requiredHeight = 120) => {
   return currentY + 18;
 };
 
-const RankingCard = ({ title, icon: Icon, items, accentClass, emptyMessage = 'Sem dados suficientes' }) => {
+const RankingCard = ({ title, icon: Icon, items, accentClass, barClass, emptyMessage = 'Sem dados suficientes' }) => {
   const maxValue = getMaxValue(items);
 
   return (
-    <section className="bg-white border border-slate-100 rounded-4xl p-5 md:p-6 shadow-sm space-y-5">
-      <div className="flex items-center gap-3">
-        <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${accentClass}`}>
-          <Icon size={18} />
+    <section className="bg-white border border-slate-200/80 rounded-3xl p-4 md:p-5 shadow-[0_14px_28px_-24px_rgba(15,23,42,0.55)] space-y-4">
+      <div className="flex items-center gap-2.5">
+        <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${accentClass}`}>
+          <Icon size={15} />
         </div>
         <div>
-          <h3 className="text-[10px] font-black uppercase tracking-[0.24em] text-slate-500">{title}</h3>
-          <p className="text-[11px] font-bold text-slate-400 mt-1">Distribuição consolidada do histórico concluído</p>
+          <h3 className="text-[11px] font-semibold tracking-[0.01em] text-slate-700">{title}</h3>
+          <p className="text-[10px] font-medium text-slate-400 mt-0.5">Distribuição consolidada do histórico concluído</p>
         </div>
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-2.5">
         {items.length > 0 ? items.map((item) => (
           <div key={`${title}-${item.label}`} className="space-y-1.5">
             <div className="flex items-center justify-between gap-3 text-[11px]">
-              <span className="font-black uppercase tracking-wide text-slate-700 truncate">{item.label}</span>
-              <span className="font-black text-slate-400 shrink-0">{formatNumber(item.total)}</span>
+              <span className="font-semibold text-slate-700 truncate">{item.label}</span>
+              <span className="font-semibold text-slate-500 shrink-0">{formatNumber(item.total)}</span>
             </div>
-            <div className="h-2.5 rounded-full bg-slate-100 overflow-hidden">
+            <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
               <div
-                className={`h-full rounded-full ${accentClass.includes('emerald') ? 'bg-emerald-500' : accentClass.includes('amber') ? 'bg-amber-500' : 'bg-blue-600'}`}
+                className={`h-full rounded-full ${barClass}`}
                 style={{ width: `${Math.max(10, Math.round(((item.total || 0) / maxValue) * 100))}%` }}
               />
             </div>
           </div>
         )) : (
-          <div className="py-10 text-center text-[10px] font-black uppercase tracking-[0.24em] text-slate-300 border border-dashed border-slate-100 rounded-3xl">
+          <div className="py-8 text-center text-[10px] font-semibold text-slate-300 border border-dashed border-slate-200 rounded-2xl">
             {emptyMessage}
           </div>
         )}
@@ -150,28 +172,28 @@ const SeriesCard = ({ title, subtitle, items, accent }) => {
   const maxValue = getMaxValue(items);
 
   return (
-    <section className="bg-white border border-slate-100 rounded-4xl p-5 md:p-6 shadow-sm space-y-5">
+    <section className="bg-white border border-slate-200/80 rounded-3xl p-4 md:p-5 shadow-[0_14px_28px_-24px_rgba(15,23,42,0.55)] space-y-4">
       <div>
-        <h3 className="text-[10px] font-black uppercase tracking-[0.24em] text-slate-500">{title}</h3>
-        <p className="text-[11px] font-bold text-slate-400 mt-1">{subtitle}</p>
+        <h3 className="text-[11px] font-semibold tracking-[0.01em] text-slate-700">{title}</h3>
+        <p className="text-[10px] font-medium text-slate-400 mt-0.5">{subtitle}</p>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-2.5">
         {items.length > 0 ? items.map((item) => (
-          <div key={`${title}-${item.key}`} className="rounded-3xl border border-slate-100 bg-slate-50/80 px-3 py-4 text-center space-y-3">
-            <div className="h-24 flex items-end justify-center">
+          <div key={`${title}-${item.key}`} className="rounded-2xl border border-slate-200 bg-slate-50/70 px-2.5 py-3 text-center space-y-2.5">
+            <div className="h-20 flex items-end justify-center">
               <div
-                className={`w-10 rounded-t-2xl ${accent}`}
+                className={`w-7 rounded-t-xl ${accent}`}
                 style={{ height: `${Math.max(14, Math.round(((item.total || 0) / maxValue) * 100))}%` }}
               />
             </div>
             <div>
-              <div className="text-lg font-black text-slate-800 leading-none">{formatNumber(item.total)}</div>
-              <div className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 mt-2">{item.label}</div>
+              <div className="text-base font-semibold text-slate-800 leading-none">{formatNumber(item.total)}</div>
+              <div className="text-[9px] font-medium text-slate-400 mt-1.5">{item.label}</div>
             </div>
           </div>
         )) : (
-          <div className="col-span-full py-10 text-center text-[10px] font-black uppercase tracking-[0.24em] text-slate-300 border border-dashed border-slate-100 rounded-3xl">
+          <div className="col-span-full py-8 text-center text-[10px] font-semibold text-slate-300 border border-dashed border-slate-200 rounded-2xl">
             Sem dados suficientes
           </div>
         )}
@@ -434,16 +456,15 @@ const AnalystAnalyticsTab = ({ analyticsData, currentUser, notify }) => {
   };
 
   return (
-    <div className="space-y-6 md:space-y-8">
-      <section className="apple-section-reveal relative overflow-hidden rounded-[2.5rem] border border-slate-200/80 bg-white shadow-[0_24px_45px_-30px_rgba(15,23,42,0.65)]" style={revealStyle(1)}>
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(37,99,235,0.12),transparent_32%),linear-gradient(135deg,rgba(241,245,249,0.9),rgba(255,255,255,0.96))]" />
-        <div className="relative p-6 md:p-8 flex flex-col xl:flex-row xl:items-end xl:justify-between gap-6">
+    <div className="space-y-5 md:space-y-6">
+      <section className="apple-section-reveal rounded-3xl border border-slate-200/80 bg-white shadow-[0_16px_30px_-24px_rgba(15,23,42,0.55)]" style={revealStyle(1)}>
+        <div className="p-5 md:p-6 flex flex-col xl:flex-row xl:items-end xl:justify-between gap-4">
           <div className="max-w-2xl">
-            <div className="inline-flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-[10px] font-semibold tracking-[0.12em] text-blue-700">
+            <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-medium text-slate-600">
               <BarChart3 size={12} /> Painel analítico
             </div>
-            <h2 className="mt-4 text-2xl md:text-4xl font-semibold text-slate-900 tracking-[-0.03em] leading-none">Leitura rápida da sua produção</h2>
-            <p className="mt-3 text-sm md:text-[15px] font-medium text-slate-500 leading-relaxed">
+            <h2 className="mt-3 text-xl md:text-2xl font-semibold text-slate-900 tracking-[-0.015em] leading-tight">Leitura rápida da sua produção</h2>
+            <p className="mt-2 text-[13px] font-medium text-slate-500 leading-relaxed">
               Veja volume concluído por dia, por mês, por tipo de pasta, por empreendimento e exporte os relatórios em Excel ou PDF.
             </p>
           </div>
@@ -452,51 +473,51 @@ const AnalystAnalyticsTab = ({ analyticsData, currentUser, notify }) => {
             <button
               onClick={handleExportExcel}
               disabled={!records.length}
-              className="px-5 py-3 rounded-2xl bg-emerald-600 text-white text-[11px] font-semibold shadow-[0_16px_28px_-18px_rgba(5,150,105,0.8)] disabled:bg-emerald-200 disabled:shadow-none flex items-center justify-center gap-2 transition-all hover:-translate-y-0.5 active:translate-y-0"
+              className="px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-[11px] font-semibold disabled:bg-emerald-200 flex items-center justify-center gap-2 transition-colors hover:bg-emerald-500"
             >
-              <FileSpreadsheet size={16} /> Exportar Excel
+              <FileSpreadsheet size={14} /> Excel
             </button>
             <button
               onClick={handleExportPdf}
               disabled={!records.length}
-              className="px-5 py-3 rounded-2xl bg-slate-900 text-white text-[11px] font-semibold shadow-[0_16px_28px_-18px_rgba(15,23,42,0.8)] disabled:bg-slate-200 disabled:shadow-none flex items-center justify-center gap-2 transition-all hover:-translate-y-0.5 active:translate-y-0"
+              className="px-4 py-2.5 rounded-xl bg-slate-900 text-white text-[11px] font-semibold disabled:bg-slate-200 flex items-center justify-center gap-2 transition-colors hover:bg-slate-800"
             >
-              <FileText size={16} /> Exportar PDF
+              <FileText size={14} /> PDF
             </button>
           </div>
         </div>
       </section>
 
-      <section className="apple-section-reveal grid grid-cols-2 xl:grid-cols-5 gap-4" style={revealStyle(2)}>
-        <div className="bg-white border border-slate-200/80 rounded-4xl p-5 shadow-[0_16px_28px_-22px_rgba(15,23,42,0.7)] transition-all hover:-translate-y-0.5">
-          <div className="w-10 h-10 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mb-4"><TrendingUp size={18} /></div>
-          <p className="text-[10px] font-semibold tracking-[0.12em] text-slate-500">Hoje</p>
-          <div className="mt-2 text-3xl font-semibold text-slate-900 leading-none">{formatNumber(summary.hoje)}</div>
+      <section className="apple-section-reveal grid grid-cols-2 xl:grid-cols-5 gap-3" style={revealStyle(2)}>
+        <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-[0_14px_24px_-22px_rgba(15,23,42,0.55)]">
+          <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center mb-4"><TrendingUp size={14} /></div>
+          <p className="text-[10px] font-medium text-slate-500">Hoje</p>
+          <div className="mt-1.5 text-2xl font-semibold text-slate-900 leading-none">{formatNumber(summary.hoje)}</div>
         </div>
-        <div className="bg-white border border-slate-200/80 rounded-4xl p-5 shadow-[0_16px_28px_-22px_rgba(15,23,42,0.7)] transition-all hover:-translate-y-0.5">
-          <div className="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-4"><CalendarDays size={18} /></div>
-          <p className="text-[10px] font-semibold tracking-[0.12em] text-slate-500">Mês</p>
-          <div className="mt-2 text-3xl font-semibold text-slate-900 leading-none">{formatNumber(summary.mes)}</div>
+        <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-[0_14px_24px_-22px_rgba(15,23,42,0.55)]">
+          <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center mb-4"><CalendarDays size={14} /></div>
+          <p className="text-[10px] font-medium text-slate-500">Mês</p>
+          <div className="mt-1.5 text-2xl font-semibold text-slate-900 leading-none">{formatNumber(summary.mes)}</div>
         </div>
-        <div className="bg-white border border-slate-200/80 rounded-4xl p-5 shadow-[0_16px_28px_-22px_rgba(15,23,42,0.7)] transition-all hover:-translate-y-0.5">
-          <div className="w-10 h-10 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mb-4"><Layers3 size={18} /></div>
-          <p className="text-[10px] font-semibold tracking-[0.12em] text-slate-500">Ano</p>
-          <div className="mt-2 text-3xl font-semibold text-slate-900 leading-none">{formatNumber(summary.ano)}</div>
+        <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-[0_14px_24px_-22px_rgba(15,23,42,0.55)]">
+          <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center mb-4"><Layers3 size={14} /></div>
+          <p className="text-[10px] font-medium text-slate-500">Ano</p>
+          <div className="mt-1.5 text-2xl font-semibold text-slate-900 leading-none">{formatNumber(summary.ano)}</div>
         </div>
-        <div className="bg-white border border-slate-200/80 rounded-4xl p-5 shadow-[0_16px_28px_-22px_rgba(15,23,42,0.7)] transition-all hover:-translate-y-0.5">
-          <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-4"><Download size={18} /></div>
-          <p className="text-[10px] font-semibold tracking-[0.12em] text-slate-500">Total</p>
-          <div className="mt-2 text-3xl font-semibold text-slate-900 leading-none">{formatNumber(summary.total)}</div>
+        <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-[0_14px_24px_-22px_rgba(15,23,42,0.55)]">
+          <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center mb-4"><Download size={14} /></div>
+          <p className="text-[10px] font-medium text-slate-500">Total</p>
+          <div className="mt-1.5 text-2xl font-semibold text-slate-900 leading-none">{formatNumber(summary.total)}</div>
         </div>
-        <div className="bg-white border border-slate-200/80 rounded-4xl p-5 shadow-[0_16px_28px_-22px_rgba(15,23,42,0.7)] col-span-2 xl:col-span-1 transition-all hover:-translate-y-0.5">
-          <div className="w-10 h-10 rounded-2xl bg-slate-100 text-slate-700 flex items-center justify-center mb-4"><FolderKanban size={18} /></div>
-          <p className="text-[10px] font-semibold tracking-[0.12em] text-slate-500">Média por dia</p>
-          <div className="mt-2 text-3xl font-semibold text-slate-900 leading-none">{summary.media_por_dia || 0}</div>
-          <div className="mt-2 text-[10px] font-semibold tracking-[0.08em] text-slate-500">{formatNumber(summary.dias_com_producao)} dias produtivos</div>
+        <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-[0_14px_24px_-22px_rgba(15,23,42,0.55)] col-span-2 xl:col-span-1">
+          <div className="w-8 h-8 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center mb-4"><FolderKanban size={14} /></div>
+          <p className="text-[10px] font-medium text-slate-500">Média por dia</p>
+          <div className="mt-1.5 text-2xl font-semibold text-slate-900 leading-none">{summary.media_por_dia || 0}</div>
+          <div className="mt-1.5 text-[10px] font-medium text-slate-500">{formatNumber(summary.dias_com_producao)} dias produtivos</div>
         </div>
       </section>
 
-      <section className="apple-section-reveal grid grid-cols-1 2xl:grid-cols-2 gap-6" style={revealStyle(3)}>
+      <section className="apple-section-reveal grid grid-cols-1 2xl:grid-cols-2 gap-4" style={revealStyle(3)}>
         <SeriesCard
           title="Fechamentos por dia"
           subtitle="Últimos 14 dias com produção registrada"
@@ -511,25 +532,26 @@ const AnalystAnalyticsTab = ({ analyticsData, currentUser, notify }) => {
         />
       </section>
 
-      <section className="apple-section-reveal grid grid-cols-1 xl:grid-cols-3 gap-6" style={revealStyle(4)}>
+      <section className="apple-section-reveal grid grid-cols-1 xl:grid-cols-3 gap-4" style={revealStyle(4)}>
         <RankingCard
           title="Por tipo de pasta"
           icon={Layers3}
           items={bySituation}
           accentClass="bg-blue-50 text-blue-600"
+          barClass="bg-blue-500"
           emptyMessage={records.length > 0 && !hasSituationTracking ? 'Atualize a tabela historico para rastrear o tipo da pasta' : 'Sem dados suficientes'}
         />
-        <RankingCard title="Por empreendimento" icon={Building2} items={byEnterprise} accentClass="bg-emerald-50 text-emerald-600" />
-        <RankingCard title="Por resultado" icon={TrendingUp} items={byResult} accentClass="bg-amber-50 text-amber-600" />
+        <RankingCard title="Por empreendimento" icon={Building2} items={byEnterprise} accentClass="bg-emerald-50 text-emerald-600" barClass="bg-emerald-500" />
+        <RankingCard title="Por resultado" icon={TrendingUp} items={byResult} accentClass="bg-amber-50 text-amber-600" barClass="bg-amber-500" />
       </section>
 
-      <section className="apple-section-reveal bg-white border border-slate-200/80 rounded-4xl shadow-[0_20px_38px_-28px_rgba(15,23,42,0.75)] overflow-hidden" style={revealStyle(5)}>
-        <div className="p-5 md:p-6 border-b border-slate-100 flex flex-col md:flex-row md:items-center md:justify-between gap-3 bg-slate-50/70">
+      <section className="apple-section-reveal bg-white border border-slate-200/80 rounded-3xl shadow-[0_16px_30px_-24px_rgba(15,23,42,0.55)] overflow-hidden" style={revealStyle(5)}>
+        <div className="p-4 md:p-5 border-b border-slate-100 flex flex-col md:flex-row md:items-center md:justify-between gap-2.5 bg-slate-50/60">
           <div>
-            <h3 className="text-[10px] font-semibold tracking-[0.12em] text-slate-600">Últimas finalizações</h3>
-            <p className="text-[11px] font-medium text-slate-500 mt-1">Amostra operacional para conferência rápida e exportação</p>
+            <h3 className="text-[11px] font-semibold text-slate-700">Últimas finalizações</h3>
+            <p className="text-[10px] font-medium text-slate-500 mt-0.5">Amostra operacional para conferência rápida e exportação</p>
           </div>
-          <div className="text-[10px] font-semibold tracking-[0.08em] text-slate-500">
+          <div className="text-[10px] font-medium text-slate-500">
             {formatNumber(records.length)} registro{records.length === 1 ? '' : 's'} disponível{records.length === 1 ? '' : 'eis'}
           </div>
         </div>
@@ -537,28 +559,46 @@ const AnalystAnalyticsTab = ({ analyticsData, currentUser, notify }) => {
         <div className="overflow-x-auto">
           <table className="w-full min-w-215 text-left">
             <thead className="bg-white">
-              <tr className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 border-b border-slate-100">
-                <th className="px-5 py-4">Data</th>
-                <th className="px-5 py-4">Reserva</th>
-                <th className="px-5 py-4">Cliente</th>
-                <th className="px-5 py-4">Empreendimento</th>
-                <th className="px-5 py-4">Tipo</th>
-                <th className="px-5 py-4">Resultado</th>
+              <tr className="text-[9px] font-semibold tracking-[0.06em] text-slate-400 border-b border-slate-100">
+                <th className="px-4 py-3">Data</th>
+                <th className="px-4 py-3">Reserva</th>
+                <th className="px-4 py-3">Cliente</th>
+                <th className="px-4 py-3">Empreendimento</th>
+                <th className="px-4 py-3">Tipo</th>
+                <th className="px-4 py-3">Resultado</th>
               </tr>
             </thead>
             <tbody>
               {recentRecords.length > 0 ? recentRecords.map((row) => (
-                <tr key={`${row.reserva_id}-${row.data_fim}`} className="border-b border-slate-50 text-[11px] font-bold text-slate-600 hover:bg-slate-50/80">
-                  <td className="px-5 py-4 whitespace-nowrap">{row.data_fim_label}</td>
-                  <td className="px-5 py-4 whitespace-nowrap">{row.reserva_id}</td>
-                  <td className="px-5 py-4 max-w-45 truncate">{row.cliente}</td>
-                  <td className="px-5 py-4 max-w-50 truncate">{row.empreendimento}</td>
-                  <td className="px-5 py-4 max-w-50 truncate">{row.situacao_nome}</td>
-                  <td className="px-5 py-4 whitespace-nowrap">{row.resultado}</td>
+                <tr key={`${row.reserva_id}-${row.data_fim}`} className="border-b border-slate-100 text-[11px] font-medium text-slate-600 hover:bg-slate-50/70">
+                  <td className="px-4 py-3 whitespace-nowrap">{row.data_fim_label}</td>
+                  <td className="px-4 py-3 whitespace-nowrap">{row.reserva_id}</td>
+                  <td className="px-4 py-3 max-w-45 truncate">{row.cliente}</td>
+                  <td className="px-4 py-3 max-w-50 truncate">{row.empreendimento}</td>
+                  <td className="px-4 py-3 max-w-50">
+                    <span
+                      className="inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-semibold max-w-full truncate"
+                      style={getSituationBadgeStyle(row.situacao_nome)}
+                      title={row.situacao_nome || '-'}
+                    >
+                      {row.situacao_nome || '-'}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    <span
+                      className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-semibold ${
+                        isCompletedResult(row.resultado)
+                          ? 'bg-emerald-50 text-emerald-700'
+                          : 'bg-slate-100 text-slate-600'
+                      }`}
+                    >
+                      {row.resultado || '-'}
+                    </span>
+                  </td>
                 </tr>
               )) : (
                 <tr>
-                  <td colSpan="6" className="px-5 py-16 text-center text-[10px] font-black uppercase tracking-[0.24em] text-slate-300">
+                  <td colSpan="6" className="px-5 py-14 text-center text-[10px] font-semibold text-slate-300">
                     Nenhum histórico encontrado para este analista
                   </td>
                 </tr>
