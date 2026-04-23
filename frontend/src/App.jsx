@@ -1,6 +1,6 @@
 ﻿import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { 
-  RefreshCw, Clock, CheckCircle2, History, Building2, 
+  Clock, CheckCircle2, History, Building2, 
   Hash, LayoutDashboard, AlertTriangle, XCircle, X, BarChart4, 
   TrendingUp, Calendar, LogOut, Lock, Eye, EyeOff,
   UserPlus, Trash2, Power, Settings, CheckSquare, Square, 
@@ -24,7 +24,7 @@ import ManagerAdminsTab from './components/manager/ManagerAdminsTab';
 import EditAnalystModal from './components/manager/EditAnalystModal';
 import { normalizeUiText } from './utils/textEncoding';
 
-const AUTO_REFRESH_SECONDS = 15;
+const AUTO_REFRESH_SECONDS = 30;
 const LOGIN_SUCCESS_SPLASH_MS = 1600;
 const DAILY_ANALYST_LOGOUT_MARKER = 'analystDailyLogoutDate';
 const ANALYST_REMEMBER_MARKER = 'analystRememberMe';
@@ -2108,16 +2108,19 @@ const App = () => {
               />
             </div>
 
-            <div className="hidden sm:flex items-center gap-2 rounded-2xl border border-slate-200/80 bg-slate-50/85 px-2.5 py-1.5 min-w-0">
-              <div className="w-8 h-8 md:w-9 md:h-9 bg-[linear-gradient(140deg,#0071e3_0%,#005bb7_100%)] rounded-xl flex items-center justify-center text-white font-black text-sm shadow-[0_14px_22px_-14px_rgba(0,113,227,0.85)] shrink-0">
+            <div className="hidden sm:flex items-center gap-2.5 rounded-2xl border border-slate-200/80 bg-white/75 px-2.5 py-1.5 min-w-0">
+              <div className="w-8 h-8 md:w-9 md:h-9 bg-[linear-gradient(140deg,#0f172a_0%,#334155_100%)] rounded-xl flex items-center justify-center text-white font-bold text-[11px] shadow-[0_14px_22px_-16px_rgba(15,23,42,0.6)] shrink-0">
                 {currentUser?.nome?.charAt(0)}
               </div>
               <div className="min-w-0">
                 <h3 className="font-semibold text-slate-800 leading-tight text-[11px] md:text-[12px] truncate max-w-42 md:max-w-60">{currentUser?.nome}</h3>
-                <span className={`mt-1 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[9px] font-semibold tracking-[0.06em] leading-[1.2] ${currentUser?.is_online ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-slate-100 text-slate-500'}`}>
-                  <span className={`h-1.5 w-1.5 rounded-full ${currentUser?.is_online ? 'bg-emerald-500 queue-presence-dot' : 'bg-slate-400'}`} />
-                  {currentUser?.is_online ? `FILA ATIVA • ${formatIdleCountdown(refreshCountdown)}` : 'FILA PAUSADA'}
-                </span>
+                <div className="mt-1 flex items-center gap-2">
+                  <span className="text-[9px] font-medium tracking-[0.06em] uppercase text-slate-400">Analista</span>
+                  <span className={`inline-flex items-center gap-1 text-[9px] font-semibold tracking-[0.04em] ${currentUser?.is_online ? 'text-emerald-700' : 'text-slate-500'}`}>
+                    <span className={`h-1.5 w-1.5 rounded-full ${currentUser?.is_online ? 'bg-emerald-500 queue-presence-dot' : 'bg-slate-400'}`} />
+                    {currentUser?.is_online ? 'Fila ativa' : 'Fila pausada'}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
@@ -2149,21 +2152,35 @@ const App = () => {
               <span className="text-[9px] font-black uppercase tracking-widest md:hidden">{metrics.hoje}</span>
               <span className="text-[9px] font-black uppercase tracking-widest hidden md:inline">Hoje: {metrics.hoje}</span>
             </button>
-            <div className={`hidden md:flex items-center gap-2.5 px-3 py-1.5 rounded-2xl border backdrop-blur-sm ${currentUser?.is_online ? 'bg-white/90 border-blue-100 text-slate-700 shadow-[0_14px_24px_-22px_rgba(0,113,227,0.65)]' : 'bg-slate-50/90 border-slate-200 text-slate-400'}`}>
-              <div className={`w-7 h-7 rounded-xl flex items-center justify-center ${currentUser?.is_online ? 'bg-blue-50 text-[#0071e3]' : 'bg-slate-100 text-slate-400'}`}>
-                <Clock size={12} />
+            <div className={`group relative hidden md:flex items-center gap-2.5 px-2.5 py-1.5 rounded-2xl border transition-all duration-200 ${currentUser?.is_online ? 'bg-white/80 border-slate-200 text-slate-700 hover:border-slate-300' : 'bg-slate-50/90 border-slate-200 text-slate-400'}`}>
+              <div className="relative h-8 w-8 shrink-0">
+                <svg className="-rotate-90 h-8 w-8" viewBox="0 0 36 36" aria-hidden="true">
+                  <circle cx="18" cy="18" r="15.5" fill="none" stroke="currentColor" strokeWidth="2.4" className="text-slate-200" />
+                  <circle
+                    cx="18"
+                    cy="18"
+                    r="15.5"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.4"
+                    strokeLinecap="round"
+                    strokeDasharray={`${(Math.max(0, Math.min(100, currentUser?.is_online ? refreshCycleProgress : 0)) / 100) * 97.4} 97.4`}
+                    className={`${currentUser?.is_online ? 'text-sky-500' : 'text-slate-300'} transition-all duration-500`}
+                  />
+                </svg>
+                <span className={`absolute inset-0 flex items-center justify-center ${currentUser?.is_online ? 'text-sky-600' : 'text-slate-400'}`}>
+                  <Clock size={11} />
+                </span>
               </div>
               <div className="min-w-0">
-                <p className="text-[8px] font-semibold tracking-[0.08em] uppercase text-slate-500">Auto refresh</p>
-                <p className="text-[10px] font-semibold tracking-[0.01em] text-slate-700">
-                  {currentUser?.is_online ? `Atualiza em ${formatIdleCountdown(refreshCountdown)}` : 'Pausado'}
+                <p className="text-[8px] font-semibold tracking-[0.08em] uppercase text-slate-400">Atualização automática</p>
+                <p className={`text-[10px] font-semibold tracking-[0.01em] ${currentUser?.is_online ? 'text-slate-700' : 'text-slate-400'}`}>
+                  {currentUser?.is_online ? `${formatIdleCountdown(refreshCountdown)} para sincronizar` : 'Pausada com fila desligada'}
                 </p>
-                <div className="mt-1 h-1 w-20 rounded-full bg-slate-200/80 overflow-hidden">
-                  <div
-                    className={`h-full rounded-full transition-all duration-500 ${currentUser?.is_online ? 'bg-[linear-gradient(90deg,#34d399_0%,#0ea5e9_55%,#2563eb_100%)]' : 'bg-slate-300'}`}
-                    style={{ width: `${currentUser?.is_online ? refreshCycleProgress : 0}%` }}
-                  />
-                </div>
+              </div>
+              <span className={`inline-flex h-1.5 w-1.5 rounded-full ${isSyncing ? 'bg-sky-500 animate-pulse' : 'bg-slate-300 group-hover:bg-slate-400'} transition-colors`} />
+              <div className="pointer-events-none absolute right-0 top-[calc(100%+0.45rem)] w-56 rounded-xl border border-slate-200 bg-white px-3 py-2 text-[10px] font-semibold leading-relaxed text-slate-600 opacity-0 shadow-[0_16px_28px_-20px_rgba(15,23,42,0.45)] transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100">
+                Atualiza dados automaticamente a cada {AUTO_REFRESH_SECONDS}s enquanto a fila estiver ativa.
               </div>
             </div>
             <div className="flex flex-wrap items-center rounded-2xl border border-slate-200/80 bg-slate-50/85 p-1 gap-1">
