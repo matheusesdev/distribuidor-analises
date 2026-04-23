@@ -87,13 +87,21 @@ export const api = {
     }),
 
   forgotPassword: (email) =>
-    request("/api/analista/esqueceu-senha", {
+    requestWithFallbackPaths([
+      "/api/analista/esqueceu-senha",
+      "/analista/esqueceu-senha",
+      "/api/esqueceu-senha",
+    ], {
       method: "POST",
       body: { email },
     }),
 
   resetPassword: (token, nova_senha) =>
-    request("/api/analista/resetar-senha", {
+    requestWithFallbackPaths([
+      "/api/analista/resetar-senha",
+      "/analista/resetar-senha",
+      "/api/resetar-senha",
+    ], {
       method: "POST",
       body: { token, nova_senha },
     }),
