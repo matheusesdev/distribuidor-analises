@@ -27,6 +27,9 @@ import { normalizeUiText } from './utils/textEncoding';
 const AUTO_REFRESH_SECONDS = 15;
 const LOGIN_SUCCESS_SPLASH_MS = 1600;
 const DAILY_ANALYST_LOGOUT_MARKER = 'analystDailyLogoutDate';
+const ANALYST_REMEMBER_MARKER = 'analystRememberMe';
+const ANALYST_SESSION_KEY = 'analystSession';
+const MANAGER_SESSION_KEY = 'managerSession';
 const ALL_FILTER = 'all';
 const LEGACY_MANAGER_TOKEN = 'legacy-admin-session';
 const EMPTY_ANALYTICS = {
@@ -79,18 +82,57 @@ const getLocalDateKey = (date = new Date()) => {
   return `${year}-${month}-${day}`;
 };
 
+const parseStoredSession = (rawSession) => {
+  if (!rawSession) return null;
+  try {
+    return JSON.parse(rawSession);
+  } catch {
+    return null;
+  }
+};
+
+const readSessionFromStorage = (key) => {
+  if (typeof window === 'undefined') return { session: null, source: null };
+
+  const fromSessionStorage = parseStoredSession(window.sessionStorage.getItem(key));
+  if (fromSessionStorage) {
+    return { session: fromSessionStorage, source: 'sessionStorage' };
+  }
+
+  const fromLocalStorage = parseStoredSession(window.localStorage.getItem(key));
+  if (fromLocalStorage) {
+    return { session: fromLocalStorage, source: 'localStorage' };
+  }
+
+  return { session: null, source: null };
+};
+
+const clearSessionFromStorage = (key) => {
+  if (typeof window === 'undefined') return;
+  window.sessionStorage.removeItem(key);
+  window.localStorage.removeItem(key);
+};
+
+const writeSessionToStorage = (key, session, persistInLocalStorage = false) => {
+  if (typeof window === 'undefined') return;
+  const payload = JSON.stringify(session);
+
+  if (persistInLocalStorage) {
+    window.localStorage.setItem(key, payload);
+    window.sessionStorage.removeItem(key);
+    return;
+  }
+
+  window.sessionStorage.setItem(key, payload);
+  window.localStorage.removeItem(key);
+};
+
 const App = () => {
   // --- ESTADOS DE NAVEGAÇÃO ---
   const [view, setView] = useState('login'); 
   const [currentUser, setCurrentUser] = useState(() => {
-    if (typeof window === 'undefined') return null;
-    const rawSession = window.sessionStorage.getItem('analystSession');
-    if (!rawSession) return null;
-    try {
-      return JSON.parse(rawSession);
-    } catch {
-      return null;
-    }
+    const { session } = readSessionFromStorage(ANALYST_SESSION_KEY);
+    return session;
   });
   const [analystTab, setAnalystTab] = useState('mesa'); 
   const [managerTab, setManagerTab] = useState('dashboard');
@@ -150,26 +192,20 @@ const App = () => {
   const [editForm, setEditForm] = useState({ id: null, nome: "", email: "", senha: "", permissoes: [], status: "ativo" });
   const [showManagerLoginModal, setShowManagerLoginModal] = useState(false);
   const [managerIdentifier, setManagerIdentifier] = useState(() => {
-    if (typeof window === 'undefined') return '';
-    const rawSession = window.sessionStorage.getItem('managerSession');
-    if (!rawSession) return '';
-    try {
-      return JSON.parse(rawSession)?.email || JSON.parse(rawSession)?.usuario || '';
-    } catch {
-      return '';
-    }
+    const { session } = readSessionFromStorage(MANAGER_SESSION_KEY);
+    return session?.email || session?.usuario || '';
   });
   const [managerPassword, setManagerPassword] = useState("");
   const [showManagerPassword, setShowManagerPassword] = useState(false);
   const [managerSession, setManagerSession] = useState(() => {
-    if (typeof window === 'undefined') return null;
-    const rawSession = window.sessionStorage.getItem('managerSession');
-    if (!rawSession) return null;
-    try {
-      return JSON.parse(rawSession);
-    } catch {
-      return null;
-    }
+    const { session } = readSessionFromStorage(MANAGER_SESSION_KEY);
+    return session;
+  });
+  const [keepAnalystLoggedIn, setKeepAnalystLoggedIn] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    const { source } = readSessionFromStorage(ANALYST_SESSION_KEY);
+    if (source === 'localStorage') return true;
+    return window.localStorage.getItem(ANALYST_REMEMBER_MARKER) === '1';
   });
   const [adminUsers, setAdminUsers] = useState([]);
   const [adminForm, setAdminForm] = useState({
@@ -326,7 +362,8 @@ const App = () => {
     };
   }, []);
 
-  const persistAnalystSession = useCallback((session) => {
+  const persistAnalystSession = useCallback((session, options = {}) => {
+    const keepLoggedIn = options.keepLoggedIn ?? keepAnalystLoggedIn;
     const normalizedSession = session
       ? {
           ...session,
@@ -338,12 +375,14 @@ const App = () => {
     if (typeof window === 'undefined') return;
 
     if (normalizedSession) {
-      window.sessionStorage.setItem('analystSession', JSON.stringify(normalizedSession));
+      writeSessionToStorage(ANALYST_SESSION_KEY, normalizedSession, keepLoggedIn);
+      window.localStorage.setItem(ANALYST_REMEMBER_MARKER, keepLoggedIn ? '1' : '0');
       return;
     }
 
-    window.sessionStorage.removeItem('analystSession');
-  }, []);
+    clearSessionFromStorage(ANALYST_SESSION_KEY);
+    window.localStorage.removeItem(ANALYST_REMEMBER_MARKER);
+  }, [keepAnalystLoggedIn]);
 
   const clearAnalystSession = useCallback(() => {
     persistAnalystSession(null);
@@ -362,11 +401,11 @@ const App = () => {
     if (typeof window === 'undefined') return;
 
     if (normalizedSession) {
-      window.sessionStorage.setItem('managerSession', JSON.stringify(normalizedSession));
+      window.sessionStorage.setItem(MANAGER_SESSION_KEY, JSON.stringify(normalizedSession));
       return;
     }
 
-    window.sessionStorage.removeItem('managerSession');
+    window.sessionStorage.removeItem(MANAGER_SESSION_KEY);
   }, []);
 
   const clearManagerSession = useCallback(() => {
@@ -381,7 +420,8 @@ const App = () => {
       if (!prev?.id) return prev;
       const next = { ...prev, lastActivityAt: now };
       if (typeof window !== 'undefined') {
-        window.sessionStorage.setItem('analystSession', JSON.stringify(next));
+        const keepLoggedIn = window.localStorage.getItem(ANALYST_REMEMBER_MARKER) === '1';
+        writeSessionToStorage(ANALYST_SESSION_KEY, next, keepLoggedIn);
       }
       return next;
     });
@@ -452,7 +492,8 @@ const App = () => {
 
   const handleAnalystUnauthorized = useCallback(() => {
     const hasAnalystSession = typeof window !== 'undefined'
-      && Boolean(window.sessionStorage.getItem('analystSession'));
+      && (Boolean(window.sessionStorage.getItem(ANALYST_SESSION_KEY))
+        || Boolean(window.localStorage.getItem(ANALYST_SESSION_KEY)));
 
     clearAnalystSession();
     setIdlePrompt({ visible: false, role: null, secondsLeft: 0 });
@@ -682,14 +723,15 @@ const App = () => {
   }, [managerSession, view]);
 
   // --- AÇÕES OPERACIONAIS ---
-  const handleLogin = async (email, senha) => {
+  const handleLogin = async (email, senha, rememberMe = false) => {
     if (!email || !senha) return;
     setIsGlobalLoading(true);
     try {
       const res = await api.loginEmail(email, senha);
       if (res.ok) {
         const userData = await res.json();
-        persistAnalystSession(userData);
+        setKeepAnalystLoggedIn(Boolean(rememberMe));
+        persistAnalystSession(userData, { keepLoggedIn: Boolean(rememberMe) });
         setAnalystTab('mesa');
         setSafeLoginNotice(null);
         notify(`Olá, ${userData.nome}!`);
@@ -1736,6 +1778,8 @@ const App = () => {
       loginNotice={loginNotice}
       loginSuccessSplash={loginSuccessSplash}
       handleLogin={handleLogin}
+      keepAnalystLoggedIn={keepAnalystLoggedIn}
+      setKeepAnalystLoggedIn={setKeepAnalystLoggedIn}
       handleManagerLogin={handleManagerLogin}
     />
   );

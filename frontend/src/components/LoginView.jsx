@@ -24,6 +24,8 @@ const LoginView = ({
   loginNotice,
   loginSuccessSplash,
   handleLogin,
+  keepAnalystLoggedIn,
+  setKeepAnalystLoggedIn,
   handleManagerLogin,
 }) => {
   // --- HERO ANIMATION ---
@@ -90,7 +92,7 @@ const LoginView = ({
   const handleSubmitLogin = (e) => {
     if (e) e.preventDefault();
     if (!loginEmail.trim() || !loginPassword.trim() || isGlobalLoading) return;
-    handleLogin(loginEmail.trim().toLowerCase(), loginPassword);
+    handleLogin(loginEmail.trim().toLowerCase(), loginPassword, keepAnalystLoggedIn);
   };
 
   const handleForgotSubmit = async (e) => {
@@ -261,6 +263,48 @@ const LoginView = ({
                 >
                   {showLoginPassword ? <EyeOff size={14} /> : <Eye size={14} />}
                 </button>
+              </div>
+            </div>
+
+            <div className="flex items-start justify-between gap-3 rounded-2xl border border-slate-200/80 bg-white/80 px-3 py-2.5 shadow-[0_10px_24px_-22px_rgba(15,23,42,0.7)]">
+              <button
+                type="button"
+                onClick={() => setKeepAnalystLoggedIn((prev) => !prev)}
+                className="group flex items-center gap-2.5 text-left"
+                aria-pressed={keepAnalystLoggedIn}
+              >
+                <span
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full border transition-colors duration-200 ${
+                    keepAnalystLoggedIn ? 'border-blue-600 bg-blue-600' : 'border-slate-300 bg-slate-200'
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-200 ${
+                      keepAnalystLoggedIn ? 'translate-x-5' : 'translate-x-0.5'
+                    }`}
+                  />
+                </span>
+                <span className="pt-0.5">
+                  <span className="block text-[11px] font-black tracking-[0.02em] text-slate-700">
+                    Manter logado
+                  </span>
+                  <span className="block text-[10px] font-semibold text-slate-400">
+                    {keepAnalystLoggedIn ? 'Ativado para este dispositivo' : 'Desativado'}
+                  </span>
+                </span>
+              </button>
+
+              <div className="relative group/help shrink-0 pt-0.5">
+                <button
+                  type="button"
+                  aria-label="Explicação sobre manter logado"
+                  className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-slate-300 bg-white text-[11px] font-black text-slate-500 transition-colors duration-200 hover:border-blue-400 hover:text-blue-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
+                >
+                  ?
+                </button>
+                <div className="pointer-events-none absolute right-0 top-8 z-20 w-56 rounded-xl border border-slate-200 bg-white px-3 py-2 text-[10px] font-semibold leading-relaxed text-slate-600 opacity-0 shadow-xl transition-opacity duration-150 group-hover/help:opacity-100 group-focus-within/help:opacity-100">
+                  Com esta opção ligada, você continua logado mesmo fechando a aba. Desligada, será necessário fazer login novamente ao reabrir.
+                </div>
               </div>
             </div>
 

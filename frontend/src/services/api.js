@@ -1,10 +1,15 @@
 const RAW_API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 const API_BASE = RAW_API_URL.replace(/\/+$/, '').replace(/\/api$/, '');
 
+const readSession = (key) => {
+  if (typeof window === "undefined") return null;
+  return window.sessionStorage.getItem(key) || window.localStorage.getItem(key);
+};
+
 const getManagerAuthHeaders = () => {
   if (typeof window === "undefined") return {};
 
-  const rawSession = window.sessionStorage.getItem("managerSession");
+  const rawSession = readSession("managerSession");
   if (!rawSession) return {};
 
   try {
@@ -19,7 +24,7 @@ const getManagerAuthHeaders = () => {
 const getAnalystAuthHeaders = () => {
   if (typeof window === "undefined") return {};
 
-  const rawSession = window.sessionStorage.getItem("analystSession");
+  const rawSession = readSession("analystSession");
   if (!rawSession) return {};
 
   try {
