@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+﻿import React, { useMemo, useState } from 'react';
 import { Eye, EyeOff, Lock, Save, ShieldCheck, ArrowLeft, CheckCircle2, AlertCircle } from 'lucide-react';
 import { getPasswordStrength } from '../../utils/passwordStrength';
 
@@ -285,3 +285,4 @@ const AnalystSettingsTab = ({ isSubmitting, onSubmit, onClose }) => {
 };
 
 export default AnalystSettingsTab;
+

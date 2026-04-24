@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+﻿import React, { useMemo } from 'react';
 import { BarChart3, Building2, CalendarDays, Download, FileSpreadsheet, FileText, FolderKanban, Layers3, TrendingUp } from 'lucide-react';
 import ExcelJS from 'exceljs';
 import jsPDF from 'jspdf';
@@ -612,3 +612,4 @@ const AnalystAnalyticsTab = ({ analyticsData, currentUser, notify }) => {
 };
 
 export default AnalystAnalyticsTab;
+

@@ -6,7 +6,7 @@ import {
   UserPlus, Trash2, Power, Settings, CheckSquare, Square, 
   Edit3, UserCheck, Users, ShieldCheck, Save,
   Layout, ChevronDown, Search, User as UserIcon,
-  Tag, BarChart3, PieChart, RotateCcw, ArrowRightLeft, LineChart,
+  Tag, BarChart3, PieChart, RotateCcw, ArrowRightLeft, LineChart, MessageSquare,
   Moon, Sun
 } from 'lucide-react';
 import { api } from './services/api';
@@ -16,11 +16,13 @@ import ResetPasswordView from './components/ResetPasswordView';
 import MesaView from './components/analyst/MesaView';
 import AnalystAnalyticsTab from './components/analyst/AnalystAnalyticsTab';
 import AnalystSettingsTab from './components/analyst/AnalystSettingsTab';
+import AnalystSuggestionsTab from './components/analyst/AnalystSuggestionsTab';
 import ManagerHeader from './components/manager/ManagerHeader';
 import ManagerDashboardTab from './components/manager/ManagerDashboardTab';
 import ManagerTransfersTab from './components/manager/ManagerTransfersTab';
 import ManagerQueueTab from './components/manager/ManagerQueueTab';
 import ManagerAdminsTab from './components/manager/ManagerAdminsTab';
+import ManagerSuggestionsTab from './components/manager/ManagerSuggestionsTab';
 import EditAnalystModal from './components/manager/EditAnalystModal';
 import { normalizeUiText } from './utils/textEncoding';
 
@@ -153,6 +155,8 @@ const App = () => {
   const [myTasks, setMyTasks] = useState([]);
   const [metrics, setMetrics] = useState({ hoje: 0, ano: 0 });
   const [analyticsData, setAnalyticsData] = useState(EMPTY_ANALYTICS);
+  const [suggestions, setSuggestions] = useState([]);
+  const [managerSuggestions, setManagerSuggestions] = useState([]);
   const [dashData, setDashData] = useState({ 
     equipe: [], 
     resumo_equipe: [],
@@ -641,12 +645,23 @@ const App = () => {
         } else {
           setAnalyticsData(EMPTY_ANALYTICS);
         }
+
+        const resSuggestions = await api.listSuggestions();
+        if (resSuggestions.ok) {
+          setSuggestions(await resSuggestions.json());
+        } else if (resSuggestions.status === 401) {
+          handleAnalystUnauthorized();
+          return;
+        } else {
+          setSuggestions([]);
+        }
       }
 
       if (view === 'manager') {
-        const [resD, resSync] = await Promise.all([
+        const [resD, resSync, resManagerSuggestions] = await Promise.all([
           api.getManagerOverview(),
           api.getManagerSyncStatus(),
+          api.getManagerSuggestions(),
         ]);
 
         if (resD.ok) {
@@ -677,6 +692,15 @@ const App = () => {
         } else if (resSync.status === 401) {
           handleManagerUnauthorized();
           return;
+        }
+
+        if (resManagerSuggestions.ok) {
+          setManagerSuggestions(await resManagerSuggestions.json());
+        } else if (resManagerSuggestions.status === 401) {
+          handleManagerUnauthorized();
+          return;
+        } else {
+          setManagerSuggestions([]);
         }
       }
       setApiError(null);
@@ -1180,6 +1204,195 @@ const App = () => {
     }
   };
 
+  const handleCreateSuggestion = async ({ titulo, detalhes }) => {
+    setIsGlobalLoading(true);
+    try {
+      const res = await api.createSuggestion({ titulo, detalhes });
+      if (res.status === 401) {
+        handleAnalystUnauthorized();
+        return { success: false };
+      }
+      if (res.ok) {
+        const data = await res.json();
+        const created = data?.sugestao;
+        if (created) {
+          setSuggestions((prev) => [...(prev || []), created].sort((a, b) => new Date(a?.created_at || 0) - new Date(b?.created_at || 0)));
+        } else {
+          fetchData(true);
+        }
+        notify('Sugestão criada com sucesso.');
+        return { success: true };
+      }
+      notify(await getApiErrorMessage(res, 'Erro ao criar sugestão'), 'error');
+      return { success: false };
+    } catch {
+      notify('Erro de conexão ao criar sugestão.', 'error');
+      return { success: false };
+    } finally {
+      setIsGlobalLoading(false);
+    }
+  };
+
+  const handleUpdateSuggestion = async (suggestionId, { titulo, detalhes }) => {
+    setIsGlobalLoading(true);
+    try {
+      const res = await api.updateSuggestion(suggestionId, { titulo, detalhes });
+      if (res.status === 401) {
+        handleAnalystUnauthorized();
+        return { success: false };
+      }
+      if (res.ok) {
+        const data = await res.json();
+        const updated = data?.sugestao;
+        if (updated) {
+          setSuggestions((prev) =>
+            (prev || []).map((item) => (Number(item?.id) === Number(suggestionId) ? { ...item, ...updated } : item)),
+          );
+          setManagerSuggestions((prev) =>
+            (prev || []).map((item) => (Number(item?.id) === Number(suggestionId) ? { ...item, ...updated } : item)),
+          );
+        } else {
+          fetchData(true);
+        }
+        notify('Sugestão atualizada com sucesso.');
+        return { success: true };
+      }
+      notify(await getApiErrorMessage(res, 'Erro ao atualizar sugestão'), 'error');
+      return { success: false };
+    } catch {
+      notify('Erro de conexão ao atualizar sugestão.', 'error');
+      return { success: false };
+    } finally {
+      setIsGlobalLoading(false);
+    }
+  };
+
+  const handleCancelSuggestion = async (suggestionId) => {
+    setIsGlobalLoading(true);
+    try {
+      const res = await api.cancelSuggestion(suggestionId);
+      if (res.status === 401) {
+        handleAnalystUnauthorized();
+        return { success: false };
+      }
+      if (res.ok) {
+        const data = await res.json();
+        const updated = data?.sugestao;
+        if (updated) {
+          setSuggestions((prev) =>
+            (prev || []).map((item) => (Number(item?.id) === Number(suggestionId) ? { ...item, ...updated } : item)),
+          );
+          setManagerSuggestions((prev) =>
+            (prev || []).map((item) => (Number(item?.id) === Number(suggestionId) ? { ...item, ...updated } : item)),
+          );
+        } else {
+          fetchData(true);
+        }
+        notify('Sugestão cancelada com sucesso.');
+        return { success: true };
+      }
+      notify(await getApiErrorMessage(res, 'Erro ao cancelar sugestão'), 'error');
+      return { success: false };
+    } catch {
+      notify('Erro de conexão ao cancelar sugestão.', 'error');
+      return { success: false };
+    } finally {
+      setIsGlobalLoading(false);
+    }
+  };
+
+  const handleDeleteSuggestion = async (suggestionId) => {
+    setIsGlobalLoading(true);
+    try {
+      const res = await api.deleteSuggestion(suggestionId);
+      if (res.status === 401) {
+        handleAnalystUnauthorized();
+        return { success: false };
+      }
+      if (res.ok) {
+        setSuggestions((prev) => (prev || []).filter((item) => Number(item?.id) !== Number(suggestionId)));
+        setManagerSuggestions((prev) => (prev || []).filter((item) => Number(item?.id) !== Number(suggestionId)));
+        notify('Sugestão excluída com sucesso.');
+        return { success: true };
+      }
+      notify(await getApiErrorMessage(res, 'Erro ao excluir sugestão'), 'error');
+      return { success: false };
+    } catch {
+      notify('Erro de conexão ao excluir sugestão.', 'error');
+      return { success: false };
+    } finally {
+      setIsGlobalLoading(false);
+    }
+  };
+
+  const handleUpdateSuggestionStatus = async (suggestionId, status) => {
+    setIsGlobalLoading(true);
+    try {
+      const res = await api.updateManagerSuggestionStatus(suggestionId, status);
+      if (res.status === 401) {
+        handleManagerUnauthorized();
+        return { success: false };
+      }
+      if (res.ok) {
+        const data = await res.json();
+        const updated = data?.sugestao;
+        if (updated) {
+          setManagerSuggestions((prev) =>
+            (prev || []).map((item) => (Number(item?.id) === Number(suggestionId) ? { ...item, ...updated } : item)),
+          );
+          setSuggestions((prev) =>
+            (prev || []).map((item) => (Number(item?.id) === Number(suggestionId) ? { ...item, ...updated } : item)),
+          );
+        } else {
+          fetchData(true);
+        }
+        notify('Status da sugestão atualizado com sucesso.');
+        return { success: true };
+      }
+      notify(await getApiErrorMessage(res, 'Erro ao atualizar status da sugestão'), 'error');
+      return { success: false };
+    } catch {
+      notify('Erro de conexão ao atualizar status da sugestão.', 'error');
+      return { success: false };
+    } finally {
+      setIsGlobalLoading(false);
+    }
+  };
+
+  const handleRespondSuggestion = async (suggestionId, resposta) => {
+    setIsGlobalLoading(true);
+    try {
+      const res = await api.respondManagerSuggestion(suggestionId, resposta);
+      if (res.status === 401) {
+        handleManagerUnauthorized();
+        return { success: false };
+      }
+      if (res.ok) {
+        const data = await res.json();
+        const updated = data?.sugestao;
+        if (updated) {
+          setManagerSuggestions((prev) =>
+            (prev || []).map((item) => (Number(item?.id) === Number(suggestionId) ? { ...item, ...updated } : item)),
+          );
+          setSuggestions((prev) =>
+            (prev || []).map((item) => (Number(item?.id) === Number(suggestionId) ? { ...item, ...updated } : item)),
+          );
+        } else {
+          fetchData(true);
+        }
+        notify('Resposta registrada com sucesso.');
+        return { success: true };
+      }
+      notify(await getApiErrorMessage(res, 'Erro ao responder sugestão'), 'error');
+      return { success: false };
+    } catch {
+      notify('Erro de conexão ao responder sugestão.', 'error');
+      return { success: false };
+    } finally {
+      setIsGlobalLoading(false);
+    }
+  };
+
   const handleRedistribute = async () => {
     const confirmed = await requestConfirmation({
       title: "Confirmar redistribuição",
@@ -1636,7 +1849,7 @@ const App = () => {
 
   const handleManagerTabChange = useCallback((nextTab) => {
     if (!nextTab || nextTab === managerTab) return;
-    const tabOrder = ['dashboard', 'fila', 'transferencias', 'admins'];
+    const tabOrder = ['dashboard', 'fila', 'transferencias', 'sugestoes', 'admins'];
     const currentIndex = tabOrder.indexOf(managerTab);
     const nextIndex = tabOrder.indexOf(nextTab);
 
@@ -1808,6 +2021,7 @@ const App = () => {
           <button onClick={() => handleManagerTabChange('dashboard')} className={`px-4 py-2 rounded-full text-[12px] font-semibold tracking-[0.01em] transition-all inline-flex items-center gap-2 ${managerTab === 'dashboard' ? 'bg-[#0071e3] text-white shadow-[0_12px_24px_-16px_rgba(0,113,227,0.9)]' : 'text-slate-600 hover:bg-slate-100/90'}`}><LayoutDashboard size={13} /> Dashboard</button>
           <button onClick={() => handleManagerTabChange('fila')} className={`px-4 py-2 rounded-full text-[12px] font-semibold tracking-[0.01em] transition-all inline-flex items-center gap-2 ${managerTab === 'fila' ? 'bg-[#0071e3] text-white shadow-[0_12px_24px_-16px_rgba(0,113,227,0.9)]' : 'text-slate-600 hover:bg-slate-100/90'}`}><LineChart size={13} /> Fila</button>
           <button onClick={() => handleManagerTabChange('transferencias')} className={`px-4 py-2 rounded-full text-[12px] font-semibold tracking-[0.01em] transition-all inline-flex items-center gap-2 ${managerTab === 'transferencias' ? 'bg-[#0071e3] text-white shadow-[0_12px_24px_-16px_rgba(0,113,227,0.9)]' : 'text-slate-600 hover:bg-slate-100/90'}`}><ArrowRightLeft size={13} /> Transferências</button>
+          <button onClick={() => handleManagerTabChange('sugestoes')} className={`px-4 py-2 rounded-full text-[12px] font-semibold tracking-[0.01em] transition-all inline-flex items-center gap-2 ${managerTab === 'sugestoes' ? 'bg-[#0071e3] text-white shadow-[0_12px_24px_-16px_rgba(0,113,227,0.9)]' : 'text-slate-600 hover:bg-slate-100/90'}`}><MessageSquare size={13} /> Sugestões</button>
           <button onClick={() => handleManagerTabChange('admins')} className={`px-4 py-2 rounded-full text-[12px] font-semibold tracking-[0.01em] transition-all inline-flex items-center gap-2 ${managerTab === 'admins' ? 'bg-[#0071e3] text-white shadow-[0_12px_24px_-16px_rgba(0,113,227,0.9)]' : 'text-slate-600 hover:bg-slate-100/90'}`}><UserPlus size={13} /> Admins</button>
         </section>
 
@@ -1857,6 +2071,15 @@ const App = () => {
               resetTransferFilters={resetTransferFilters}
               transferInsights={transferInsights}
               groupedTransferLogs={groupedTransferLogs}
+            />
+          )}
+
+          {managerTab === 'sugestoes' && (
+            <ManagerSuggestionsTab
+              suggestions={managerSuggestions}
+              onUpdateStatus={handleUpdateSuggestionStatus}
+              onRespondSuggestion={handleRespondSuggestion}
+              isSubmitting={isGlobalLoading}
             />
           )}
 
@@ -2218,6 +2441,15 @@ const App = () => {
               </button>
 
               <button
+                onClick={() => setAnalystTab('suggestions')}
+                className={`inline-flex items-center gap-1 px-2.5 md:px-3 py-1.5 rounded-xl text-[9px] font-semibold tracking-[0.03em] transition-all ${analystTab === 'suggestions' ? 'bg-white text-[#0071e3] border border-blue-100 shadow-[0_10px_14px_-12px_rgba(0,113,227,0.8)]' : 'text-slate-500 hover:text-slate-700'}`}
+                title="Sugestões de melhoria"
+              >
+                <MessageSquare size={14} />
+                <span className="hidden lg:inline">Sugestões</span>
+              </button>
+
+              <button
                 onClick={() => setAnalystTab('settings')}
                 data-tour="analyst-tab-settings"
                 className={`inline-flex items-center gap-1 px-2.5 md:px-3 py-1.5 rounded-xl text-[9px] font-semibold tracking-[0.03em] transition-all ${analystTab === 'settings' ? 'bg-white text-[#0071e3] border border-blue-100 shadow-[0_10px_14px_-12px_rgba(0,113,227,0.8)]' : 'text-slate-500 hover:text-slate-700'}`}
@@ -2291,6 +2523,16 @@ const App = () => {
             analyticsData={analyticsData}
             currentUser={currentUser}
             notify={notify}
+          />
+        ) : analystTab === 'suggestions' ? (
+          <AnalystSuggestionsTab
+            suggestions={suggestions}
+            onCreateSuggestion={handleCreateSuggestion}
+            onUpdateSuggestion={handleUpdateSuggestion}
+            onCancelSuggestion={handleCancelSuggestion}
+            onDeleteSuggestion={handleDeleteSuggestion}
+            isSubmitting={isGlobalLoading}
+            currentUser={currentUser}
           />
         ) : currentUser && !currentUser.is_online && analystTab === 'mesa' ? (
            <div className="py-20 md:py-24 text-center bg-white border border-slate-100 rounded-[2.5rem] md:rounded-[3.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.02)] max-w-md mx-auto flex flex-col items-center animate-in zoom-in-95 px-6">

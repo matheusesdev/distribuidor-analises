@@ -73,11 +73,47 @@ export const api = {
   getAnalystDashboard: (analystId) => request(`/api/analista/dashboard/${analystId}`, { headers: getAnalystAuthHeaders() }),
   getManagerOverview: () => request("/api/gestor/overview", { headers: getManagerAuthHeaders() }),
   getManagerSyncStatus: () => request("/api/gestor/sync-status", { headers: getManagerAuthHeaders() }),
+  getManagerSuggestions: () => request("/api/gestor/sugestoes", { headers: getManagerAuthHeaders() }),
+  updateManagerSuggestionStatus: (suggestionId, status) =>
+    request(`/api/gestor/sugestoes/${suggestionId}/status`, {
+      method: "PATCH",
+      body: { status },
+      headers: getManagerAuthHeaders(),
+    }),
   getManagerAdmins: () =>
     requestWithFallbackPaths([
       "/api/gestor/admins",
       "/gestor/admins",
     ], { headers: getManagerAuthHeaders() }),
+  listSuggestions: () => request("/api/sugestoes", { headers: getAnalystAuthHeaders() }),
+  createSuggestion: ({ titulo, detalhes }) =>
+    request("/api/sugestoes", {
+      method: "POST",
+      body: { titulo, detalhes },
+      headers: getAnalystAuthHeaders(),
+    }),
+  updateSuggestion: (suggestionId, { titulo, detalhes }) =>
+    request(`/api/sugestoes/${suggestionId}`, {
+      method: "PATCH",
+      body: { titulo, detalhes },
+      headers: getAnalystAuthHeaders(),
+    }),
+  cancelSuggestion: (suggestionId) =>
+    request(`/api/sugestoes/${suggestionId}/cancelar`, {
+      method: "PATCH",
+      headers: getAnalystAuthHeaders(),
+    }),
+  deleteSuggestion: (suggestionId) =>
+    request(`/api/sugestoes/${suggestionId}`, {
+      method: "DELETE",
+      headers: getAnalystAuthHeaders(),
+    }),
+  respondManagerSuggestion: (suggestionId, resposta) =>
+    request(`/api/gestor/sugestoes/${suggestionId}/resposta`, {
+      method: "PATCH",
+      body: { resposta },
+      headers: getManagerAuthHeaders(),
+    }),
 
   login: (analystId, password) =>
     request("/api/login", {

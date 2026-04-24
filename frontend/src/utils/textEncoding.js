@@ -44,4 +44,3 @@ export const normalizeUiText = (value) => {
 
   return result;
 };
-

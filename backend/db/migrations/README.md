@@ -32,9 +32,18 @@ Esta pasta concentra os scripts SQL do projeto em ordem de execução.
    - Cria/ajusta a tabela `distribuicoes` e índices da mesa atual.
    - Necessário para bootstrap completo do ambiente e para o `upsert` por `reserva_id`.
 
+8. `008_sugestoes_melhoria_schema.sql`
+   - Cria a tabela `sugestoes_melhoria` com fluxo de status e índices.
+   - Necessário para o mural de sugestões dos usuários e gestão de status pelo admin.
+
+9. `009_sugestoes_melhoria_campos_adicionais.sql`
+   - Adiciona colunas de cancelamento e resposta do admin em `sugestoes_melhoria`.
+   - Corrige valores/constraint de status com acentuação e adiciona índices de suporte.
+   - Necessário para permitir cancelamento/edição/exclusão pelo analista e resposta oficial do admin.
+
 ## Quando rodar
 
-- Ambiente novo: execute 001 -> 002 -> 003 -> 004 -> 005 -> 006 -> 007.
+- Ambiente novo: execute 001 -> 002 -> 003 -> 004 -> 005 -> 006 -> 007 -> 008 -> 009.
 - Ambiente existente: execute somente o script necessário (todos usam `if not exists` quando aplicável).
 - Se um endpoint reclamar de tabela ausente, rode o script correspondente e teste novamente.
 
