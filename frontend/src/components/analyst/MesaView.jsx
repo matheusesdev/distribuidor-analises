@@ -1,5 +1,7 @@
 ﻿import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowRightLeft, CheckCircle2, CheckSquare, ChevronDown, Search, Square, Tag, UserCheck } from 'lucide-react';
+import { ArrowRightLeft, CheckCircle2, CheckSquare, ChevronDown, HelpCircle, Search, Square, Tag, UserCheck } from 'lucide-react';
+import { driver } from 'driver.js';
+import 'driver.js/dist/driver.css';
 
 const MesaView = ({
   filteredTasks,
@@ -36,6 +38,7 @@ const MesaView = ({
   const concludedFxTimersRef = useRef(new Map());
   const taskContextMenuRef = useRef(null);
   const contextClickFxTimerRef = useRef(null);
+  const tourDriverRef = useRef(null);
 
   const situacaoOptions = useMemo(() => {
     return [
@@ -85,6 +88,10 @@ const MesaView = ({
 
   useEffect(() => {
     return () => {
+      if (tourDriverRef.current) {
+        tourDriverRef.current.destroy();
+        tourDriverRef.current = null;
+      }
       concludedFxTimersRef.current.forEach((timerId) => clearTimeout(timerId));
       concludedFxTimersRef.current.clear();
       if (contextClickFxTimerRef.current) {
@@ -183,10 +190,205 @@ const MesaView = ({
     return 'QUADRA / UNIDADE NÃO INFORMADA';
   };
 
+  const openAnimatedTour = () => {
+    if (tourDriverRef.current) {
+      tourDriverRef.current.destroy();
+      tourDriverRef.current = null;
+    }
+
+    const has = (selector) => Boolean(document.querySelector(selector));
+    const steps = [];
+
+    if (has('[data-tour="mesa-header"]')) {
+      steps.push({
+        element: '[data-tour="mesa-header"]',
+        popover: {
+          title: 'Visão geral da sua mesa',
+          description: 'Aqui você acompanha todas as pastas ativas e as ações principais da análise.',
+          side: 'bottom',
+          align: 'start',
+        },
+      });
+    }
+
+    if (has('[data-tour="mesa-search"]')) {
+      steps.push({
+        element: '[data-tour="mesa-search"]',
+        popover: {
+          title: 'Busca rápida',
+          description: 'Use a busca para localizar cliente, reserva ou empreendimento em segundos.',
+          side: 'bottom',
+          align: 'start',
+        },
+      });
+    }
+
+    if (has('[data-tour="mesa-filter"]')) {
+      steps.push({
+        element: '[data-tour="mesa-filter"]',
+        popover: {
+          title: 'Filtro por situação',
+          description: 'Refine a fila exibindo somente o status que deseja analisar no momento.',
+          side: 'left',
+          align: 'center',
+        },
+      });
+    }
+
+    if (has('[data-tour="analyst-auto-update"]')) {
+      steps.push({
+        element: '[data-tour="analyst-auto-update"]',
+        popover: {
+          title: 'Atualização automática',
+          description: 'Este indicador mostra o tempo da próxima sincronização. Com a fila ativa, os dados atualizam automaticamente.',
+          side: 'bottom',
+          align: 'end',
+        },
+      });
+    }
+
+    if (has('[data-tour="analyst-pause-toggle"]')) {
+      steps.push({
+        element: '[data-tour="analyst-pause-toggle"]',
+        popover: {
+          title: 'Pausar ou ligar fila',
+          description: 'Use este botão para pausar o recebimento de novas pastas ou religar sua fila quando estiver disponível.',
+          side: 'bottom',
+          align: 'center',
+        },
+      });
+    }
+
+    if (has('[data-tour="analyst-tab-mesa"]')) {
+      steps.push({
+        element: '[data-tour="analyst-tab-mesa"]',
+        popover: {
+          title: 'Aba Mesa',
+          description: 'Aqui você executa o fluxo operacional diário: buscar, filtrar, concluir e transferir pastas.',
+          side: 'bottom',
+          align: 'center',
+        },
+      });
+    }
+
+    if (has('[data-tour="analyst-tab-analytics"]')) {
+      steps.push({
+        element: '[data-tour="analyst-tab-analytics"]',
+        popover: {
+          title: 'Aba Analítico',
+          description: 'Nessa aba você acompanha sua produção com indicadores e pode exportar relatórios em Excel e PDF.',
+          side: 'bottom',
+          align: 'center',
+        },
+      });
+    }
+
+    if (has('[data-tour="analyst-tab-settings"]')) {
+      steps.push({
+        element: '[data-tour="analyst-tab-settings"]',
+        popover: {
+          title: 'Aba Config',
+          description: 'Use Config para manter sua conta segura, especialmente para atualizar sua senha quando necessário.',
+          side: 'bottom',
+          align: 'center',
+        },
+      });
+    }
+
+    if (has('[data-tour="mesa-select-all"]')) {
+      steps.push({
+        element: '[data-tour="mesa-select-all"]',
+        popover: {
+          title: 'Seleção em massa',
+          description: 'Selecione todas as pastas visíveis para executar ações em lote com mais agilidade.',
+          side: 'bottom',
+          align: 'start',
+        },
+      });
+    }
+
+    if (has('[data-tour="mesa-bulk-transfer"]')) {
+      steps.push({
+        element: '[data-tour="mesa-bulk-transfer"]',
+        popover: {
+          title: 'Transferência em lote',
+          description: 'Quando houver seleção, transfira várias pastas para outro analista com um único clique.',
+          side: 'bottom',
+          align: 'start',
+        },
+      });
+    }
+
+    if (has('[data-tour="mesa-card"]')) {
+      steps.push({
+        element: '[data-tour="mesa-card"]',
+        popover: {
+          title: 'Cartão de pasta',
+          description: 'Cada cartão traz os dados da reserva, situação atual e atalhos para suas ações.',
+          side: 'top',
+          align: 'start',
+        },
+      });
+    }
+
+    if (has('[data-tour="mesa-conclude"]')) {
+      steps.push({
+        element: '[data-tour="mesa-conclude"]',
+        popover: {
+          title: 'Concluir análise',
+          description: 'Finalize uma pasta quando a validação estiver encerrada. O status será atualizado na fila.',
+          side: 'left',
+          align: 'center',
+        },
+      });
+    }
+
+    if (has('[data-tour="mesa-transfer"]')) {
+      steps.push({
+        element: '[data-tour="mesa-transfer"]',
+        popover: {
+          title: 'Transferir pasta',
+          description: 'Use este botão para encaminhar uma pasta específica para outro responsável.',
+          side: 'left',
+          align: 'center',
+        },
+      });
+    }
+
+    steps.push({
+      popover: {
+        title: 'Pronto para analisar',
+        description: 'Sempre que quiser, clique na interrogação para revisar este guia.',
+        side: 'top',
+        align: 'center',
+      },
+    });
+
+    const instance = driver({
+      animate: true,
+      smoothScroll: true,
+      allowClose: true,
+      showProgress: true,
+      nextBtnText: 'Próximo',
+      prevBtnText: 'Voltar',
+      doneBtnText: 'Finalizar',
+      popoverClass: 'mesa-driver-popover',
+      stagePadding: 8,
+      stageRadius: 14,
+      steps,
+    });
+
+    tourDriverRef.current = instance;
+    instance.drive();
+  };
+
   return (
     <div className="space-y-4 md:space-y-5 min-w-0">
       <section className="space-y-4 md:space-y-5 min-w-0">
-        <div className="relative z-40 overflow-visible rounded-3xl border border-slate-200/80 bg-white/90 p-4 md:p-5 shadow-[0_20px_45px_-34px_rgba(15,23,42,0.65)] backdrop-blur-sm">
+        <div
+          className="relative z-40 overflow-visible rounded-3xl border border-slate-200/80 bg-white/90 p-4 md:p-5 shadow-[0_20px_45px_-34px_rgba(15,23,42,0.65)] backdrop-blur-sm"
+          data-tour="mesa-header"
+        >
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 md:gap-4">
             <div className="flex flex-wrap items-center gap-2">
               <span className="inline-flex h-8 w-8 items-center justify-center rounded-2xl bg-blue-50 text-[#0071e3] border border-blue-100">
@@ -199,6 +401,7 @@ const MesaView = ({
               {filteredTasks.length > 0 && (
                 <button
                   onClick={toggleSelectAll}
+                  data-tour="mesa-select-all"
                   className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-semibold text-slate-600 transition-all hover:border-blue-200 hover:text-[#0071e3]"
                 >
                   {selectedTaskIds.size === filteredTasks.length ? <CheckSquare size={12} className="text-[#0071e3]" /> : <Square size={12} />}
@@ -208,16 +411,27 @@ const MesaView = ({
               {selectedTaskIds.size > 0 && (
                 <button
                   onClick={openBulkTransferModal}
+                  data-tour="mesa-bulk-transfer"
                   className="inline-flex items-center gap-1.5 rounded-full bg-[linear-gradient(135deg,#0071e3_0%,#005bb7_100%)] px-3 py-1.5 text-[10px] font-semibold text-white shadow-[0_14px_26px_-18px_rgba(0,113,227,0.85)] transition-all hover:-translate-y-0.5 active:translate-y-0"
                 >
                   <ArrowRightLeft size={12} />
                   Transferir {selectedTaskIds.size} pasta{selectedTaskIds.size !== 1 ? 's' : ''}
                 </button>
               )}
+              <button
+                type="button"
+                onClick={openAnimatedTour}
+                data-tour="mesa-help"
+                className="mesa-help-button inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition-all hover:border-blue-200 hover:text-[#0071e3] focus:border-blue-300 focus:text-[#0071e3] focus:outline-none focus:ring-4 focus:ring-blue-100"
+                title="Abrir guia da mesa"
+                aria-label="Abrir guia da mesa"
+              >
+                <HelpCircle size={15} />
+              </button>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] items-center gap-2 w-full lg:w-auto">
-              <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 min-w-0">
+              <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 min-w-0" data-tour="mesa-search">
                 <Search size={14} className="text-slate-400 shrink-0" />
                 <input
                   type="text"
@@ -231,6 +445,7 @@ const MesaView = ({
                 <button
                   type="button"
                   onClick={() => setIsSituacaoMenuOpen((prev) => !prev)}
+                  data-tour="mesa-filter"
                   className="inline-flex min-w-55 items-center justify-between gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-[11px] font-semibold text-slate-600 outline-none transition-all hover:border-sky-300 focus:border-sky-300 focus:ring-4 focus:ring-sky-100/70"
                   aria-haspopup="listbox"
                   aria-expanded={isSituacaoMenuOpen}
@@ -283,7 +498,7 @@ const MesaView = ({
             </div>
           )}
 
-          {filteredTasks.length > 0 ? filteredTasks.map((task) => {
+          {filteredTasks.length > 0 ? filteredTasks.map((task, index) => {
             const sitStyle = SIT_COLORS[task.situacao_id] || { text: '#2563eb', bg: '#eff6ff' };
             const isSelected = selectedTaskIds.has(task.reserva_id);
             const isFinishing = finishingTaskIds.has(task.reserva_id);
@@ -304,6 +519,7 @@ const MesaView = ({
                     openReservaInCRM(task.reserva_id);
                   }
                 }}
+                data-tour={index === 0 ? 'mesa-card' : undefined}
                 title="Abrir pasta no CRM"
               >
                 {isConcludedFx && (
@@ -360,6 +576,7 @@ const MesaView = ({
                         await handleConcludeTask(task.reserva_id);
                       }}
                       disabled={isFinishing}
+                      data-tour={index === 0 ? 'mesa-conclude' : undefined}
                       className={`inline-flex min-w-20 items-center justify-center whitespace-nowrap rounded-lg border px-2 py-1 text-[10px] font-semibold transition-all ${isFinishing ? 'cursor-not-allowed border-emerald-200 bg-emerald-100 text-emerald-700/80' : 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'}`}
                       title="Concluir pasta"
                     >
@@ -374,6 +591,7 @@ const MesaView = ({
                         e.stopPropagation();
                         openTransferModal(task);
                       }}
+                      data-tour={index === 0 ? 'mesa-transfer' : undefined}
                       className="inline-flex min-w-20 items-center justify-center gap-1 whitespace-nowrap rounded-lg border border-blue-200 bg-blue-50 px-2 py-1 text-[10px] font-semibold text-blue-700 transition-all hover:bg-blue-100"
                       title="Transferir pasta"
                     >
@@ -443,3 +661,4 @@ const MesaView = ({
 };
 
 export default MesaView;
+

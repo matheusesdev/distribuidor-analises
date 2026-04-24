@@ -2152,7 +2152,10 @@ const App = () => {
               <span className="text-[9px] font-black uppercase tracking-widest md:hidden">{metrics.hoje}</span>
               <span className="text-[9px] font-black uppercase tracking-widest hidden md:inline">Hoje: {metrics.hoje}</span>
             </button>
-            <div className={`group relative hidden md:flex items-center gap-2.5 px-2.5 py-1.5 rounded-2xl border transition-all duration-200 ${currentUser?.is_online ? 'bg-white/80 border-slate-200 text-slate-700 hover:border-slate-300' : 'bg-slate-50/90 border-slate-200 text-slate-400'}`}>
+            <div
+              data-tour="analyst-auto-update"
+              className={`group relative hidden md:flex items-center gap-2.5 px-2.5 py-1.5 rounded-2xl border transition-all duration-200 ${currentUser?.is_online ? 'bg-white/80 border-slate-200 text-slate-700 hover:border-slate-300' : 'bg-slate-50/90 border-slate-200 text-slate-400'}`}
+            >
               <div className="relative h-8 w-8 shrink-0">
                 <svg className="-rotate-90 h-8 w-8" viewBox="0 0 36 36" aria-hidden="true">
                   <circle cx="18" cy="18" r="15.5" fill="none" stroke="currentColor" strokeWidth="2.4" className="text-slate-200" />
@@ -2186,6 +2189,7 @@ const App = () => {
             <div className="flex flex-wrap items-center rounded-2xl border border-slate-200/80 bg-slate-50/85 p-1 gap-1">
               <button
                 onClick={() => toggleQueueStatus(!currentUser?.is_online)}
+                data-tour="analyst-pause-toggle"
                 className={`inline-flex items-center gap-1.5 px-2.5 md:px-3 py-1.5 rounded-xl text-[9px] font-semibold tracking-[0.03em] transition-all ${currentUser?.is_online ? 'bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100' : 'bg-emerald-600 text-white border border-emerald-600 shadow-[0_12px_18px_-14px_rgba(5,150,105,0.85)] hover:bg-emerald-500'}`}
                 title={currentUser?.is_online ? 'Pausar fila' : 'Ligar fila'}
               >
@@ -2195,6 +2199,7 @@ const App = () => {
 
               <button
                 onClick={() => setAnalystTab('mesa')}
+                data-tour="analyst-tab-mesa"
                 className={`inline-flex items-center gap-1 px-2.5 md:px-3 py-1.5 rounded-xl text-[9px] font-semibold tracking-[0.03em] transition-all ${analystTab === 'mesa' ? 'bg-white text-[#0071e3] border border-blue-100 shadow-[0_10px_14px_-12px_rgba(0,113,227,0.8)]' : 'text-slate-500 hover:text-slate-700'}`}
                 title="Mesa"
               >
@@ -2204,6 +2209,7 @@ const App = () => {
 
               <button
                 onClick={() => setAnalystTab('analytics')}
+                data-tour="analyst-tab-analytics"
                 className={`inline-flex items-center gap-1 px-2.5 md:px-3 py-1.5 rounded-xl text-[9px] font-semibold tracking-[0.03em] transition-all ${analystTab === 'analytics' ? 'bg-white text-[#0071e3] border border-blue-100 shadow-[0_10px_14px_-12px_rgba(0,113,227,0.8)]' : 'text-slate-500 hover:text-slate-700'}`}
                 title="Dashboard analítico"
               >
@@ -2213,6 +2219,7 @@ const App = () => {
 
               <button
                 onClick={() => setAnalystTab('settings')}
+                data-tour="analyst-tab-settings"
                 className={`inline-flex items-center gap-1 px-2.5 md:px-3 py-1.5 rounded-xl text-[9px] font-semibold tracking-[0.03em] transition-all ${analystTab === 'settings' ? 'bg-white text-[#0071e3] border border-blue-100 shadow-[0_10px_14px_-12px_rgba(0,113,227,0.8)]' : 'text-slate-500 hover:text-slate-700'}`}
                 title="Configurações"
               >
