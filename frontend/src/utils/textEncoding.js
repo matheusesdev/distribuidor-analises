@@ -1,20 +1,28 @@
 const REPLACEMENTS = [
-  ['Sess�o', 'Sessão'],
-  ['sess�o', 'sessão'],
-  ['Sess�es', 'Sessões'],
-  ['sess�es', 'sessões'],
-  ['expira��o', 'expiração'],
-  ['revoga��o', 'revogação'],
-  ['A��o', 'Ação'],
-  ['a��o', 'ação'],
-  ['conex�o', 'conexão'],
-  ['gest�o', 'gestão'],
-  ['informa��o', 'informação'],
-  ['distribui��o', 'distribuição'],
-  ['n�o', 'não'],
-  ['N�o', 'Não'],
-  ['est�', 'está'],
-  ['Est�', 'Está'],
+  [`Sess${'\uFFFD'}o`, 'Sessão'],
+  [`sess${'\uFFFD'}o`, 'sessão'],
+  [`Sess${'\uFFFD'}es`, 'Sessões'],
+  [`sess${'\uFFFD'}es`, 'sessões'],
+  [`expira${'\uFFFD'}${'\uFFFD'}o`, 'expiração'],
+  [`revoga${'\uFFFD'}${'\uFFFD'}o`, 'revogação'],
+  [`A${'\uFFFD'}${'\uFFFD'}o`, 'Ação'],
+  [`a${'\uFFFD'}${'\uFFFD'}o`, 'ação'],
+  [`conex${'\uFFFD'}o`, 'conexão'],
+  [`gest${'\uFFFD'}o`, 'gestão'],
+  [`informa${'\uFFFD'}${'\uFFFD'}o`, 'informação'],
+  [`distribui${'\uFFFD'}${'\uFFFD'}o`, 'distribuição'],
+  [`confirma${'\uFFFD'}${'\uFFFD'}o`, 'confirmação'],
+  [`produ${'\uFFFD'}${'\uFFFD'}o`, 'produção'],
+  [`hist${'\uFFFD'}rico`, 'histórico'],
+  [`per${'\uFFFD'}odo`, 'período'],
+  [`di${'\uFFFD'}rio`, 'diário'],
+  [`n${'\uFFFD'}o`, 'não'],
+  [`N${'\uFFFD'}o`, 'Não'],
+  [`est${'\uFFFD'}`, 'está'],
+  [`Est${'\uFFFD'}`, 'Está'],
+  [`CONFEC${'\uFFFD'}${'\uFFFD'}O`, 'CONFECÇÃO'],
+  [`CONFEC${'\uFFFD'}${'\uFFFD'}O DE CONTRATO`, 'CONFECÇÃO DE CONTRATO'],
+  [`CONFEC${'\uFFFD'}${'\uFFFD'}O DE CONTRATO (LOTEAR)`, 'CONFECÇÃO DE CONTRATO (LOTEAR)'],
 ];
 
 const tryDecodeLatin1AsUtf8 = (value) => {
@@ -31,7 +39,7 @@ export const normalizeUiText = (value) => {
 
   let result = value;
 
-  if (/[ÃÂ]/.test(result)) {
+  if (/[\u00C3\u00C2]/.test(result)) {
     const decoded = tryDecodeLatin1AsUtf8(result);
     if (decoded && decoded !== result) {
       result = decoded;

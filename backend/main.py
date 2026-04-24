@@ -1,4 +1,4 @@
-﻿from fastapi import FastAPI, Header, HTTPException, Query
+from fastapi import FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 import requests
 import datetime
@@ -16,6 +16,14 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from supabase import create_client, Client
 from pydantic import BaseModel
 from postgrest.exceptions import APIError
+from fastapi.responses import JSONResponse, Response
+import json
+
+try:
+    from ftfy import fix_text
+except ModuleNotFoundError:
+    def fix_text(value: str) -> str:
+        return value
 
 
 def load_dotenv(dotenv_path: str = ".env") -> None:
@@ -42,10 +50,23 @@ def get_required_env(name: str) -> str:
     return value
 
 
+def normalize_text_value(value: Any) -> Any:
+    if isinstance(value, str):
+        return fix_text(value)
+    if isinstance(value, list):
+        return [normalize_text_value(item) for item in value]
+    if isinstance(value, dict):
+        return {
+            normalize_text_value(key) if isinstance(key, str) else key: normalize_text_value(item)
+            for key, item in value.items()
+        }
+    return value
+
+
 def parse_allowed_origins(raw: str) -> List[str]:
     origins = [origin.strip().rstrip("/") for origin in raw.split(",") if origin.strip()]
     if "*" in origins:
-        raise RuntimeError("ALLOWED_ORIGINS nÃ£o pode conter '*' quando allow_credentials estÃ¡ habilitado")
+        raise RuntimeError("ALLOWED_ORIGINS não pode conter '*' quando allow_credentials está habilitado")
 
     deduplicated: List[str] = []
     for origin in origins:
@@ -103,7 +124,7 @@ def evaluate_password_strength(password: str) -> Dict[str, Any]:
     if score <= 2:
         return {"level": "weak", "label": "Muito fraca", "is_acceptable": False}
     if score == 3:
-        return {"level": "medium", "label": "MÃ©dia", "is_acceptable": True}
+        return {"level": "medium", "label": "Média", "is_acceptable": True}
     if score == 4:
         return {"level": "strong", "label": "Forte", "is_acceptable": True}
     return {"level": "verystrong", "label": "Muito forte", "is_acceptable": True}
@@ -112,7 +133,7 @@ def evaluate_password_strength(password: str) -> Dict[str, Any]:
 def verify_admin_credentials(identifier: str, password: str) -> Optional[Dict[str, Any]]:
     """
     Verifica credenciais do admin consultando a tabela administradores no Supabase.
-    Retorna os dados do admin se vÃ¡lido, None caso contrÃ¡rio.
+    Retorna os dados do admin se válido, None caso contrário.
     """
     normalized_identifier = (identifier or "").strip().lower()
     normalized_password = (password or "").strip()
@@ -148,7 +169,7 @@ def verify_admin_credentials(identifier: str, password: str) -> Optional[Dict[st
         if not admin:
             return None
         
-        # Verifica se estÃ¡ ativo
+        # Verifica se está ativo
         if not admin.get("ativo", True):
             return None
 
@@ -188,7 +209,7 @@ def ensure_unique_admin_username(base_username: str) -> str:
         if not existing.data:
             return current
 
-    raise RuntimeError("NÃ£o foi possÃ­vel gerar username Ãºnico para o novo admin")
+    raise RuntimeError("Não foi possível gerar username único para o novo admin")
 
 
 def create_signed_session_token(role: str, user_id: int, session_version: int, ttl_seconds: int, secret: str) -> str:
@@ -320,7 +341,7 @@ def ensure_analyst_online_on_login(analyst: Dict[str, Any]) -> Dict[str, Any]:
         if updated:
             return updated[0]
     except Exception:
-        # Falha ao persistir online nÃ£o deve bloquear o login.
+        # Falha ao persistir online não deve bloquear o login.
         pass
 
     analyst_copy = dict(analyst)
@@ -402,37 +423,37 @@ def verify_analyst_token(token: str) -> Optional[Dict[str, Any]]:
 
 def require_manager_auth(authorization: Optional[str]) -> Dict[str, Any]:
     if not authorization:
-        raise HTTPException(status_code=401, detail="Acesso restrito. FaÃ§a login no painel admin.")
+        raise HTTPException(status_code=401, detail="Acesso restrito. Faça login no painel admin.")
 
     scheme, _, token = authorization.partition(" ")
     payload = verify_manager_token(token) if scheme.lower() == "bearer" else None
     if not payload:
-        raise HTTPException(status_code=401, detail="SessÃ£o do admin invÃ¡lida ou expirada.")
+        raise HTTPException(status_code=401, detail="Sessão do admin inválida ou expirada.")
     return payload
 
 
 def require_analyst_auth(authorization: Optional[str], expected_analyst_id: Optional[int] = None) -> Dict[str, Any]:
     if not authorization:
-        raise HTTPException(status_code=401, detail="SessÃ£o do analista ausente. FaÃ§a login novamente.")
+        raise HTTPException(status_code=401, detail="Sessão do analista ausente. Faça login novamente.")
 
     scheme, _, token = authorization.partition(" ")
     payload = verify_analyst_token(token) if scheme.lower() == "bearer" else None
     if not payload:
-        raise HTTPException(status_code=401, detail="SessÃ£o do analista invÃ¡lida ou expirada.")
+        raise HTTPException(status_code=401, detail="Sessão do analista inválida ou expirada.")
 
     if expected_analyst_id is not None and int(payload.get("user_id")) != int(expected_analyst_id):
-        raise HTTPException(status_code=403, detail="Token do analista nÃ£o autorizado para este usuÃ¡rio.")
+        raise HTTPException(status_code=403, detail="Token do analista não autorizado para este usuário.")
 
     return payload
 
 
 def require_authenticated_user(authorization: Optional[str]) -> Dict[str, Any]:
     if not authorization:
-        raise HTTPException(status_code=401, detail="AutenticaÃ§Ã£o obrigatÃ³ria.")
+        raise HTTPException(status_code=401, detail="Autenticação obrigatória.")
 
     scheme, _, token = authorization.partition(" ")
     if scheme.lower() != "bearer" or not token:
-        raise HTTPException(status_code=401, detail="Token de autenticaÃ§Ã£o invÃ¡lido.")
+        raise HTTPException(status_code=401, detail="Token de autenticação inválido.")
 
     manager_payload = verify_manager_token(token)
     if manager_payload:
@@ -442,7 +463,7 @@ def require_authenticated_user(authorization: Optional[str]) -> Dict[str, Any]:
     if analyst_payload:
         return analyst_payload
 
-    raise HTTPException(status_code=401, detail="SessÃ£o invÃ¡lida ou expirada.")
+    raise HTTPException(status_code=401, detail="Sessão inválida ou expirada.")
 
 
 def bump_session_version(role: str, user_id: int) -> int:
@@ -462,14 +483,14 @@ def bump_session_version(role: str, user_id: int) -> int:
         raise HTTPException(
             status_code=500,
             detail=(
-                "RevogaÃ§Ã£o remota indisponÃ­vel: coluna session_version ausente. "
+                "Revogação remota indisponível: coluna session_version ausente. "
                 "Execute a migration 005_session_version_security.sql. "
                 f"Detalhe: {exc}"
             ),
         )
 
     if not row:
-        raise HTTPException(status_code=404, detail="UsuÃ¡rio nÃ£o encontrado para revogaÃ§Ã£o")
+        raise HTTPException(status_code=404, detail="Usuário não encontrado para revogação")
 
     current_version = int(row[0].get("session_version") or 1)
     next_version = current_version + 1
@@ -480,7 +501,7 @@ def bump_session_version(role: str, user_id: int) -> int:
         raise HTTPException(
             status_code=500,
             detail=(
-                "NÃ£o foi possÃ­vel revogar sessÃ£o remotamente. "
+                "Não foi possível revogar sessão remotamente. "
                 "Confirme a migration de session_version em analistas/administradores. "
                 f"Detalhe: {exc}"
             ),
@@ -498,21 +519,21 @@ def generate_reset_token() -> tuple:
 
 
 def send_reset_email(to_email: str, reset_link: str, analyst_name: str) -> bool:
-    """Envia e-mail de redefiniÃ§Ã£o de senha via SMTP configurado nas env vars."""
+    """Envia e-mail de redefinição de senha via SMTP configurado nas env vars."""
     if not SMTP_HOST or not SMTP_FROM:
-        print(f"[AVISO] SMTP nÃ£o configurado. Link de reset para {to_email}: {reset_link}")
+        print(f"[AVISO] SMTP não configurado. Link de reset para {to_email}: {reset_link}")
         return False
     try:
         msg = MIMEMultipart("alternative")
-        msg["Subject"] = "RedefiniÃ§Ã£o de senha â€” VCACloud"
+        msg["Subject"] = "Redefinição de senha — VCACloud"
         msg["From"] = SMTP_FROM
         msg["To"] = to_email
 
         text_body = (
-            f"OlÃ¡, {analyst_name}!\n\n"
-            f"Recebemos uma solicitaÃ§Ã£o de redefiniÃ§Ã£o de senha para sua conta no VCACloud.\n\n"
-            f"Clique no link abaixo (vÃ¡lido por {RESET_TOKEN_TTL_MINUTES} minutos):\n{reset_link}\n\n"
-            f"Se vocÃª nÃ£o solicitou, desconsidere este e-mail.\n\nVCA Construtora"
+            f"Olá, {analyst_name}!\n\n"
+            f"Recebemos uma solicitação de redefinição de senha para sua conta no VCACloud.\n\n"
+            f"Clique no link abaixo (válido por {RESET_TOKEN_TTL_MINUTES} minutos):\n{reset_link}\n\n"
+            f"Se você não solicitou, desconsidere este e-mail.\n\nVCA Construtora"
         )
 
         year = datetime.datetime.now().year
@@ -524,21 +545,21 @@ def send_reset_email(to_email: str, reset_link: str, analyst_name: str) -> bool:
       <p style="color:white;font-size:22px;font-weight:900;margin:0;letter-spacing:-0.5px;">VCACloud</p>
     </div>
     <div style="padding:32px;">
-      <p style="color:#1e293b;font-size:16px;font-weight:700;margin:0 0 8px;">OlÃ¡, {analyst_name}!</p>
+      <p style="color:#1e293b;font-size:16px;font-weight:700;margin:0 0 8px;">Olá, {analyst_name}!</p>
       <p style="color:#64748b;font-size:14px;margin:0 0 24px;">
-        Recebemos uma solicitaÃ§Ã£o de redefiniÃ§Ã£o de senha para sua conta no <strong>VCACloud</strong>.
+        Recebemos uma solicitação de redefinição de senha para sua conta no <strong>VCACloud</strong>.
       </p>
       <a href="{reset_link}"
          style="display:block;background:#2563eb;color:white;text-align:center;padding:14px 24px;border-radius:12px;font-weight:900;font-size:13px;text-decoration:none;letter-spacing:1px;text-transform:uppercase;">
         Redefinir minha senha
       </a>
       <p style="color:#94a3b8;font-size:11px;margin:20px 0 0;text-align:center;">
-        Link vÃ¡lido por {RESET_TOKEN_TTL_MINUTES} minutos.<br>
-        Se nÃ£o foi vocÃª, desconsidere este e-mail.
+        Link válido por {RESET_TOKEN_TTL_MINUTES} minutos.<br>
+        Se não foi você, desconsidere este e-mail.
       </p>
     </div>
     <div style="background:#f1f5f9;padding:16px 32px;text-align:center;">
-      <p style="color:#94a3b8;font-size:11px;margin:0;">VCA Construtora Â© {year}</p>
+      <p style="color:#94a3b8;font-size:11px;margin:0;">VCA Construtora © {year}</p>
     </div>
   </div>
 </body></html>"""
@@ -614,15 +635,15 @@ def is_missing_suggestions_column_error(error_message: str, column_name: str) ->
 
 
 SUGGESTION_STATUS_ALIASES = {
-    "Em anÃ¡lise": "Em análise",
+    "Em análise": "Em análise",
     "Em analise": "Em análise",
-    "ConcluÃ­do": "Concluído",
+    "Concluído": "Concluído",
     "Concluido": "Concluído",
 }
 
 
 def coerce_suggestion_status(raw_status: Optional[str]) -> str:
-    normalized = (raw_status or "").strip()
+    normalized = fix_text((raw_status or "").strip())
     return SUGGESTION_STATUS_ALIASES.get(normalized, normalized)
 
 
@@ -750,7 +771,7 @@ except ZoneInfoNotFoundError:
     APP_TIMEZONE = datetime.timezone.utc
     APP_TIMEZONE_NAME = "UTC"
 
-# --- CONFIGURAÃ‡Ã•ES DE E-MAIL PARA RESET DE SENHA ---
+# --- CONFIGURAÇÕES DE E-MAIL PARA RESET DE SENHA ---
 SMTP_HOST = os.getenv("SMTP_HOST", "")
 SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
 SMTP_USER = os.getenv("SMTP_USER", "")
@@ -764,7 +785,37 @@ RESET_TOKEN_TTL_MINUTES = int(os.getenv("RESET_TOKEN_TTL_MINUTES", "60"))
 
 app = FastAPI(title="VCA Distribuidor - Backend Oficial")
 
-# ConfiguraÃ§Ã£o de CORS para o Frontend
+
+@app.middleware("http")
+async def normalize_json_responses(request, call_next):
+    response = await call_next(request)
+    content_type = (response.headers.get("content-type") or "").lower()
+
+    if "application/json" not in content_type:
+        return response
+
+    headers = {
+        key: value
+        for key, value in response.headers.items()
+        if key.lower() not in {"content-length", "content-type", "transfer-encoding", "content-encoding"}
+    }
+
+    body = b""
+    async for chunk in response.body_iterator:
+        body += chunk
+
+    if not body:
+        return Response(content=body, status_code=response.status_code, headers=headers, media_type="application/json")
+
+    try:
+        decoded = json.loads(body.decode(response.charset or "utf-8"))
+    except Exception:
+        return Response(content=body, status_code=response.status_code, headers=headers, media_type="application/json")
+
+    normalized = normalize_text_value(decoded)
+    return JSONResponse(content=normalized, status_code=response.status_code, headers=headers)
+
+# Configuração de CORS para o Frontend
 if isinstance(ALLOWED_ORIGINS, list):
     cors_origins = [origin.rstrip("/") for origin in ALLOWED_ORIGINS if origin]
 else:
@@ -778,7 +829,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- CONFIGURAÃ‡ÃƒO SUPABASE ---
+# --- CONFIGURAÇÃO SUPABASE ---
 try:
     supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
     print("[OK] Conex\u00e3o com Supabase estabelecida.")
@@ -800,7 +851,7 @@ HISTORICO_HAS_ANALISTA_NOME = table_supports_column("historico", "analista_nome"
 HISTORICO_HAS_SITUACAO_ID = table_supports_column("historico", "situacao_id")
 HISTORICO_HAS_SITUACAO_NOME = table_supports_column("historico", "situacao_nome")
 
-# --- MAPEAMENTO DE ORIGENS E SITUAÃ‡Ã•ES DO CVCRM ---
+# --- MAPEAMENTO DE ORIGENS E SITUAÇÕES DO CVCRM ---
 CRM_SOURCES: Dict[str, Dict[str, Any]] = {
     "cvcrm": {
         "name": "CVCRM",
@@ -821,19 +872,19 @@ CRM_SOURCES: Dict[str, Dict[str, Any]] = {
 }
 
 SITUACOES_DEFINITIONS: List[Dict[str, Any]] = [
-    {"id": 62, "external_id": 62, "source": "cvcrm", "nome": "ANÃLISE VENDA LOTEAMENTO"},
-    {"id": 66, "external_id": 66, "source": "cvcrm", "nome": "ANÃLISE VENDA PARCELAMENTO INCORPORADORA"},
-    {"id": 30, "external_id": 30, "source": "cvcrm", "nome": "ANÃLISE VENDA CAIXA"},
-    {"id": 16, "external_id": 16, "source": "cvcrm", "nome": "CONFECÃ‡ÃƒO DE CONTRATO"},
+    {"id": 62, "external_id": 62, "source": "cvcrm", "nome": "ANÁLISE VENDA LOTEAMENTO"},
+    {"id": 66, "external_id": 66, "source": "cvcrm", "nome": "ANÁLISE VENDA PARCELAMENTO INCORPORADORA"},
+    {"id": 30, "external_id": 30, "source": "cvcrm", "nome": "ANÁLISE VENDA CAIXA"},
+    {"id": 16, "external_id": 16, "source": "cvcrm", "nome": "CONFECÇÃO DE CONTRATO"},
     {"id": 31, "external_id": 31, "source": "cvcrm", "nome": "ASSINADO"},
-    {"id": 84, "external_id": 84, "source": "cvcrm", "nome": "APROVAÃ‡ÃƒO EXPANSÃƒO"},
-    {"id": 1012, "external_id": 12, "source": "lotear", "nome": "ANÃLISE VENDA LOTEAMENTO (LOTEAR)"},
-    {"id": 1023, "external_id": 23, "source": "lotear", "nome": "APROVAÃ‡ÃƒO EXPANSÃƒO (LOTEAR)"},
-    {"id": 1016, "external_id": 16, "source": "lotear", "nome": "CONFECÃ‡ÃƒO DE CONTRATO (LOTEAR)"},
+    {"id": 84, "external_id": 84, "source": "cvcrm", "nome": "APROVAÇÃO EXPANSÃO"},
+    {"id": 1012, "external_id": 12, "source": "lotear", "nome": "ANÁLISE VENDA LOTEAMENTO (LOTEAR)"},
+    {"id": 1023, "external_id": 23, "source": "lotear", "nome": "APROVAÇÃO EXPANSÃO (LOTEAR)"},
+    {"id": 1016, "external_id": 16, "source": "lotear", "nome": "CONFECÇÃO DE CONTRATO (LOTEAR)"},
     {"id": 1021, "external_id": 21, "source": "lotear", "nome": "ASSINADO (LOTEAR)"},
 ]
 
-SITUACOES_NOMES = {item["id"]: item["nome"] for item in SITUACOES_DEFINITIONS}
+SITUACOES_NOMES = {item["id"]: fix_text(item["nome"]) for item in SITUACOES_DEFINITIONS}
 SITUACOES_IDS = [item["id"] for item in SITUACOES_DEFINITIONS]
 SITUACOES_META = {item["id"]: item for item in SITUACOES_DEFINITIONS}
 SUGGESTION_STATUS_FLOW = [
@@ -846,7 +897,7 @@ SUGGESTION_STATUS_FLOW = [
 ]
 SUGGESTION_STATUS_SET = set(SUGGESTION_STATUS_FLOW)
 
-# Estado global do Ãºltimo sync â€” exposto via /api/gestor/sync-status
+# Estado global do último sync — exposto via /api/gestor/sync-status
 _LAST_SYNC_STATE: Dict[str, Any] = {
     "timestamp": None,
     "total_no_crm": 0,
@@ -861,14 +912,14 @@ async def fetch_cvcrm_reservas(sit_id: int, timeout_seconds: int, pagina: int = 
     """Executa request ao CRM fora do event loop para evitar bloqueio."""
     meta = SITUACOES_META.get(int(sit_id) if sit_id is not None else -1)
     if not meta:
-        raise RuntimeError(f"SituaÃ§Ã£o interna nÃ£o mapeada: {sit_id}")
+        raise RuntimeError(f"Situação interna não mapeada: {sit_id}")
 
     source_key = str(meta.get("source") or "cvcrm")
     source_cfg = CRM_SOURCES.get(source_key)
     if not source_cfg:
-        raise RuntimeError(f"Fonte CRM nÃ£o configurada para situaÃ§Ã£o {sit_id}: {source_key}")
+        raise RuntimeError(f"Fonte CRM não configurada para situação {sit_id}: {source_key}")
     if not source_cfg.get("enabled"):
-        raise RuntimeError(f"Fonte CRM desabilitada para situaÃ§Ã£o {sit_id}: {source_key}")
+        raise RuntimeError(f"Fonte CRM desabilitada para situação {sit_id}: {source_key}")
 
     external_id = int(meta.get("external_id") or sit_id)
     url = f"{source_cfg['api_base_url']}?situacao={external_id}&pagina={pagina}"
@@ -884,7 +935,7 @@ def build_reserva_key(source: str, external_reserva_id: Any) -> str:
     normalized = str(external_reserva_id or "").strip()
     if not normalized:
         return ""
-    # MantÃ©m compatibilidade histÃ³rica: reservas da fonte padrÃ£o continuam sem prefixo.
+    # Mantém compatibilidade histórica: reservas da fonte padrão continuam sem prefixo.
     if source == "cvcrm":
         return normalized
     return f"{source}:{normalized}"
@@ -908,7 +959,7 @@ def extract_reservas_from_response(data: Any) -> tuple:
     Normaliza a resposta do CVCRM para uma lista de (reserva_id_str, info_dict).
     Suporta:
       - Lista: [{idreserva: ..., ...}, ...]
-      - Dict com chaves numÃ©ricas: {"123": {...}, "456": {...}}
+      - Dict com chaves numéricas: {"123": {...}, "456": {...}}
       - Wrapper paginado: {"data": [...], "meta": {...}} ou {"reservas": [...]}
     Retorna: (lista_de_pares, total_paginas)
     """
@@ -923,7 +974,7 @@ def extract_reservas_from_response(data: Any) -> tuple:
         for wrapper_key in ("data", "reservas", "items", "result", "results"):
             if wrapper_key in data and isinstance(data[wrapper_key], list):
                 items_list = data[wrapper_key]
-                # Tenta extrair info de paginaÃ§Ã£o
+                # Tenta extrair info de paginação
                 meta = data.get("meta") or data.get("pagination") or data.get("paginator") or {}
                 if isinstance(meta, dict):
                     last_page = meta.get("last_page") or meta.get("totalPages") or meta.get("total_pages")
@@ -932,7 +983,7 @@ def extract_reservas_from_response(data: Any) -> tuple:
                 pairs = [(str(item.get("idreserva") or item.get("id") or i), item) for i, item in enumerate(items_list)]
                 return pairs, total_pages
 
-        # Dict com chaves numÃ©ricas (ou IDs de reserva como chave)
+        # Dict com chaves numéricas (ou IDs de reserva como chave)
         pairs = []
         for key, value in data.items():
             if not isinstance(value, dict):
@@ -945,10 +996,10 @@ def extract_reservas_from_response(data: Any) -> tuple:
 
 
 async def fetch_all_reservas_for_situacao(sit_id: int) -> List[Dict[str, Any]]:
-    """Busca TODAS as pÃ¡ginas do CVCRM para uma situaÃ§Ã£o, com suporte a paginaÃ§Ã£o."""
+    """Busca TODAS as páginas do CVCRM para uma situação, com suporte a paginação."""
     meta = SITUACOES_META.get(int(sit_id) if sit_id is not None else -1)
     if not meta:
-        raise RuntimeError(f"SituaÃ§Ã£o interna nÃ£o mapeada: {sit_id}")
+        raise RuntimeError(f"Situação interna não mapeada: {sit_id}")
 
     source_key = str(meta.get("source") or "cvcrm")
     source_cfg = CRM_SOURCES.get(source_key)
@@ -975,9 +1026,9 @@ async def fetch_all_reservas_for_situacao(sit_id: int) -> List[Dict[str, Any]]:
             )
 
         try:
-            data = response.json()
+            data = normalize_text_value(response.json())
         except Exception as exc:
-            print(f"[SYNC] SituaÃ§Ã£o {sit_id} pÃ¡gina {page}: resposta nÃ£o Ã© JSON vÃ¡lido")
+            print(f"[SYNC] Situação {sit_id} página {page}: resposta não é JSON válido")
             raise RuntimeError(f"Resposta invalida do CVCRM na situacao {sit_id}, pagina {page}") from exc
 
         pairs, total_pages = extract_reservas_from_response(data)
@@ -1020,7 +1071,7 @@ async def build_situacao_lookup() -> Dict[str, Dict[str, Any]]:
                 continue
             lookup[reserva_id] = {
                 "situacao_id": item.get("situacao_id"),
-                "situacao_nome": item.get("situacao_nome") or SITUACOES_NOMES.get(int(item.get("situacao_id") or 0), "NÃ£o informado"),
+                "situacao_nome": normalize_text_value(item.get("situacao_nome")) or SITUACOES_NOMES.get(int(item.get("situacao_id") or 0), "Não informado"),
                 "source": "distribuicoes",
             }
     except Exception:
@@ -1042,7 +1093,7 @@ async def build_situacao_lookup() -> Dict[str, Dict[str, Any]]:
                 continue
             lookup[reserva_id] = {
                 "situacao_id": item.get("situacao_id"),
-                "situacao_nome": item.get("situacao_nome") or SITUACOES_NOMES.get(int(item.get("situacao_id") or 0), "NÃ£o informado"),
+                "situacao_nome": normalize_text_value(item.get("situacao_nome")) or SITUACOES_NOMES.get(int(item.get("situacao_id") or 0), "Não informado"),
                 "source": "logs_transferencias",
             }
     except Exception as exc:
@@ -1058,7 +1109,7 @@ async def build_situacao_lookup() -> Dict[str, Dict[str, Any]]:
                     continue
                 lookup[reserva_id] = {
                     "situacao_id": sit_id,
-                    "situacao_nome": info.get("situacao_nome") or SITUACOES_NOMES.get(sit_id, "NÃ£o informado"),
+                    "situacao_nome": normalize_text_value(info.get("situacao_nome")) or SITUACOES_NOMES.get(sit_id, "Não informado"),
                     "source": "cvcrm",
                 }
         except Exception:
@@ -1187,7 +1238,7 @@ def get_effective_total_hoje(analyst: Dict[str, Any], reference: Optional[dateti
         return 0
 
     if ultima_atribuicao.tzinfo is None:
-        # Compatibilidade: timestamps antigos sem timezone sÃ£o interpretados como UTC.
+        # Compatibilidade: timestamps antigos sem timezone são interpretados como UTC.
         last_assignment_day = ultima_atribuicao.replace(tzinfo=datetime.timezone.utc).astimezone(APP_TIMEZONE).date()
     else:
         last_assignment_day = ultima_atribuicao.astimezone(APP_TIMEZONE).date()
@@ -1346,7 +1397,7 @@ class SuggestionUpdateRequest(BaseModel):
 class SuggestionAdminResponseRequest(BaseModel):
     resposta: str
 
-# --- LÃ“GICA DE DISTRIBUIÃ‡ÃƒO ---
+# --- LÓGICA DE DISTRIBUIÇÃO ---
 
 async def get_next_analyst(sit_id: int, exclude_ids: Optional[List[int]] = None):
     try:
@@ -1372,7 +1423,7 @@ async def get_next_analyst(sit_id: int, exclude_ids: Optional[List[int]] = None)
 
 
 async def reconcile_analyst_mesa(analyst_id: int, *, allowed_situations: Optional[List[int]] = None, force_reassign_all: bool = False) -> Dict[str, int]:
-    """Reatribui pastas quando a mesa atual nÃ£o combina mais com as permissÃµes do analista."""
+    """Reatribui pastas quando a mesa atual não combina mais com as permissões do analista."""
     mesa = supabase.table("distribuicoes").select("reserva_id,situacao_id").eq("analista_id", analyst_id).execute()
     itens_mesa = mesa.data or []
     redistribuidas = 0
@@ -1433,7 +1484,7 @@ async def reconcile_analyst_mesa_against_current_permissions(analyst_id: int) ->
 async def perform_sync():
     """
     Sincroniza reservas do CVCRM com a mesa local.
-    - Busca TODAS as pÃ¡ginas de cada situaÃ§Ã£o (suporte a paginaÃ§Ã£o)
+    - Busca TODAS as páginas de cada situação (suporte a paginação)
     - Trata robustamente diferentes formatos de resposta do CRM
     - Registra resultado em _LAST_SYNC_STATE para auditoria
     """
@@ -1476,11 +1527,11 @@ async def perform_sync():
                     ids_no_crm.add(res_id)
 
                     try:
-                        # Busca se jÃ¡ existe distribuiÃ§Ã£o para esta reserva
+                        # Busca se já existe distribuição para esta reserva
                         ativa = supabase.table("distribuicoes").select("*").eq("reserva_id", res_id).execute()
 
                         if not ativa.data:
-                            # NOVA DISTRIBUIÃ‡ÃƒO
+                            # NOVA DISTRIBUIÇÃO
                             analista = await get_next_analyst(sit_id)
                             now = datetime.datetime.now().isoformat()
                             titular = info.get("titular") or {}
@@ -1509,11 +1560,11 @@ async def perform_sync():
                                     "total_hoje": build_next_total_hoje(analista)
                                 }).eq("id", analista["id"]).execute()
                         else:
-                            # RESERVA JÃ EXISTE â€” verifica reassign e mudanÃ§a de situaÃ§Ã£o
+                            # RESERVA JÁ EXISTE — verifica reassign e mudança de situação
                             dist_db = ativa.data[0]
                             analista_atual_id = dist_db.get("analista_id")
 
-                            # AUTO-REASSIGN: se estÃ¡ sem analista ou com analista inativo/offline
+                            # AUTO-REASSIGN: se está sem analista ou com analista inativo/offline
                             deve_reatribuir = not analista_atual_id
                             if analista_atual_id:
                                 analista_atual = supabase.table("analistas").select("*").eq("id", analista_atual_id).execute()
@@ -1565,7 +1616,7 @@ async def perform_sync():
                 por_situacao[sit_nome] = -1  # -1 indica falha de fetch
                 situacoes_falharam.append({"situacao_id": sit_id, "situacao_nome": sit_nome, "fonte": source_key})
 
-        # REMOÃ‡ÃƒO SEGURA: remove apenas reservas realmente fora do CRM,
+        # REMOÇÃO SEGURA: remove apenas reservas realmente fora do CRM,
         # sem apagar lotes inteiros quando houver falha parcial de coleta.
         try:
             locais = supabase.table("distribuicoes").select("reserva_id,situacao_id").execute().data or []
@@ -1599,13 +1650,13 @@ async def perform_sync():
             else:
                 limpeza_escopo = "ignorada"
         except Exception as rem_err:
-            erros_sync.append(f"RemoÃ§Ã£o: {rem_err}")
+            erros_sync.append(f"Remoção: {rem_err}")
 
         fim = datetime.datetime.now(datetime.timezone.utc)
         _LAST_SYNC_STATE["timestamp"] = fim.isoformat()
         _LAST_SYNC_STATE["total_no_crm"] = len(ids_no_crm)
         _LAST_SYNC_STATE["por_situacao"] = por_situacao
-        _LAST_SYNC_STATE["erros"] = erros_sync[-50:]  # guarda os Ãºltimos 50 erros
+        _LAST_SYNC_STATE["erros"] = erros_sync[-50:]  # guarda os últimos 50 erros
         _LAST_SYNC_STATE["duracao_segundos"] = round((fim - inicio).total_seconds(), 2)
         _LAST_SYNC_STATE["situacoes_falharam"] = situacoes_falharam
         _LAST_SYNC_STATE["situacoes_ignoradas"] = situacoes_ignoradas
@@ -1615,12 +1666,12 @@ async def perform_sync():
 
         if erros_sync:
             print(
-                f"[SYNC] ConcluÃ­do com {len(erros_sync)} erros. "
+                f"[SYNC] Concluído com {len(erros_sync)} erros. "
                 f"Total CRM: {len(ids_no_crm)}. Limpeza: {limpeza_escopo}, removidas: {removidas_na_limpeza}"
             )
         else:
             print(
-                f"[SYNC] OK â€” {len(ids_no_crm)} reservas, {_LAST_SYNC_STATE['duracao_segundos']}s. "
+                f"[SYNC] OK — {len(ids_no_crm)} reservas, {_LAST_SYNC_STATE['duracao_segundos']}s. "
                 f"Limpeza: {limpeza_escopo}, removidas: {removidas_na_limpeza}"
             )
 
@@ -1640,8 +1691,8 @@ async def startup_event():
 @app.get("/api/gestor/sync-status")
 async def sync_status(authorization: Optional[str] = Header(default=None)):
     """
-    Retorna o resultado do Ãºltimo ciclo de sincronizaÃ§Ã£o com o CVCRM.
-    Ãštil para diagnosticar se reservas estÃ£o sendo puxadas corretamente.
+    Retorna o resultado do último ciclo de sincronização com o CVCRM.
+    Útil para diagnosticar se reservas estão sendo puxadas corretamente.
     """
     require_manager_auth(authorization)
     mesa_count = 0
@@ -1663,8 +1714,8 @@ async def debug_cvcrm_response(
     authorization: Optional[str] = Header(default=None),
 ):
     """
-    Inspeciona a resposta crua do CVCRM para uma situaÃ§Ã£o especÃ­fica.
-    Ãštil para entender o formato de retorno e detectar paginaÃ§Ã£o.
+    Inspeciona a resposta crua do CVCRM para uma situação específica.
+    Útil para entender o formato de retorno e detectar paginação.
     """
     require_manager_auth(authorization)
     try:
@@ -1677,7 +1728,7 @@ async def debug_cvcrm_response(
                 "pagina": pagina,
                 "conteudo_bruto": response.text[:500],
             }
-        data = response.json()
+        data = normalize_text_value(response.json())
         data_type = type(data).__name__
         pairs, total_pages = extract_reservas_from_response(data)
         primeiro_item = pairs[0][1] if pairs else None
@@ -1697,7 +1748,7 @@ async def debug_cvcrm_response(
 
 @app.post("/api/gestor/redistribuir")
 async def redistribute_all(authorization: Optional[str] = Header(default=None)):
-    """Limpa as mesas e forÃ§a uma nova distribuiÃ§Ã£o do zero."""
+    """Limpa as mesas e força uma nova distribuição do zero."""
     try:
         require_manager_auth(authorization)
         supabase.table("distribuicoes").delete().neq("reserva_id", "0").execute()
@@ -1708,7 +1759,7 @@ async def redistribute_all(authorization: Optional[str] = Header(default=None)):
 
 @app.post("/api/gestor/zerar-dados")
 async def reset_all_data(authorization: Optional[str] = Header(default=None)):
-    """Limpa a mesa atual e reinicia a ordem de distribuiÃ§Ã£o sem excluir histÃ³rico."""
+    """Limpa a mesa atual e reinicia a ordem de distribuição sem excluir histórico."""
     try:
         require_manager_auth(authorization)
         supabase.table("distribuicoes").delete().neq("reserva_id", "0").execute()
@@ -1716,7 +1767,7 @@ async def reset_all_data(authorization: Optional[str] = Header(default=None)):
             "total_hoje": 0,
             "ultima_atribuicao": None
         }).neq("id", 0).execute()
-        return {"status": "ok", "message": "Mesa limpa e ordem de distribuiÃ§Ã£o reiniciada"}
+        return {"status": "ok", "message": "Mesa limpa e ordem de distribuição reiniciada"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -1725,7 +1776,7 @@ async def manager_login(req: ManagerLoginRequest):
     admin = verify_admin_credentials(req.usuario, req.senha)
     
     if not admin:
-        raise HTTPException(status_code=401, detail="UsuÃ¡rio ou senha do admin invÃ¡lidos")
+        raise HTTPException(status_code=401, detail="Usuário ou senha do admin inválidos")
 
     return serialize_admin_session(admin)
 
@@ -1754,9 +1805,9 @@ async def create_admin_user(req: AdminCreateRequest, authorization: Optional[str
     username_input = (req.username or "").strip().lower()
 
     if not email or "@" not in email:
-        raise HTTPException(status_code=400, detail="Informe um e-mail vÃ¡lido")
+        raise HTTPException(status_code=400, detail="Informe um e-mail válido")
     if not senha:
-        raise HTTPException(status_code=400, detail="Senha Ã© obrigatÃ³ria")
+        raise HTTPException(status_code=400, detail="Senha é obrigatória")
 
     strength = evaluate_password_strength(senha)
     if not strength["is_acceptable"]:
@@ -1771,7 +1822,7 @@ async def create_admin_user(req: AdminCreateRequest, authorization: Optional[str
             .execute()
         )
         if existing_email.data:
-            raise HTTPException(status_code=409, detail="JÃ¡ existe administrador com este e-mail")
+            raise HTTPException(status_code=409, detail="Já existe administrador com este e-mail")
 
         base_username = username_input or username_from_email(email)
         username = ensure_unique_admin_username(base_username)
@@ -1828,7 +1879,7 @@ async def revoke_user_sessions(req: SessionRevokeRequest, authorization: Optiona
 
     role = (req.role or "").strip().lower()
     if role not in {"admin", "analyst"}:
-        raise HTTPException(status_code=400, detail="Role invÃ¡lida. Use 'admin' ou 'analyst'.")
+        raise HTTPException(status_code=400, detail="Role inválida. Use 'admin' ou 'analyst'.")
 
     user_id = int(req.user_id)
     next_version = bump_session_version(role, user_id)
@@ -1836,8 +1887,8 @@ async def revoke_user_sessions(req: SessionRevokeRequest, authorization: Optiona
     redistribuidas = 0
     sem_destino = 0
 
-    # Regra de negÃ³cio: revogar sessÃ£o NÃƒO altera o status da fila do analista.
-    # A pausa/ativaÃ§Ã£o da fila deve acontecer somente pela aÃ§Ã£o explÃ­cita de status-fila.
+    # Regra de negócio: revogar sessão NÃO altera o status da fila do analista.
+    # A pausa/ativação da fila deve acontecer somente pela ação explícita de status-fila.
 
     record_session_revoke_audit(
         actor=actor,
@@ -1868,7 +1919,7 @@ async def login(req: LoginRequest):
             .execute()
         )
         if not res.data:
-            raise HTTPException(status_code=404, detail="UsuÃ¡rio nÃ£o encontrado")
+            raise HTTPException(status_code=404, detail="Usuário não encontrado")
 
         analista = res.data[0]
         if analista.get("status") == "inativo":
@@ -1893,7 +1944,7 @@ async def login_email(req: LoginEmailRequest):
     senha_recebida = (req.senha or "").strip()
 
     if not email_normalizado or not senha_recebida:
-        raise HTTPException(status_code=400, detail="E-mail e senha sÃ£o obrigatÃ³rios")
+        raise HTTPException(status_code=400, detail="E-mail e senha são obrigatórios")
 
     try:
         res = (
@@ -1924,14 +1975,14 @@ async def login_email(req: LoginEmailRequest):
 
 @app.post("/api/analista/esqueceu-senha")
 async def forgot_password(req: ForgotPasswordRequest):
-    """Solicita redefiniÃ§Ã£o de senha. Sempre retorna 200 para nÃ£o vazar existÃªncia de e-mails."""
+    """Solicita redefinição de senha. Sempre retorna 200 para não vazar existência de e-mails."""
     email_normalizado = (req.email or "").strip().lower()
     if not email_normalizado:
         raise HTTPException(status_code=400, detail="Informe o e-mail")
 
     RESPOSTA_PADRAO = {
         "status": "ok",
-        "message": "Se o e-mail estiver cadastrado, vocÃª receberÃ¡ as instruÃ§Ãµes em breve.",
+        "message": "Se o e-mail estiver cadastrado, você receberá as instruções em breve.",
     }
 
     try:
@@ -1966,8 +2017,8 @@ async def forgot_password(req: ForgotPasswordRequest):
                 "reset_token_expires": None,
             }).eq("id", analista["id"]).execute()
             print(
-                f"[ERRO] Reset de senha nÃ£o entregue para {email_normalizado}. "
-                "Token invalidado apÃ³s falha de SMTP."
+                f"[ERRO] Reset de senha não entregue para {email_normalizado}. "
+                "Token invalidado após falha de SMTP."
             )
 
         return RESPOSTA_PADRAO
@@ -1979,18 +2030,18 @@ async def forgot_password(req: ForgotPasswordRequest):
 
 @app.post("/api/analista/resetar-senha")
 async def reset_password(req: ResetPasswordRequest):
-    """Aplica nova senha usando o token de redefiniÃ§Ã£o recebido por e-mail."""
+    """Aplica nova senha usando o token de redefinição recebido por e-mail."""
     plain_token = (req.token or "").strip()
     nova_senha = (req.nova_senha or "").strip()
 
     if not plain_token or not nova_senha:
-        raise HTTPException(status_code=400, detail="Token e nova senha sÃ£o obrigatÃ³rios")
+        raise HTTPException(status_code=400, detail="Token e nova senha são obrigatórios")
 
     password_strength = evaluate_password_strength(nova_senha)
     if not password_strength["is_acceptable"]:
         raise HTTPException(
             status_code=400,
-            detail="A senha estÃ¡ fraca. Use pelo menos 8 caracteres com letras, nÃºmeros e sÃ­mbolos.",
+            detail="A senha está fraca. Use pelo menos 8 caracteres com letras, números e símbolos.",
         )
 
     token_hash = hashlib.sha256(plain_token.encode("utf-8")).hexdigest()
@@ -2004,18 +2055,18 @@ async def reset_password(req: ResetPasswordRequest):
             .execute()
         )
         if not res.data:
-            raise HTTPException(status_code=400, detail="Token invÃ¡lido ou jÃ¡ utilizado")
+            raise HTTPException(status_code=400, detail="Token inválido ou já utilizado")
 
         analista = res.data[0]
         expires_str = (analista.get("reset_token_expires") or "").strip()
         if not expires_str:
-            raise HTTPException(status_code=400, detail="Token invÃ¡lido")
+            raise HTTPException(status_code=400, detail="Token inválido")
 
         expires_at = datetime.datetime.fromisoformat(expires_str.replace("Z", "+00:00"))
         if now > expires_at:
             raise HTTPException(
                 status_code=400,
-                detail="Token expirado. Solicite um novo link de redefiniÃ§Ã£o.",
+                detail="Token expirado. Solicite um novo link de redefinição.",
             )
 
         supabase.table("analistas").update({
@@ -2026,7 +2077,7 @@ async def reset_password(req: ResetPasswordRequest):
 
         bump_session_version("analyst", int(analista["id"]))
 
-        return {"status": "ok", "message": "Senha redefinida com sucesso. FaÃ§a login com sua nova senha."}
+        return {"status": "ok", "message": "Senha redefinida com sucesso. Faça login com sua nova senha."}
     except HTTPException:
         raise
     except Exception as e:
@@ -2038,7 +2089,7 @@ async def change_password(req: ChangePasswordRequest, authorization: Optional[st
         require_analyst_auth(authorization, expected_analyst_id=req.analista_id)
         res = supabase.table("analistas").select("id,nome,senha").eq("id", req.analista_id).execute()
         if not res.data:
-            raise HTTPException(status_code=404, detail="UsuÃ¡rio nÃ£o encontrado")
+            raise HTTPException(status_code=404, detail="Usuário não encontrado")
 
         analyst = res.data[0]
         current_password = (req.senha_atual or "").strip()
@@ -2055,7 +2106,7 @@ async def change_password(req: ChangePasswordRequest, authorization: Optional[st
 
         password_strength = evaluate_password_strength(new_password)
         if not password_strength["is_acceptable"]:
-            raise HTTPException(status_code=400, detail="A nova senha estÃ¡ fraca. Use pelo menos 8 caracteres com combinaÃ§Ã£o de letras, nÃºmeros e sÃ­mbolos.")
+            raise HTTPException(status_code=400, detail="A nova senha está fraca. Use pelo menos 8 caracteres com combinação de letras, números e símbolos.")
 
         supabase.table("analistas").update({"senha": hash_password(new_password)}).eq("id", req.analista_id).execute()
         bump_session_version("analyst", int(req.analista_id))
@@ -2070,7 +2121,7 @@ async def change_password(req: ChangePasswordRequest, authorization: Optional[st
 async def set_online_status(req: StatusFilaRequest, authorization: Optional[str] = Header(default=None)):
     try:
         if not authorization:
-            raise HTTPException(status_code=401, detail="AutenticaÃ§Ã£o obrigatÃ³ria para alterar status da fila")
+            raise HTTPException(status_code=401, detail="Autenticação obrigatória para alterar status da fila")
 
         scheme, _, token = authorization.partition(" ")
         authorized_as_admin = scheme.lower() == "bearer" and bool(verify_manager_token(token))
@@ -2082,7 +2133,7 @@ async def set_online_status(req: StatusFilaRequest, authorization: Optional[str]
         redistribuidas = 0
         sem_destino = 0
 
-        # Regra: ao ficar OFFLINE, redistribui as pastas da mesa dele para analistas ONLINE elegÃ­veis
+        # Regra: ao ficar OFFLINE, redistribui as pastas da mesa dele para analistas ONLINE elegíveis
         if not req.online:
             mesa = supabase.table("distribuicoes").select("*").eq("analista_id", req.analista_id).execute()
             itens_mesa = mesa.data or []
@@ -2174,7 +2225,7 @@ async def get_analyst_dashboard(analista_id: int, authorization: Optional[str] =
             .execute()
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erro ao carregar dashboard analÃ­tico: {e}")
+        raise HTTPException(status_code=500, detail=f"Erro ao carregar dashboard analítico: {e}")
 
     raw_rows = history_response.data or []
     now = datetime.datetime.now()
@@ -2207,7 +2258,7 @@ async def get_analyst_dashboard(analista_id: int, authorization: Optional[str] =
         total_por_mes[month_key] = total_por_mes.get(month_key, 0) + 1
 
         resultado = (row.get("resultado") or "Sem resultado").strip()
-        empreendimento = (row.get("empreendimento") or "NÃ£o informado").strip()
+        empreendimento = (row.get("empreendimento") or "Não informado").strip()
         situacao_nome = ""
         if HISTORICO_HAS_SITUACAO_NOME:
             situacao_nome = (row.get("situacao_nome") or "").strip()
@@ -2228,10 +2279,10 @@ async def get_analyst_dashboard(analista_id: int, authorization: Optional[str] =
 
         normalized_rows.append({
             "reserva_id": row.get("reserva_id"),
-            "cliente": row.get("cliente") or "NÃ£o informado",
+            "cliente": row.get("cliente") or "Não informado",
             "empreendimento": empreendimento,
-            "unidade": row.get("unidade") or "NÃ£o informado",
-            "situacao_nome": situacao_nome or "NÃ£o informado",
+            "unidade": row.get("unidade") or "Não informado",
+            "situacao_nome": situacao_nome or "Não informado",
             "resultado": resultado,
             "data_fim": finished_local.isoformat(),
             "data_fim_label": finished_local.strftime("%d/%m/%Y %H:%M"),
@@ -2272,11 +2323,11 @@ async def concluir(reserva_id: str, resultado: str, authorization: Optional[str]
     auth_payload = require_analyst_auth(authorization)
     dist = supabase.table("distribuicoes").select("*").eq("reserva_id", reserva_id).execute()
     if not dist.data:
-        raise HTTPException(status_code=404, detail="Reserva nÃ£o encontrada na mesa atual")
+        raise HTTPException(status_code=404, detail="Reserva não encontrada na mesa atual")
 
     d = dist.data[0]
     if int(d.get("analista_id") or 0) != int(auth_payload.get("user_id") or 0):
-        raise HTTPException(status_code=403, detail="VocÃª nÃ£o tem permissÃ£o para concluir esta reserva")
+        raise HTTPException(status_code=403, detail="Você não tem permissão para concluir esta reserva")
 
     historico_payload = {
         "reserva_id": d["reserva_id"],
@@ -2297,7 +2348,7 @@ async def concluir(reserva_id: str, resultado: str, authorization: Optional[str]
         historico_payload["situacao_id"] = d.get("situacao_id")
 
     if HISTORICO_HAS_SITUACAO_NOME:
-        historico_payload["situacao_nome"] = d.get("situacao_nome") or SITUACOES_NOMES.get(int(d.get("situacao_id") or 0), "NÃ£o informado")
+        historico_payload["situacao_nome"] = d.get("situacao_nome") or SITUACOES_NOMES.get(int(d.get("situacao_id") or 0), "Não informado")
 
     supabase.table("historico").insert(historico_payload).execute()
     supabase.table("distribuicoes").delete().eq("reserva_id", d["reserva_id"]).execute()
@@ -2321,7 +2372,7 @@ async def transferir_pasta(req: TransferirPastaRequest, authorization: Optional[
 
         motivo_limpo = (req.motivo or "").strip()
         if not motivo_limpo:
-            raise HTTPException(status_code=400, detail="Motivo da transferÃªncia Ã© obrigatÃ³rio")
+            raise HTTPException(status_code=400, detail="Motivo da transferência é obrigatório")
 
         dist = supabase.table("distribuicoes") \
             .select("*") \
@@ -2330,7 +2381,7 @@ async def transferir_pasta(req: TransferirPastaRequest, authorization: Optional[
             .execute()
 
         if not dist.data:
-            raise HTTPException(status_code=404, detail="Pasta nÃ£o encontrada na sua mesa")
+            raise HTTPException(status_code=404, detail="Pasta não encontrada na sua mesa")
 
         pasta = dist.data[0]
         situacao_id = int(pasta.get("situacao_id", 0))
@@ -2339,13 +2390,13 @@ async def transferir_pasta(req: TransferirPastaRequest, authorization: Optional[
         destino_res = supabase.table("analistas").select("*").eq("id", req.analista_destino_id).execute()
 
         if not destino_res.data:
-            raise HTTPException(status_code=404, detail="Analista de destino nÃ£o encontrado")
+            raise HTTPException(status_code=404, detail="Analista de destino não encontrado")
 
         origem = origem_res.data[0] if origem_res.data else {"id": req.analista_origem_id, "nome": f"Analista {req.analista_origem_id}"}
         destino = destino_res.data[0]
 
         if destino.get("status") != "ativo":
-            raise HTTPException(status_code=400, detail="Analista de destino nÃ£o estÃ¡ ativo")
+            raise HTTPException(status_code=400, detail="Analista de destino não está ativo")
 
         now = datetime.datetime.now().isoformat()
 
@@ -2391,12 +2442,12 @@ async def transferir_pasta(req: TransferirPastaRequest, authorization: Optional[
             ):
                 raise HTTPException(
                     status_code=500,
-                    detail="Tabela de log nÃ£o encontrada na API do Supabase. Execute o SQL em backend/db/migrations/002_logs_transferencias_schema.sql e tente novamente."
+                    detail="Tabela de log não encontrada na API do Supabase. Execute o SQL em backend/db/migrations/002_logs_transferencias_schema.sql e tente novamente."
                 )
 
             raise HTTPException(
                 status_code=500,
-                detail=f"Falha ao registrar log da transferÃªncia: {log_error_message}"
+                detail=f"Falha ao registrar log da transferência: {log_error_message}"
             )
 
         return {"status": "ok", "message": "Pasta transferida com sucesso"}
@@ -2407,7 +2458,7 @@ async def transferir_pasta(req: TransferirPastaRequest, authorization: Optional[
 
 @app.post("/api/analista/transferir-massa")
 async def transferir_pasta_massa(req: TransferirMassaRequest, authorization: Optional[str] = Header(default=None)):
-    """Transfere mÃºltiplas pastas de uma vez para o analista destino."""
+    """Transfere múltiplas pastas de uma vez para o analista destino."""
     try:
         require_analyst_auth(authorization, expected_analyst_id=req.analista_origem_id)
         if int(req.analista_origem_id) == int(req.analista_destino_id):
@@ -2415,7 +2466,7 @@ async def transferir_pasta_massa(req: TransferirMassaRequest, authorization: Opt
 
         motivo_limpo = (req.motivo or "").strip()
         if not motivo_limpo:
-            raise HTTPException(status_code=400, detail="Motivo da transferÃªncia Ã© obrigatÃ³rio")
+            raise HTTPException(status_code=400, detail="Motivo da transferência é obrigatório")
 
         if not req.reserva_ids:
             raise HTTPException(status_code=400, detail="Nenhuma pasta selecionada")
@@ -2424,11 +2475,11 @@ async def transferir_pasta_massa(req: TransferirMassaRequest, authorization: Opt
         destino_res = supabase.table("analistas").select("*").eq("id", req.analista_destino_id).execute()
 
         if not destino_res.data:
-            raise HTTPException(status_code=404, detail="Analista de destino nÃ£o encontrado")
+            raise HTTPException(status_code=404, detail="Analista de destino não encontrado")
 
         destino = destino_res.data[0]
         if destino.get("status") != "ativo":
-            raise HTTPException(status_code=400, detail="Analista de destino nÃ£o estÃ¡ ativo")
+            raise HTTPException(status_code=400, detail="Analista de destino não está ativo")
 
         origem = origem_res.data[0] if origem_res.data else {"id": req.analista_origem_id, "nome": f"Analista {req.analista_origem_id}"}
 
@@ -2445,7 +2496,7 @@ async def transferir_pasta_massa(req: TransferirMassaRequest, authorization: Opt
                     .execute()
 
                 if not dist.data:
-                    erros.append({"reserva_id": reserva_id, "motivo": "Pasta nÃ£o encontrada na mesa de origem"})
+                    erros.append({"reserva_id": reserva_id, "motivo": "Pasta não encontrada na mesa de origem"})
                     continue
 
                 pasta = dist.data[0]
@@ -2472,7 +2523,7 @@ async def transferir_pasta_massa(req: TransferirMassaRequest, authorization: Opt
                         "data_transferencia": now
                     }).execute()
                 except Exception:
-                    # Reverte a transferÃªncia desta pasta se o log falhar
+                    # Reverte a transferência desta pasta se o log falhar
                     supabase.table("distribuicoes").update({
                         "analista_id": int(req.analista_origem_id)
                     }).eq("reserva_id", reserva_id).execute()
@@ -2998,7 +3049,7 @@ async def manager_overview(
     authorization: Optional[str] = Header(default=None),
 ):
     require_manager_auth(authorization)
-    # Usa os dados do Ãºltimo sync para nÃ£o duplicar requests ao CVCRM
+    # Usa os dados do último sync para não duplicar requests ao CVCRM
     now = datetime.datetime.now(datetime.timezone.utc)
     app_now = get_app_now(now)
     today_start = app_now.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -3151,7 +3202,7 @@ async def manager_overview(
         day_key = finished_local.strftime("%Y-%m-%d")
         month_key = finished_local.strftime("%Y-%m")
         situacao_id = int(item.get("situacao_id") or 0)
-        situacao_nome = item.get("situacao_nome") or SITUACOES_NOMES.get(situacao_id, "NÃ£o informado")
+        situacao_nome = item.get("situacao_nome") or SITUACOES_NOMES.get(situacao_id, "Não informado")
 
         bucket["por_dia"][day_key] = bucket["por_dia"].get(day_key, 0) + 1
         bucket["por_mes"][month_key] = bucket["por_mes"].get(month_key, 0) + 1
@@ -3170,7 +3221,7 @@ async def manager_overview(
         if not resumo:
             continue
         resumo["na_mesa"] += 1
-        situacao_nome = item.get("situacao_nome") or SITUACOES_NOMES.get(int(item.get("situacao_id") or 0), "NÃ£o informado")
+        situacao_nome = item.get("situacao_nome") or SITUACOES_NOMES.get(int(item.get("situacao_id") or 0), "Não informado")
         resumo["mesa_por_situacao"][situacao_nome] = resumo["mesa_por_situacao"].get(situacao_nome, 0) + 1
 
     for item in historico_hoje:
@@ -3292,15 +3343,15 @@ async def create_analyst(req: AnalystCreate, authorization: Optional[str] = Head
         permissoes = [int(p) for p in (req.permissoes or [])]
 
         if not nome:
-            raise HTTPException(status_code=400, detail="Nome completo Ã© obrigatÃ³rio")
+            raise HTTPException(status_code=400, detail="Nome completo é obrigatório")
         if not email or "@" not in email:
-            raise HTTPException(status_code=400, detail="E-mail de acesso invÃ¡lido")
+            raise HTTPException(status_code=400, detail="E-mail de acesso inválido")
         if not senha:
-            raise HTTPException(status_code=400, detail="Senha Ã© obrigatÃ³ria")
+            raise HTTPException(status_code=400, detail="Senha é obrigatória")
         if not permissoes:
-            raise HTTPException(status_code=400, detail="Selecione pelo menos uma situaÃ§Ã£o")
+            raise HTTPException(status_code=400, detail="Selecione pelo menos uma situação")
         if status not in {"ativo", "inativo"}:
-            raise HTTPException(status_code=400, detail="Status invÃ¡lido")
+            raise HTTPException(status_code=400, detail="Status inválido")
 
         insert_payload = {
             "nome": nome,
@@ -3325,7 +3376,7 @@ async def create_analyst(req: AnalystCreate, authorization: Optional[str] = Head
         raise
     except APIError as e:
         if e.args and "23505" in str(e):
-            raise HTTPException(status_code=409, detail="E-mail jÃ¡ cadastrado para outro analista")
+            raise HTTPException(status_code=409, detail="E-mail já cadastrado para outro analista")
         raise HTTPException(status_code=500, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -3345,7 +3396,7 @@ async def update_analyst(id: int, req: AnalystUpdate, authorization: Optional[st
             .execute()
         )
         if not current_response.data:
-            raise HTTPException(status_code=404, detail="Analista nÃ£o encontrado")
+            raise HTTPException(status_code=404, detail="Analista não encontrado")
 
         current_analyst = current_response.data[0]
         current_permissions = [int(item) for item in (current_analyst.get("permissoes") or []) if item is not None]
@@ -3354,12 +3405,12 @@ async def update_analyst(id: int, req: AnalystUpdate, authorization: Optional[st
         if "nome" in data:
             data["nome"] = str(data["nome"] or "").strip()
             if not data["nome"]:
-                raise HTTPException(status_code=400, detail="Nome completo Ã© obrigatÃ³rio")
+                raise HTTPException(status_code=400, detail="Nome completo é obrigatório")
 
         if "email" in data:
             data["email"] = str(data["email"] or "").strip().lower()
             if not data["email"] or "@" not in data["email"]:
-                raise HTTPException(status_code=400, detail="E-mail de acesso invÃ¡lido")
+                raise HTTPException(status_code=400, detail="E-mail de acesso inválido")
 
         if "senha" in data:
             senha_limpa = str(data["senha"] or "").strip()
@@ -3370,12 +3421,12 @@ async def update_analyst(id: int, req: AnalystUpdate, authorization: Optional[st
                 data.pop("senha")
 
         if "permissoes" in data and not data["permissoes"]:
-            raise HTTPException(status_code=400, detail="Selecione pelo menos uma situaÃ§Ã£o")
+            raise HTTPException(status_code=400, detail="Selecione pelo menos uma situação")
 
         if "status" in data:
             data["status"] = str(data["status"] or "").strip().lower()
             if data["status"] not in {"ativo", "inativo"}:
-                raise HTTPException(status_code=400, detail="Status invÃ¡lido")
+                raise HTTPException(status_code=400, detail="Status inválido")
             if data["status"] == "inativo":
                 data["is_online"] = False
 
@@ -3386,7 +3437,7 @@ async def update_analyst(id: int, req: AnalystUpdate, authorization: Optional[st
             permissions_changed = set(updated_permissions) != set(current_permissions)
 
         if not data:
-            raise HTTPException(status_code=400, detail="Nenhum campo vÃ¡lido para atualizar")
+            raise HTTPException(status_code=400, detail="Nenhum campo válido para atualizar")
 
         res = supabase.table("analistas").update(data).eq("id", id).execute()
 
@@ -3407,7 +3458,7 @@ async def update_analyst(id: int, req: AnalystUpdate, authorization: Optional[st
         raise
     except APIError as e:
         if e.args and "23505" in str(e):
-            raise HTTPException(status_code=409, detail="E-mail jÃ¡ cadastrado para outro analista")
+            raise HTTPException(status_code=409, detail="E-mail já cadastrado para outro analista")
         raise HTTPException(status_code=500, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

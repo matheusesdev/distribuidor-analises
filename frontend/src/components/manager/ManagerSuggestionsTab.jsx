@@ -227,10 +227,10 @@ const ManagerSuggestionsTab = ({ suggestions, onUpdateStatus, onRespondSuggestio
 
                   {responsePreview && (
                     <div className="mt-4 rounded-2xl border border-blue-100 bg-blue-50/70 px-3 py-2.5">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-blue-600">Última resposta do admin</p>
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-blue-600">Última resposta do administrador</p>
                       <p className="mt-1 text-[12px] leading-relaxed text-slate-700">{responsePreview}</p>
                       <p className="mt-1 text-[10px] font-medium text-slate-500">
-                        {item?.resposta_admin_por_admin_nome || 'Admin'} - {formatDateTime(item?.resposta_admin_at)}
+                        {item?.resposta_admin_por_admin_nome || 'Administrador'} - {formatDateTime(item?.resposta_admin_at)}
                       </p>
                     </div>
                   )}
@@ -264,7 +264,7 @@ const ManagerSuggestionsTab = ({ suggestions, onUpdateStatus, onRespondSuggestio
                   <div className="rounded-2xl border border-slate-200 bg-white p-3.5">
                     <p className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">
                       <MessageSquare size={12} />
-                      Resposta do admin
+                      Resposta do administrador
                     </p>
                     <button
                       type="button"

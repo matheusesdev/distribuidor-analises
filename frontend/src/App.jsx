@@ -29,6 +29,7 @@ import { normalizeUiText } from './utils/textEncoding';
 const AUTO_REFRESH_SECONDS = 30;
 const LOGIN_SUCCESS_SPLASH_MS = 1600;
 const DAILY_ANALYST_LOGOUT_MARKER = 'analystDailyLogoutDate';
+const LAST_LOGIN_DATE_KEY = 'lastSuccessfulLoginDate';
 const ANALYST_REMEMBER_MARKER = 'analystRememberMe';
 const ANALYST_SESSION_KEY = 'analystSession';
 const MANAGER_SESSION_KEY = 'managerSession';
@@ -82,6 +83,11 @@ const getLocalDateKey = (date = new Date()) => {
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+};
+
+const markSuccessfulLoginToday = () => {
+  if (typeof window === 'undefined') return;
+  window.localStorage.setItem(LAST_LOGIN_DATE_KEY, getLocalDateKey());
 };
 
 const parseStoredSession = (rawSession) => {
@@ -254,16 +260,16 @@ const App = () => {
   };
 
   const SITUACOES_MAP = {
-    62: "ANÁLISE VENDA LOTEAMENTO",
-    66: "ANÁLISE VENDA PARCELAMENTO INCORPORADORA",
-    30: "ANÁLISE VENDA CAIXA",
-    16: "CONFECÇÃO DE CONTRATO",
-    31: "ASSINADO",
-    84: "APROVAÇÃO EXPANSÃO",
-    1012: "ANÁLISE VENDA LOTEAMENTO (LOTEAR)",
-    1023: "APROVAÇÃO EXPANSÃO (LOTEAR)",
-    1016: "CONFECÇÃO DE CONTRATO (LOTEAR)",
-    1021: "ASSINADO (LOTEAR)",
+    62: normalizeUiText("ANÁLISE VENDA LOTEAMENTO"),
+    66: normalizeUiText("ANÁLISE VENDA PARCELAMENTO INCORPORADORA"),
+    30: normalizeUiText("ANÁLISE VENDA CAIXA"),
+    16: normalizeUiText("CONFECÇÃO DE CONTRATO"),
+    31: normalizeUiText("ASSINADO"),
+    84: normalizeUiText("APROVAÇÃO EXPANSÃO"),
+    1012: normalizeUiText("ANÁLISE VENDA LOTEAMENTO (LOTEAR)"),
+    1023: normalizeUiText("APROVAÇÃO EXPANSÃO (LOTEAR)"),
+    1016: normalizeUiText("CONFECÇÃO DE CONTRATO (LOTEAR)"),
+    1021: normalizeUiText("ASSINADO (LOTEAR)"),
   };
 
   const SIT_COLORS = useMemo(() => {
@@ -340,6 +346,24 @@ const App = () => {
 
   const setSafeLoginNotice = useCallback((message) => {
     setLoginNotice(typeof message === 'string' ? normalizeUiText(message) : message);
+  }, []);
+
+  const normalizeUiData = useCallback((value) => {
+    if (typeof value === 'string') {
+      return normalizeUiText(value);
+    }
+
+    if (Array.isArray(value)) {
+      return value.map((item) => normalizeUiData(item));
+    }
+
+    if (value && typeof value === 'object') {
+      return Object.fromEntries(
+        Object.entries(value).map(([key, item]) => [normalizeUiText(key), normalizeUiData(item)]),
+      );
+    }
+
+    return value;
   }, []);
 
   const runLoginSuccessSplash = useCallback((role, onComplete) => {
@@ -491,7 +515,7 @@ const App = () => {
     setManagerTab('dashboard');
     setView('login');
     setSafeLoginNotice('Sua sessão de gestor expirou. Faça login novamente para continuar no painel.');
-    notify('Sessão do admin expirada. Faça login novamente.', 'error');
+    notify('Sessão do administrador expirada. Faça login novamente.', 'error');
   }, [clearManagerSession, notify, setSafeLoginNotice]);
 
   const handleAnalystUnauthorized = useCallback(() => {
@@ -511,7 +535,7 @@ const App = () => {
 
   const getApiErrorMessage = async (response, fallbackMessage) => {
     try {
-      const data = await response.json();
+      const data = normalizeUiData(await response.json());
       if (typeof data === 'string' && data.trim()) return data;
       if (data?.detail) return data.detail;
       if (data?.message) return data.message;
@@ -616,7 +640,7 @@ const App = () => {
       if (view === 'analyst' && currentUser) {
         const resA = await api.listAnalysts();
         if (resA.ok) {
-          setAnalysts(await resA.json());
+          setAnalysts(normalizeUiData(await resA.json()));
         } else if (resA.status === 401) {
           handleAnalystUnauthorized();
           return;
@@ -624,21 +648,21 @@ const App = () => {
 
         const resM = await api.getMesa(currentUser.id);
         if (resM.ok) {
-          setMyTasks(await resM.json());
+          setMyTasks(normalizeUiData(await resM.json()));
         } else if (resM.status === 401) {
           handleAnalystUnauthorized();
           return;
         }
         const resMet = await api.getMetrics(currentUser.id);
         if (resMet.ok) {
-          setMetrics(await resMet.json());
+          setMetrics(normalizeUiData(await resMet.json()));
         } else if (resMet.status === 401) {
           handleAnalystUnauthorized();
           return;
         }
         const resAnalytics = await api.getAnalystDashboard(currentUser.id);
         if (resAnalytics.ok) {
-          setAnalyticsData(await resAnalytics.json());
+          setAnalyticsData(normalizeUiData(await resAnalytics.json()));
         } else if (resAnalytics.status === 401) {
           handleAnalystUnauthorized();
           return;
@@ -648,7 +672,7 @@ const App = () => {
 
         const resSuggestions = await api.listSuggestions();
         if (resSuggestions.ok) {
-          setSuggestions(await resSuggestions.json());
+          setSuggestions(normalizeUiData(await resSuggestions.json()));
         } else if (resSuggestions.status === 401) {
           handleAnalystUnauthorized();
           return;
@@ -665,7 +689,7 @@ const App = () => {
         ]);
 
         if (resD.ok) {
-          const d = await resD.json();
+          const d = normalizeUiData(await resD.json());
           setDashData({
             equipe: d.equipe || [],
             resumo_equipe: d.resumo_equipe || [],
@@ -681,7 +705,7 @@ const App = () => {
         }
 
         if (resSync.ok) {
-          const s = await resSync.json();
+          const s = normalizeUiData(await resSync.json());
           setManagerSyncStatus({
             por_situacao: s.por_situacao || {},
             situacoes_falharam: s.situacoes_falharam || [],
@@ -695,7 +719,7 @@ const App = () => {
         }
 
         if (resManagerSuggestions.ok) {
-          setManagerSuggestions(await resManagerSuggestions.json());
+          setManagerSuggestions(normalizeUiData(await resManagerSuggestions.json()));
         } else if (resManagerSuggestions.status === 401) {
           handleManagerUnauthorized();
           return;
@@ -753,9 +777,10 @@ const App = () => {
     try {
       const res = await api.loginEmail(email, senha);
       if (res.ok) {
-        const userData = await res.json();
+        const userData = normalizeUiData(await res.json());
         setKeepAnalystLoggedIn(Boolean(rememberMe));
         persistAnalystSession(userData, { keepLoggedIn: Boolean(rememberMe) });
+        markSuccessfulLoginToday();
         setAnalystTab('mesa');
         setSafeLoginNotice(null);
         notify(`Olá, ${userData.nome}!`);
@@ -774,14 +799,15 @@ const App = () => {
     try {
       const res = await api.managerLogin(managerIdentifier.trim().toLowerCase(), managerPassword);
       if (res.ok) {
-        const session = await res.json();
+        const session = normalizeUiData(await res.json());
         persistManagerSession(session);
+        markSuccessfulLoginToday();
         setShowManagerLoginModal(false);
         setManagerPassword('');
         setShowManagerPassword(false);
         setManagerTab('dashboard');
         setSafeLoginNotice(null);
-        notify('Acesso admin liberado.');
+        notify('Acesso de administrador liberado.');
         runLoginSuccessSplash('manager', () => setView('manager'));
       } else if (res.status === 404) {
         const legacyOverview = await api.getManagerOverview();
@@ -793,18 +819,19 @@ const App = () => {
             token: LEGACY_MANAGER_TOKEN,
             legacyMode: true,
           });
+          markSuccessfulLoginToday();
           setShowManagerLoginModal(false);
           setManagerPassword('');
           setShowManagerPassword(false);
           setManagerTab('dashboard');
           setSafeLoginNotice(null);
-          notify('Painel admin aberto em modo de compatibilidade.');
+          notify('Painel administrativo aberto em modo de compatibilidade.');
           runLoginSuccessSplash('manager', () => setView('manager'));
         } else {
-          notify('O backend de produção não expõe o login do admin nem o overview do painel.', 'error');
+          notify('O backend de produção não expõe o login do administrador nem a visão geral do painel.', 'error');
         }
       } else {
-        notify(await getApiErrorMessage(res, 'Falha no login do admin'), 'error');
+        notify(await getApiErrorMessage(res, 'Falha no login do administrador'), 'error');
       }
     } catch (e) {
       notify('Erro de conexão com o servidor.', 'error');
@@ -833,7 +860,7 @@ const App = () => {
         return;
       }
       if (res.ok) {
-        setAdminUsers(await res.json());
+        setAdminUsers(normalizeUiData(await res.json()));
       }
     } catch {
       // Silencioso: listado auxiliar do painel.
@@ -928,10 +955,10 @@ const App = () => {
         notify('Sessões do administrador encerradas com sucesso.');
         fetchAdminUsers();
       } else {
-        notify(await getApiErrorMessage(res, 'Erro ao revogar sessão do admin'), 'error');
+        notify(await getApiErrorMessage(res, 'Erro ao revogar sessão do administrador'), 'error');
       }
     } catch {
-      notify('Erro de conexão ao revogar sessão do admin.', 'error');
+      notify('Erro de conexão ao revogar sessão do administrador.', 'error');
     } finally {
       setIsGlobalLoading(false);
     }
@@ -1189,7 +1216,7 @@ const App = () => {
         motivo: trimmedReason
       });
       if (res.ok) {
-        const data = await res.json();
+        const data = normalizeUiData(await res.json());
         notify(`${data.transferidas} pasta(s) transferida(s) com sucesso.${data.erros > 0 ? ` ${data.erros} com erro.` : ''}`);
         setShowBulkTransferModal(false);
         setSelectedTaskIds(new Set());
@@ -1213,7 +1240,7 @@ const App = () => {
         return { success: false };
       }
       if (res.ok) {
-        const data = await res.json();
+        const data = normalizeUiData(await res.json());
         const created = data?.sugestao;
         if (created) {
           setSuggestions((prev) => [...(prev || []), created].sort((a, b) => new Date(a?.created_at || 0) - new Date(b?.created_at || 0)));
@@ -1242,7 +1269,7 @@ const App = () => {
         return { success: false };
       }
       if (res.ok) {
-        const data = await res.json();
+        const data = normalizeUiData(await res.json());
         const updated = data?.sugestao;
         if (updated) {
           setSuggestions((prev) =>
@@ -1276,7 +1303,7 @@ const App = () => {
         return { success: false };
       }
       if (res.ok) {
-        const data = await res.json();
+        const data = normalizeUiData(await res.json());
         const updated = data?.sugestao;
         if (updated) {
           setSuggestions((prev) =>
@@ -1334,7 +1361,7 @@ const App = () => {
         return { success: false };
       }
       if (res.ok) {
-        const data = await res.json();
+        const data = normalizeUiData(await res.json());
         const updated = data?.sugestao;
         if (updated) {
           setManagerSuggestions((prev) =>
@@ -1368,7 +1395,7 @@ const App = () => {
         return { success: false };
       }
       if (res.ok) {
-        const data = await res.json();
+        const data = normalizeUiData(await res.json());
         const updated = data?.sugestao;
         if (updated) {
           setManagerSuggestions((prev) =>
@@ -1458,7 +1485,7 @@ const App = () => {
     try {
       const res = await api.setQueueStatus(analyst.id, nextStatus, { asManager: true });
       if (res.ok) {
-        const data = await res.json();
+        const data = normalizeUiData(await res.json());
         if (!nextStatus) {
           notify(`${data.redistribuidas || 0} pastas redistribuídas, ${data.sem_destino || 0} sem destino.`);
         } else {
@@ -1537,7 +1564,7 @@ const App = () => {
 
           let payload = {};
           try {
-            payload = await response.json();
+            payload = normalizeUiData(await response.json());
           } catch {
             payload = {};
           }
@@ -1875,7 +1902,7 @@ const App = () => {
           </div>
           <div>
             <h3 className="text-sm font-black uppercase tracking-wide text-slate-800">
-              {idlePrompt.role === 'admin' ? 'Sessão admin quase expirada' : 'Sua sessão está perto de expirar'}
+              {idlePrompt.role === 'admin' ? 'Sessão de administrador quase expirada' : 'Sua sessão está perto de expirar'}
             </h3>
             <p className="text-[11px] font-bold text-slate-500 mt-1 leading-relaxed">
               {idlePrompt.role === 'admin'
@@ -1914,7 +1941,7 @@ const App = () => {
                 clearManagerSession();
                 setView('login');
                 setSafeLoginNotice('Sua sessão de gestor foi encerrada por escolha manual. Faça login novamente quando precisar.');
-                notify('Sessão admin encerrada manualmente.', 'success');
+                notify('Sessão de administrador encerrada manualmente.', 'success');
               } else {
                 void handleAnalystLogout({ reason: 'idle' });
               }
@@ -2016,13 +2043,13 @@ const App = () => {
         onToggleDarkMode={toggleThemeMode}
       />
 
-      <main className="w-full max-w-[min(1680px,96vw)] mx-auto p-4 md:p-6 lg:p-8 xl:p-10 space-y-6 flex-1">
-        <section className="w-fit rounded-full border border-slate-200/80 bg-white/80 p-1.5 shadow-[0_16px_34px_-24px_rgba(15,23,42,0.42)] backdrop-blur-xl flex gap-1.5">
-          <button onClick={() => handleManagerTabChange('dashboard')} className={`px-4 py-2 rounded-full text-[12px] font-semibold tracking-[0.01em] transition-all inline-flex items-center gap-2 ${managerTab === 'dashboard' ? 'bg-[#0071e3] text-white shadow-[0_12px_24px_-16px_rgba(0,113,227,0.9)]' : 'text-slate-600 hover:bg-slate-100/90'}`}><LayoutDashboard size={13} /> Dashboard</button>
-          <button onClick={() => handleManagerTabChange('fila')} className={`px-4 py-2 rounded-full text-[12px] font-semibold tracking-[0.01em] transition-all inline-flex items-center gap-2 ${managerTab === 'fila' ? 'bg-[#0071e3] text-white shadow-[0_12px_24px_-16px_rgba(0,113,227,0.9)]' : 'text-slate-600 hover:bg-slate-100/90'}`}><LineChart size={13} /> Fila</button>
-          <button onClick={() => handleManagerTabChange('transferencias')} className={`px-4 py-2 rounded-full text-[12px] font-semibold tracking-[0.01em] transition-all inline-flex items-center gap-2 ${managerTab === 'transferencias' ? 'bg-[#0071e3] text-white shadow-[0_12px_24px_-16px_rgba(0,113,227,0.9)]' : 'text-slate-600 hover:bg-slate-100/90'}`}><ArrowRightLeft size={13} /> Transferências</button>
-          <button onClick={() => handleManagerTabChange('sugestoes')} className={`px-4 py-2 rounded-full text-[12px] font-semibold tracking-[0.01em] transition-all inline-flex items-center gap-2 ${managerTab === 'sugestoes' ? 'bg-[#0071e3] text-white shadow-[0_12px_24px_-16px_rgba(0,113,227,0.9)]' : 'text-slate-600 hover:bg-slate-100/90'}`}><MessageSquare size={13} /> Sugestões</button>
-          <button onClick={() => handleManagerTabChange('admins')} className={`px-4 py-2 rounded-full text-[12px] font-semibold tracking-[0.01em] transition-all inline-flex items-center gap-2 ${managerTab === 'admins' ? 'bg-[#0071e3] text-white shadow-[0_12px_24px_-16px_rgba(0,113,227,0.9)]' : 'text-slate-600 hover:bg-slate-100/90'}`}><UserPlus size={13} /> Admins</button>
+      <main className="w-full max-w-[min(1480px,96vw)] mx-auto p-3 md:p-5 lg:p-6 space-y-5 flex-1">
+        <section className="w-fit rounded-xl border border-slate-200 bg-white p-1 flex gap-1">
+          <button onClick={() => handleManagerTabChange('dashboard')} className={`px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all inline-flex items-center gap-1.5 ${managerTab === 'dashboard' ? 'bg-[#0071e3] text-white' : 'text-slate-600 hover:bg-slate-100'}`}><LayoutDashboard size={13} /> Dashboard</button>
+          <button onClick={() => handleManagerTabChange('fila')} className={`px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all inline-flex items-center gap-1.5 ${managerTab === 'fila' ? 'bg-[#0071e3] text-white' : 'text-slate-600 hover:bg-slate-100'}`}><LineChart size={13} /> Fila</button>
+          <button onClick={() => handleManagerTabChange('transferencias')} className={`px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all inline-flex items-center gap-1.5 ${managerTab === 'transferencias' ? 'bg-[#0071e3] text-white' : 'text-slate-600 hover:bg-slate-100'}`}><ArrowRightLeft size={13} /> Transferências</button>
+          <button onClick={() => handleManagerTabChange('sugestoes')} className={`px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all inline-flex items-center gap-1.5 ${managerTab === 'sugestoes' ? 'bg-[#0071e3] text-white' : 'text-slate-600 hover:bg-slate-100'}`}><MessageSquare size={13} /> Sugestões</button>
+          <button onClick={() => handleManagerTabChange('admins')} className={`px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all inline-flex items-center gap-1.5 ${managerTab === 'admins' ? 'bg-[#0071e3] text-white' : 'text-slate-600 hover:bg-slate-100'}`}><UserPlus size={13} /> Administradores</button>
         </section>
 
         <div
@@ -2320,8 +2347,8 @@ const App = () => {
       )}
 
       {isGlobalLoading && <LoadingOverlay />}
-      <nav className="sticky top-0 z-100 border-b border-slate-200/80 bg-white/88 backdrop-blur-xl shadow-[0_14px_34px_-24px_rgba(15,23,42,0.45)]">
-        <div className="min-h-16 md:min-h-18 px-3 md:px-6 lg:px-8 py-2 flex items-center justify-between gap-2 md:gap-3">
+      <nav className="sticky top-0 z-100 border-b border-slate-200/80 bg-white/92 backdrop-blur-xl">
+        <div className="min-h-14 px-3 md:px-5 lg:px-6 py-1.5 flex items-center justify-between gap-2 md:gap-3">
           <div className="flex items-center gap-2 md:gap-3 min-w-0">
             <div className="logo-shimmer shrink-0">
               <img
@@ -2409,11 +2436,11 @@ const App = () => {
                 Atualiza dados automaticamente a cada {AUTO_REFRESH_SECONDS}s enquanto a fila estiver ativa.
               </div>
             </div>
-            <div className="flex flex-wrap items-center rounded-2xl border border-slate-200/80 bg-slate-50/85 p-1 gap-1">
+            <div className="flex flex-wrap items-center rounded-xl border border-slate-200 bg-slate-50 p-0.5 gap-0.5">
               <button
                 onClick={() => toggleQueueStatus(!currentUser?.is_online)}
                 data-tour="analyst-pause-toggle"
-                className={`inline-flex items-center gap-1.5 px-2.5 md:px-3 py-1.5 rounded-xl text-[9px] font-semibold tracking-[0.03em] transition-all ${currentUser?.is_online ? 'bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100' : 'bg-emerald-600 text-white border border-emerald-600 shadow-[0_12px_18px_-14px_rgba(5,150,105,0.85)] hover:bg-emerald-500'}`}
+                className={`inline-flex items-center gap-1.5 px-2 md:px-2.5 py-1.5 rounded-lg text-[10px] font-medium transition-all ${currentUser?.is_online ? 'bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100' : 'bg-emerald-600 text-white border border-emerald-600 hover:bg-emerald-500'}`}
                 title={currentUser?.is_online ? 'Pausar fila' : 'Ligar fila'}
               >
                 <Power size={14} />
@@ -2423,7 +2450,7 @@ const App = () => {
               <button
                 onClick={() => setAnalystTab('mesa')}
                 data-tour="analyst-tab-mesa"
-                className={`inline-flex items-center gap-1 px-2.5 md:px-3 py-1.5 rounded-xl text-[9px] font-semibold tracking-[0.03em] transition-all ${analystTab === 'mesa' ? 'bg-white text-[#0071e3] border border-blue-100 shadow-[0_10px_14px_-12px_rgba(0,113,227,0.8)]' : 'text-slate-500 hover:text-slate-700'}`}
+                className={`inline-flex items-center gap-1 px-2 md:px-2.5 py-1.5 rounded-lg text-[10px] font-medium transition-all ${analystTab === 'mesa' ? 'bg-white text-[#0071e3] border border-blue-100' : 'text-slate-500 hover:text-slate-700'}`}
                 title="Mesa"
               >
                 <LayoutDashboard size={14} />
@@ -2433,7 +2460,7 @@ const App = () => {
               <button
                 onClick={() => setAnalystTab('analytics')}
                 data-tour="analyst-tab-analytics"
-                className={`inline-flex items-center gap-1 px-2.5 md:px-3 py-1.5 rounded-xl text-[9px] font-semibold tracking-[0.03em] transition-all ${analystTab === 'analytics' ? 'bg-white text-[#0071e3] border border-blue-100 shadow-[0_10px_14px_-12px_rgba(0,113,227,0.8)]' : 'text-slate-500 hover:text-slate-700'}`}
+                className={`inline-flex items-center gap-1 px-2 md:px-2.5 py-1.5 rounded-lg text-[10px] font-medium transition-all ${analystTab === 'analytics' ? 'bg-white text-[#0071e3] border border-blue-100' : 'text-slate-500 hover:text-slate-700'}`}
                 title="Dashboard analítico"
               >
                 <BarChart3 size={14} />
@@ -2442,7 +2469,7 @@ const App = () => {
 
               <button
                 onClick={() => setAnalystTab('suggestions')}
-                className={`inline-flex items-center gap-1 px-2.5 md:px-3 py-1.5 rounded-xl text-[9px] font-semibold tracking-[0.03em] transition-all ${analystTab === 'suggestions' ? 'bg-white text-[#0071e3] border border-blue-100 shadow-[0_10px_14px_-12px_rgba(0,113,227,0.8)]' : 'text-slate-500 hover:text-slate-700'}`}
+                className={`inline-flex items-center gap-1 px-2 md:px-2.5 py-1.5 rounded-lg text-[10px] font-medium transition-all ${analystTab === 'suggestions' ? 'bg-white text-[#0071e3] border border-blue-100' : 'text-slate-500 hover:text-slate-700'}`}
                 title="Sugestões de melhoria"
               >
                 <MessageSquare size={14} />
@@ -2452,7 +2479,7 @@ const App = () => {
               <button
                 onClick={() => setAnalystTab('settings')}
                 data-tour="analyst-tab-settings"
-                className={`inline-flex items-center gap-1 px-2.5 md:px-3 py-1.5 rounded-xl text-[9px] font-semibold tracking-[0.03em] transition-all ${analystTab === 'settings' ? 'bg-white text-[#0071e3] border border-blue-100 shadow-[0_10px_14px_-12px_rgba(0,113,227,0.8)]' : 'text-slate-500 hover:text-slate-700'}`}
+                className={`inline-flex items-center gap-1 px-2 md:px-2.5 py-1.5 rounded-lg text-[10px] font-medium transition-all ${analystTab === 'settings' ? 'bg-white text-[#0071e3] border border-blue-100' : 'text-slate-500 hover:text-slate-700'}`}
                 title="Configurações"
               >
                 <Settings size={14} />
@@ -2511,7 +2538,7 @@ const App = () => {
         )}
       </nav>
 
-      <main className="w-full max-w-[min(1680px,96vw)] mx-auto p-4 md:p-7 lg:p-9 xl:p-10 animate-in fade-in duration-700 flex-1">
+      <main className="w-full max-w-[min(1480px,96vw)] mx-auto p-3 md:p-5 lg:p-6 animate-in fade-in duration-500 flex-1">
         {analystTab === 'settings' ? (
           <AnalystSettingsTab
             isSubmitting={isGlobalLoading}
@@ -2535,11 +2562,11 @@ const App = () => {
             currentUser={currentUser}
           />
         ) : currentUser && !currentUser.is_online && analystTab === 'mesa' ? (
-           <div className="py-20 md:py-24 text-center bg-white border border-slate-100 rounded-[2.5rem] md:rounded-[3.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.02)] max-w-md mx-auto flex flex-col items-center animate-in zoom-in-95 px-6">
-              <div className="w-14 h-14 bg-slate-50 rounded-full flex items-center justify-center text-slate-300 mb-6 border border-slate-100 shrink-0"><AlertTriangle size={32}/></div>
-              <h2 className="text-xl font-black text-slate-700 mb-2 uppercase tracking-tighter text-center leading-none">Você está Pausado</h2>
-              <p className="text-slate-400 font-bold text-[10px] max-w-xs mx-auto mb-8 text-center uppercase tracking-widest leading-relaxed px-4">Ative sua fila no menu superior para voltar a receber pastas do CRM.</p>
-              <button onClick={() => toggleQueueStatus(true)} className="bg-blue-600 text-white px-10 py-4 rounded-xl font-black uppercase text-[10px] shadow-xl active:scale-95 flex items-center gap-3"><Power size={18}/> Ligar Fila</button>
+           <div className="py-12 md:py-14 text-center bg-white border border-slate-200 rounded-2xl max-w-sm mx-auto flex flex-col items-center animate-in zoom-in-95 px-5">
+              <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-slate-300 mb-4 border border-slate-100 shrink-0"><AlertTriangle size={22}/></div>
+              <h2 className="text-lg font-semibold text-slate-700 mb-1 text-center leading-none">Você está pausado</h2>
+              <p className="text-slate-500 font-medium text-[12px] max-w-xs mx-auto mb-5 text-center leading-relaxed">Ative sua fila no menu superior para voltar a receber pastas do CRM.</p>
+              <button onClick={() => toggleQueueStatus(true)} className="bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold text-[12px] active:scale-[0.99] flex items-center gap-2"><Power size={15}/> Ligar fila</button>
            </div>
         ) : (
           analystTab === 'mesa' ? (

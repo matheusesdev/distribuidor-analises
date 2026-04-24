@@ -107,7 +107,7 @@ const AnalystDetailModal = ({ analyst, currentTasks, recentCompletions, onClose,
           </div>
         </div>
 
-        <div className={`${isCompact ? 'p-3 sm:p-4 md:p-5 space-y-4 sm:space-y-4' : 'p-4 sm:p-6 md:p-8 space-y-5 sm:space-y-6'} ${asInline ? '' : 'overflow-y-auto max-h-[calc(92vh-86px)]'}`}>
+        <div className={`${isCompact ? 'p-3 sm:p-3 md:p-4 space-y-4 sm:space-y-4' : 'p-4 sm:p-6 md:p-8 space-y-5 sm:space-y-6'} ${asInline ? '' : 'overflow-y-auto max-h-[calc(92vh-86px)]'}`}>
           <section className="grid grid-cols-1 md:grid-cols-3 gap-3 animate-in fade-in duration-500" style={sectionRevealStyle(1)}>
             <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-[0_16px_26px_-22px_rgba(15,23,42,0.65)] transition-all hover:-translate-y-0.5 hover:shadow-[0_20px_30px_-22px_rgba(15,23,42,0.75)]">
               <div className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 text-slate-600 mb-3">
@@ -544,10 +544,10 @@ const ManagerDashboardTab = ({
           />
         </div>
       ) : (
-      <div className="space-y-5 md:space-y-6">
+      <div className="space-y-4 md:space-y-5">
 
-      <section className="rounded-[1.6rem] border border-slate-200/80 bg-white/85 p-5 md:p-6 shadow-[0_20px_45px_-30px_rgba(15,23,42,0.45)] backdrop-blur-sm">
-        <div className="mb-7 flex flex-wrap items-center justify-between gap-2 px-1">
+      <section className="rounded-2xl border border-slate-200 bg-white p-3 md:p-4">
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-2 px-1">
           <div className="flex items-center gap-2.5"><BarChart3 size={16} className="text-[#0071e3]" /><h3 className="text-[11px] font-semibold tracking-[0.06em] text-slate-700">Fluxo por Situação</h3></div>
           <div className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[10px] font-semibold leading-[1.2] border transition-all ${isSyncing ? 'bg-sky-50 text-sky-700 border-sky-200 animate-pulse' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}><RefreshCw size={11} className={isSyncing ? 'animate-spin' : ''}/> {isSyncing ? 'Sincronizando' : 'Sincronizado'}</div>
         </div>
@@ -565,38 +565,38 @@ const ManagerDashboardTab = ({
             Removidas: {managerSyncStatus?.removidas_na_limpeza || 0}
           </span>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5">
           {Object.entries(SITUACOES_MAP).map(([id, nome]) => {
             const sitStyle = SIT_COLORS[id] || { text: '#0f172a', bg: '#f8fafc' };
             return (
-              <div key={id} className="p-3.5 md:p-4 rounded-xl border text-center transition-all hover:-translate-y-0.5 hover:shadow-sm min-h-[106px] flex flex-col justify-between" style={{ backgroundColor: sitStyle.bg, borderColor: sitStyle.bg }}>
+              <div key={id} className="p-3 rounded-lg border text-center transition-colors min-h-[88px] flex flex-col justify-between" style={{ backgroundColor: sitStyle.bg, borderColor: sitStyle.bg }}>
                 <p className="text-[9px] font-bold uppercase leading-[1.24] tracking-[0.02em] mb-2 line-clamp-2 min-h-[2.5em]" style={{ color: sitStyle.text, opacity: 0.84 }}>{nome}</p>
-                <div className="text-lg md:text-xl font-black leading-none" style={{ color: sitStyle.text }}>{calculatedBreakdown[id] || 0}</div>
+                <div className="text-lg font-semibold leading-none" style={{ color: sitStyle.text }}>{calculatedBreakdown[id] || 0}</div>
               </div>
             );
           })}
         </div>
       </section>
 
-      <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white/90 p-5 md:p-6 rounded-[1.35rem] border border-slate-200/80 flex items-center justify-between group hover:-translate-y-0.5 hover:shadow-[0_18px_30px_-24px_rgba(15,23,42,0.55)] transition-all">
-          <div><p className="text-[10px] font-semibold text-slate-500 mb-1 tracking-[0.04em]">Pendente CRM</p><div className="text-4xl md:text-5xl font-semibold text-[#0071e3] leading-none">{dashData.total_pendente_cvcrm}</div></div>
-          <Hash className="text-blue-50 opacity-20 shrink-0" size={48}/>
+      <section className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className="bg-white p-4 rounded-xl border border-slate-200 flex items-center justify-between">
+          <div><p className="text-[11px] font-medium text-slate-500 mb-1">Pendente CRM</p><div className="text-3xl font-semibold text-[#0071e3] leading-none">{dashData.total_pendente_cvcrm}</div></div>
+          <Hash className="text-blue-100 opacity-70 shrink-0" size={34}/>
         </div>
-        <div className="bg-rose-50/90 p-5 md:p-6 rounded-[1.35rem] border border-rose-200 flex items-center justify-between group hover:-translate-y-0.5 transition-all">
-          <div><p className="text-[10px] font-semibold text-rose-500 mb-1 tracking-[0.04em]">Sem Destino</p><div className="text-4xl md:text-5xl font-semibold text-rose-600 leading-none">{dashData.pastas_sem_destino || 0}</div></div>
-          <AlertTriangle className="text-red-200 opacity-70 shrink-0" size={48}/>
+        <div className="bg-rose-50 p-4 rounded-xl border border-rose-200 flex items-center justify-between">
+          <div><p className="text-[11px] font-medium text-rose-500 mb-1">Sem Destino</p><div className="text-3xl font-semibold text-rose-600 leading-none">{dashData.pastas_sem_destino || 0}</div></div>
+          <AlertTriangle className="text-red-200 opacity-70 shrink-0" size={34}/>
         </div>
-        <div className="bg-[linear-gradient(140deg,#0071e3_0%,#005bb7_100%)] p-5 md:p-6 rounded-[1.35rem] shadow-[0_22px_36px_-22px_rgba(0,113,227,0.85)] flex items-center justify-between text-white group hover:-translate-y-0.5 transition-all">
-          <div><p className="text-[10px] font-semibold text-blue-100 mb-1 tracking-[0.04em]">Equipe Online</p><div className="text-4xl md:text-5xl font-semibold leading-none">{dashData.equipe?.filter(a => a.is_online).length || 0}</div></div>
-          <Users className="text-white opacity-20 shrink-0" size={48}/>
+        <div className="bg-[#0071e3] p-4 rounded-xl flex items-center justify-between text-white">
+          <div><p className="text-[11px] font-medium text-blue-100 mb-1">Equipe Online</p><div className="text-3xl font-semibold leading-none">{dashData.equipe?.filter(a => a.is_online).length || 0}</div></div>
+          <Users className="text-white opacity-25 shrink-0" size={34}/>
         </div>
       </section>
 
-      <section className="bg-white/90 rounded-3xl md:rounded-4xl border border-slate-200/80 overflow-hidden shadow-[0_24px_45px_-30px_rgba(15,23,42,0.5)] backdrop-blur-sm">
-        <div className="p-5 md:p-6 border-b border-slate-100 flex justify-between items-center bg-[linear-gradient(140deg,#f8fafc_0%,#ffffff_100%)]">
+      <section className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+        <div className="p-3 md:p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/60">
           <div className="flex items-center gap-2"><PieChart size={18} className="text-[#0071e3]" /><h2 className="text-[11px] font-semibold tracking-[0.06em] text-slate-800">Processo Analítico da Equipe</h2></div>
-          <button onClick={() => { setEditForm({id: null, nome: '', email: '', senha: '', permissoes: [62, 66, 30], status: 'ativo'}); setShowEditModal(true); }} className="inline-flex items-center gap-2 rounded-full bg-[#0071e3] px-5 py-2 text-[12px] font-semibold text-white transition-all hover:bg-[#0077ed] hover:-translate-y-0.5 active:translate-y-0 shadow-[0_14px_24px_-16px_rgba(0,113,227,0.88)]"><UserPlus size={14}/> Novo Analista</button>
+          <button onClick={() => { setEditForm({id: null, nome: '', email: '', senha: '', permissoes: [62, 66, 30], status: 'ativo'}); setShowEditModal(true); }} className="inline-flex items-center gap-2 rounded-lg bg-[#0071e3] px-3 py-1.5 text-[12px] font-medium text-white transition-all hover:bg-[#0077ed] active:translate-y-0"><UserPlus size={14}/> Novo Analista</button>
         </div>
 
         <div className="px-5 md:px-6 py-3 border-b border-slate-100 bg-[linear-gradient(135deg,#f8fafc_0%,#f1f5f9_100%)]">
@@ -653,7 +653,7 @@ const ManagerDashboardTab = ({
           <table className="w-full text-left text-[12px] min-w-160">
             <thead className="text-[10px] text-slate-500 font-semibold border-b border-slate-100 bg-slate-50/70 text-center tracking-[0.04em]">
               <tr>
-                <th className="p-4 md:p-5 text-center w-10">
+                <th className="p-3 md:p-4 text-center w-10">
                   <input
                     type="checkbox"
                     checked={allSelected}
@@ -662,15 +662,15 @@ const ManagerDashboardTab = ({
                     aria-label={allSelected ? 'Desmarcar todos os analistas' : 'Selecionar todos os analistas'}
                   />
                 </th>
-                <th className="p-4 md:p-5 text-left">Analista</th>
-                <th className="p-4 md:p-5 text-right">Ações</th>
+                <th className="p-3 md:p-4 text-left">Analista</th>
+                <th className="p-3 md:p-4 text-right">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {teamProcessData.length > 0 ? teamProcessData.map((analyst) => {
                 return (
                   <tr key={analyst.analista_id} className="hover:bg-slate-50/80 transition-all group text-[12px] text-center">
-                    <td className="p-4 md:p-5 text-center align-top">
+                    <td className="p-3 md:p-4 text-center align-top">
                       <input
                         type="checkbox"
                         checked={selectedQueueIds.has(String(analyst.analista_id))}
@@ -679,9 +679,9 @@ const ManagerDashboardTab = ({
                         aria-label={`Selecionar ${analyst.nome}`}
                       />
                     </td>
-                    <td className="p-4 md:p-5 text-left">
+                    <td className="p-3 md:p-4 text-left">
                       <div className="flex items-start gap-3 md:gap-4">
-                        <div className="h-11 w-11 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center text-[11px] font-semibold text-slate-600 shrink-0">
+                        <div className="h-9 w-9 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-[11px] font-semibold text-slate-600 shrink-0">
                           {getInitials(analyst.nome)}
                         </div>
                         <div className="min-w-0 flex-1">
@@ -706,8 +706,8 @@ const ManagerDashboardTab = ({
                         </div>
                       </div>
                     </td>
-                    <td className="p-4 md:p-5 text-right whitespace-nowrap">
-                      <div className="inline-flex items-center gap-1 rounded-2xl border border-slate-200 bg-white p-1 shadow-[0_10px_24px_-20px_rgba(15,23,42,0.6)]">
+                    <td className="p-3 md:p-4 text-right whitespace-nowrap">
+                      <div className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white p-1">
                       <button
                         disabled={togglingQueueIds.includes(analyst.analista_id)}
                         onClick={() => handleAdminQueueToggle({ ...analyst, id: analyst.analista_id })}

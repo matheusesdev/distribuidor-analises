@@ -30,7 +30,7 @@ const ManagerAdminsTab = ({
       <div className="h-fit self-start bg-white/90 rounded-3xl border border-slate-200/80 shadow-[0_24px_45px_-30px_rgba(15,23,42,0.5)] p-5 md:p-6 backdrop-blur-sm">
         <div className="flex items-center gap-2 mb-5">
           <UserPlus size={18} className="text-[#0071e3]" />
-          <h2 className="text-[12px] font-semibold tracking-[0.05em] text-slate-700">Novo Administrador</h2>
+          <h2 className="text-[12px] font-semibold tracking-[0.05em] text-slate-700">Novo administrador</h2>
         </div>
 
         <form className="space-y-3.5" onSubmit={handleCreateAdmin}>
@@ -84,7 +84,7 @@ const ManagerAdminsTab = ({
                 : 'bg-[#0071e3] text-white hover:bg-[#0077ed] hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.99] shadow-[0_16px_28px_-18px_rgba(0,113,227,0.9)]'
             }`}
           >
-            {isGlobalLoading ? 'Criando...' : 'Criar Admin'}
+            {isGlobalLoading ? 'Criando...' : 'Criar administrador'}
           </button>
         </form>
       </div>

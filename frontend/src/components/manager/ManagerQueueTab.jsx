@@ -287,14 +287,14 @@ const ManagerQueueTab = ({
 
   return (
     <section className="space-y-5 md:space-y-6">
-      <section className="rounded-[2rem] border border-slate-200/80 bg-[linear-gradient(180deg,#fbfdff_0%,#ffffff_72%)] p-6 md:p-7 shadow-[0_28px_70px_-42px_rgba(15,23,42,0.42)]">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+      <section className="rounded-2xl border border-slate-200 bg-white p-4 md:p-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-3xl">
-            <div className="inline-flex items-center gap-2 rounded-full border border-[#bfdbfe] bg-[#eff6ff] px-3 py-1 text-[10px] font-semibold tracking-[0.12em] text-[#0071e3]">
+            <div className="inline-flex items-center gap-2 rounded-lg border border-[#bfdbfe] bg-[#eff6ff] px-2.5 py-1 text-[10px] font-medium text-[#0071e3]">
               <Sparkles size={12} />
               Distribuição automática
             </div>
-            <h1 className="mt-4 text-[1.75rem] font-semibold tracking-[-0.03em] text-slate-900 md:text-[2.2rem]">
+            <h1 className="mt-3 text-xl font-semibold tracking-[-0.02em] text-slate-900 md:text-2xl">
               Fila de atendimento com leitura mais clara e operação mais direta.
             </h1>
             <p className="mt-3 max-w-2xl text-[13px] leading-6 text-slate-500 md:text-[14px]">
@@ -302,22 +302,22 @@ const ManagerQueueTab = ({
             </p>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <div className="flex min-h-[108px] flex-col justify-between rounded-2xl border border-blue-100 bg-[linear-gradient(180deg,#ffffff_0%,#f5faff_100%)] px-4 py-4 shadow-[0_14px_30px_-26px_rgba(0,113,227,0.28)]">
-              <p className="text-[10px] font-semibold tracking-[0.12em] text-blue-700/75">Online</p>
-              <p className="text-3xl font-semibold leading-none tracking-[-0.03em] tabular-nums text-blue-950">{summary.totalOnline}</p>
+          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+            <div className="flex min-h-[82px] flex-col justify-between rounded-xl border border-blue-100 bg-blue-50/50 px-3 py-3">
+              <p className="text-[10px] font-medium text-blue-700/75">Online</p>
+              <p className="text-2xl font-semibold leading-none tabular-nums text-blue-950">{summary.totalOnline}</p>
             </div>
-            <div className="flex min-h-[108px] flex-col justify-between rounded-2xl border border-amber-100 bg-[linear-gradient(180deg,#ffffff_0%,#fffaf2_100%)] px-4 py-4 shadow-[0_14px_30px_-26px_rgba(180,83,9,0.18)]">
-              <p className="text-[10px] font-semibold tracking-[0.12em] text-amber-700/75">Na mesa</p>
-              <p className="text-3xl font-semibold leading-none tracking-[-0.03em] tabular-nums text-amber-950">{summary.totalNaMesa}</p>
+            <div className="flex min-h-[82px] flex-col justify-between rounded-xl border border-amber-100 bg-amber-50/50 px-3 py-3">
+              <p className="text-[10px] font-medium text-amber-700/75">Na mesa</p>
+              <p className="text-2xl font-semibold leading-none tabular-nums text-amber-950">{summary.totalNaMesa}</p>
             </div>
-            <div className="flex min-h-[108px] flex-col justify-between rounded-2xl border border-emerald-100 bg-[linear-gradient(180deg,#ffffff_0%,#f4fcf7_100%)] px-4 py-4 shadow-[0_14px_30px_-26px_rgba(5,150,105,0.2)]">
-              <p className="text-[10px] font-semibold tracking-[0.12em] text-emerald-700/75">Feitas hoje</p>
-              <p className="text-3xl font-semibold leading-none tracking-[-0.03em] tabular-nums text-emerald-950">{summary.totalFeitas}</p>
+            <div className="flex min-h-[82px] flex-col justify-between rounded-xl border border-emerald-100 bg-emerald-50/50 px-3 py-3">
+              <p className="text-[10px] font-medium text-emerald-700/75">Feitas hoje</p>
+              <p className="text-2xl font-semibold leading-none tabular-nums text-emerald-950">{summary.totalFeitas}</p>
             </div>
-            <div className="flex min-h-[108px] flex-col justify-between rounded-2xl border border-violet-100 bg-[linear-gradient(180deg,#ffffff_0%,#f8f7ff_100%)] px-4 py-4 shadow-[0_14px_30px_-26px_rgba(91,33,182,0.16)]">
-              <p className="text-[10px] font-semibold tracking-[0.12em] text-violet-700/75">Carga média</p>
-              <p className="text-3xl font-semibold leading-none tracking-[-0.03em] tabular-nums text-violet-950">{summary.averageLoad}</p>
+            <div className="flex min-h-[82px] flex-col justify-between rounded-xl border border-violet-100 bg-violet-50/50 px-3 py-3">
+              <p className="text-[10px] font-medium text-violet-700/75">Carga média</p>
+              <p className="text-2xl font-semibold leading-none tabular-nums text-violet-950">{summary.averageLoad}</p>
             </div>
           </div>
         </div>

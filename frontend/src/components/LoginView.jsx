@@ -7,6 +7,14 @@ const HERO_TEXT = 'Um sistema de distribuição de pastas que organiza e direcio
 const TYPING_SPEED_MS = 45;
 const CURSOR_BLINK_MS = 220;
 const FULL_TEXT_HOLD_TICKS = 70;
+const LAST_LOGIN_DATE_KEY = 'lastSuccessfulLoginDate';
+
+const getLocalDateKey = (date = new Date()) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 
 const LoginView = ({
   toast,
@@ -31,6 +39,10 @@ const LoginView = ({
   // --- HERO ANIMATION ---
   const [typedHeroText, setTypedHeroText] = useState('');
   const [isCursorVisible, setIsCursorVisible] = useState(true);
+  const [hasLoggedInToday] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return window.localStorage.getItem(LAST_LOGIN_DATE_KEY) === getLocalDateKey();
+  });
 
   // --- FORM STATE ---
   const [loginEmail, setLoginEmail] = useState('');
@@ -164,17 +176,17 @@ const LoginView = ({
       )}
 
       {/* ===== PAINEL ESQUERDO AZUL (desktop) ===== */}
-      <div className="hidden lg:flex h-full flex-col justify-between w-[45%] bg-blue-600 p-10 xl:p-12 relative overflow-hidden shrink-0">
+      <div className="hidden lg:flex h-full flex-col justify-between w-[36%] bg-slate-900 p-8 xl:p-10 relative overflow-hidden shrink-0">
         <div className="absolute inset-0 opacity-[0.07]" style={{ backgroundImage: 'radial-gradient(circle, white 1.5px, transparent 1.5px)', backgroundSize: '32px 32px' }} />
         <div className="relative z-10">
-          <img src="/vcahub.svg" alt="VCAHub Logo" className="h-10 w-auto object-contain" />
+          <img src="/vcacloud.svg" alt="VCACloud Logo" className="h-12 xl:h-14 w-auto object-contain" />
         </div>
         <div className="relative z-10 space-y-5">
           <div className="relative max-w-md">
-            <h1 className="text-4xl font-black text-white leading-tight tracking-tight opacity-0 select-none" aria-hidden="true">
+            <h1 className="text-3xl xl:text-[2.35rem] font-semibold text-white leading-tight tracking-tight opacity-0 select-none" aria-hidden="true">
               {HERO_TEXT}
             </h1>
-            <h1 className="absolute inset-0 text-4xl font-black text-white leading-tight tracking-tight">
+            <h1 className="absolute inset-0 text-3xl xl:text-[2.35rem] font-semibold text-white leading-tight tracking-tight">
               {typedHeroText}
               <span className={`inline-block ml-1 text-white/80 transition-opacity ${isCursorVisible ? 'opacity-100' : 'opacity-0'}`}>|</span>
             </h1>
@@ -182,7 +194,7 @@ const LoginView = ({
         </div>
         <div className="relative z-10 flex items-center gap-2.5">
           <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-          <span className="text-blue-200 text-[10px] font-black uppercase tracking-widest">Sincronização em tempo real</span>
+          <span className="text-blue-100 text-[10px] font-semibold tracking-[0.04em]">Sincronização em tempo real</span>
           <img src="/cvlogo.svg" alt="CV Logo" className="h-7 w-auto object-contain max-w-42.5 brightness-0 invert ml-4" />
         </div>
       </div>
@@ -191,14 +203,16 @@ const LoginView = ({
       <div className="flex-1 h-full flex flex-col items-center justify-center px-6 py-4 md:px-8 md:py-6 bg-[#f8fafc] overflow-hidden">
         {/* Logo mobile */}
         <div className="lg:hidden mb-5 md:mb-6 flex flex-col items-center gap-2">
-          <img src="/vcahub.svg" alt="VCAHub Logo" className="h-9 w-auto object-contain" />
+          <img src="/vcacloud.svg" alt="VCACloud Logo" className="h-11 w-auto object-contain" />
           <img src="/cvlogo.svg" alt="CV Logo" className="h-7 w-auto object-contain max-w-42.5 brightness-0 invert" />
         </div>
 
-        <div className="w-full max-w-sm space-y-4 md:space-y-5">
+        <div className="w-full max-w-sm space-y-3.5">
           <div>
-            <h2 className="text-2xl font-black text-slate-800 tracking-tight">Bem-vindo de volta</h2>
-            <p className="text-slate-400 text-sm font-bold mt-1.5">Entre com seu e-mail e senha para continuar</p>
+            <h2 className="text-xl font-semibold text-slate-800 tracking-tight">
+              {hasLoggedInToday ? 'Bem-vindo de volta' : 'Bem-vindo'}
+            </h2>
+            <p className="text-slate-500 text-[13px] font-medium mt-1">Entre com seu e-mail e senha para continuar</p>
             {loginNotice && (
               <div className="mt-3 rounded-2xl border border-amber-200/80 bg-[linear-gradient(135deg,#fff8eb_0%,#fffdf7_60%,#ffffff_100%)] px-3.5 py-3 shadow-[0_12px_26px_-20px_rgba(180,83,9,0.45)] backdrop-blur-sm">
                 <div className="flex items-start gap-2.5">
@@ -225,7 +239,7 @@ const LoginView = ({
                   type="email"
                   value={loginEmail}
                   onChange={(e) => setLoginEmail(e.target.value)}
-                  className="w-full bg-slate-50/90 border border-slate-200 rounded-[18px] py-3 pl-11 pr-4 text-slate-900 font-medium outline-none focus:ring-4 focus:ring-sky-100/70 focus:border-sky-400 text-[15px] transition-all duration-200 shadow-[0_10px_24px_-20px_rgba(15,23,42,0.5)] placeholder:text-slate-400"
+                  className="w-full bg-white border border-slate-200 rounded-xl py-2.5 pl-10 pr-3 text-slate-900 font-medium outline-none focus:ring-3 focus:ring-sky-100/70 focus:border-sky-400 text-[14px] transition-all duration-200 placeholder:text-slate-400"
                   placeholder="seu@vcaconstrutora.com.br"
                   autoComplete="email"
                   autoFocus
@@ -240,7 +254,7 @@ const LoginView = ({
                 <button
                   type="button"
                   onClick={openForgotModal}
-                  className="text-[9px] font-black text-blue-500 uppercase tracking-widest hover:text-blue-700 transition-colors duration-200"
+                  className="text-[11px] font-medium text-blue-600 hover:text-blue-700 transition-colors duration-200"
                 >
                   Esqueceu a senha?
                 </button>
@@ -251,7 +265,7 @@ const LoginView = ({
                   type={showLoginPassword ? 'text' : 'password'}
                   value={loginPassword}
                   onChange={(e) => setLoginPassword(e.target.value)}
-                  className="w-full bg-slate-50/90 border border-slate-200 rounded-[18px] py-3 pl-11 pr-11 text-slate-900 font-medium outline-none focus:ring-4 focus:ring-sky-100/70 focus:border-sky-400 text-[15px] transition-all duration-200 shadow-[0_10px_24px_-20px_rgba(15,23,42,0.5)] placeholder:text-slate-400"
+                  className="w-full bg-white border border-slate-200 rounded-xl py-2.5 pl-10 pr-10 text-slate-900 font-medium outline-none focus:ring-3 focus:ring-sky-100/70 focus:border-sky-400 text-[14px] transition-all duration-200 placeholder:text-slate-400"
                   placeholder="********"
                   autoComplete="current-password"
                 />
@@ -266,7 +280,7 @@ const LoginView = ({
               </div>
             </div>
 
-            <div className="flex items-start justify-between gap-3 rounded-2xl border border-slate-200/80 bg-white/80 px-3 py-2.5 shadow-[0_10px_24px_-22px_rgba(15,23,42,0.7)]">
+            <div className="flex items-start justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2">
               <button
                 type="button"
                 onClick={() => setKeepAnalystLoggedIn((prev) => !prev)}
@@ -308,14 +322,14 @@ const LoginView = ({
               </div>
             </div>
 
-            {/* Botao Entrar */}
+            {/* Botão Entrar */}
             <button
               type="submit"
               disabled={isGlobalLoading || !loginEmail.trim() || !loginPassword.trim()}
-              className={`w-full py-3 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg transition-all duration-200 flex items-center justify-center gap-2.5 ${
+              className={`w-full py-2.5 rounded-xl font-semibold text-[13px] transition-all duration-200 flex items-center justify-center gap-2 ${
                 isGlobalLoading || !loginEmail.trim() || !loginPassword.trim()
-                  ? 'bg-slate-100 text-slate-300 cursor-not-allowed shadow-none'
-                  : 'bg-blue-600 text-white hover:bg-blue-700 active:scale-95 shadow-blue-500/30 hover:shadow-blue-500/50 hover:shadow-xl'
+                  ? 'bg-slate-100 text-slate-300 cursor-not-allowed'
+                  : 'bg-blue-600 text-white hover:bg-blue-700 active:scale-[0.99]'
               }`}
             >
               {isGlobalLoading ? (
@@ -329,19 +343,19 @@ const LoginView = ({
             </button>
           </form>
 
-          {/* Botao Acesso Admin */}
+          {/* Botão de acesso administrativo */}
           <button
             type="button"
             onClick={() => setShowManagerLoginModal(true)}
-            className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl border-2 border-slate-100 bg-white text-slate-400 hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50 transition-all duration-200 text-[10px] font-black uppercase tracking-widest shadow-sm hover:shadow-md"
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-500 hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50 transition-all duration-200 text-[12px] font-semibold"
           >
-            <BarChart4 size={13} /> Acesso Admin
+            <BarChart4 size={13} /> Acesso de administrador
           </button>
 
           {/* Rodape */}
           <div className="space-y-0.5 md:space-y-1">
-            <p className="text-center text-[9px] font-bold text-slate-800 tracking-widest">Feito por Matheus Santos</p>
-            <p className="text-center text-[10px] font-semibold text-slate-800">© {new Date().getFullYear()} - Todos os direitos reservados.</p>
+            <p className="text-center text-[10px] font-medium text-slate-500">Feito por Matheus Santos</p>
+            <p className="text-center text-[10px] font-medium text-slate-500">© {new Date().getFullYear()} - Todos os direitos reservados.</p>
             <div className="pt-1.5 md:pt-2 flex justify-center">
               <img src="/logo.png" alt="VCA Logo" className="h-5 w-auto object-contain" />
             </div>
@@ -461,7 +475,7 @@ const LoginView = ({
                 <BarChart4 size={22} />
               </div>
               <div className="text-center">
-                <p className="text-white font-semibold text-[1.03rem] tracking-[-0.01em]">Painel Admin</p>
+                <p className="text-white font-semibold text-[1.03rem] tracking-[-0.01em]">Painel administrativo</p>
                 <p className="text-slate-300 text-[11px] font-medium tracking-[0.02em] mt-1">Acesso restrito ao gestor</p>
               </div>
             </div>
@@ -475,7 +489,7 @@ const LoginView = ({
                     onChange={(e) => setManagerUsername(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleManagerLogin()}
                     className="w-full bg-slate-50/90 border border-slate-200 rounded-2xl py-3.5 pl-11 pr-4 text-slate-900 font-medium outline-none focus:ring-4 focus:ring-sky-100/70 focus:border-sky-400 text-[15px] transition-all duration-200 shadow-[0_10px_24px_-20px_rgba(15,23,42,0.5)]"
-                    placeholder="E-mail admin"
+                    placeholder="E-mail do administrador"
                     autoFocus
                     autoComplete="email"
                   />
@@ -517,7 +531,7 @@ const LoginView = ({
                     Entrando...
                   </>
                 ) : (
-                  'Entrar como Admin'
+                  'Entrar como administrador'
                 )}
               </button>
 

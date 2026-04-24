@@ -8,11 +8,11 @@ alter table if exists public.sugestoes_melhoria
 
 update public.sugestoes_melhoria
 set status = 'Em análise'
-where status in ('Em anÃ¡lise', 'Em analise');
+where status in ('Em análise', 'Em analise');
 
 update public.sugestoes_melhoria
 set status = 'Concluído'
-where status in ('ConcluÃ­do', 'Concluido');
+where status in ('Concluído', 'Concluido');
 
 alter table if exists public.sugestoes_melhoria
   drop constraint if exists sugestoes_melhoria_status_check;

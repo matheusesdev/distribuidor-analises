@@ -193,10 +193,10 @@ const AnalystSuggestionsTab = ({
 
               {item?.resposta_admin && (
                 <div className="mt-4 rounded-2xl border border-blue-100 bg-blue-50/70 px-3 py-2.5">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-blue-600">Resposta do Admin</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-blue-600">Resposta do administrador</p>
                   <p className="mt-1 whitespace-pre-wrap text-[12px] leading-relaxed text-slate-700">{item?.resposta_admin}</p>
                   <p className="mt-1 text-[10px] font-medium text-slate-500">
-                    {item?.resposta_admin_por_admin_nome || 'Admin'} • {formatDateTime(item?.resposta_admin_at)}
+                    {item?.resposta_admin_por_admin_nome || 'Administrador'} • {formatDateTime(item?.resposta_admin_at)}
                   </p>
                 </div>
               )}
