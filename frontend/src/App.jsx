@@ -12,6 +12,7 @@ import {
 import { api } from './services/api';
 import { ConfirmActionModal, LoadingOverlay, RevokeAccessModal, StatusToast } from './components/FeedbackOverlays';
 import LoginView from './components/LoginView';
+import PrivacyPolicyView from './components/PrivacyPolicyView';
 import ResetPasswordView from './components/ResetPasswordView';
 import MesaView from './components/analyst/MesaView';
 import AnalystAnalyticsTab from './components/analyst/AnalystAnalyticsTab';
@@ -33,6 +34,7 @@ const LAST_LOGIN_DATE_KEY = 'lastSuccessfulLoginDate';
 const ANALYST_REMEMBER_MARKER = 'analystRememberMe';
 const ANALYST_SESSION_KEY = 'analystSession';
 const MANAGER_SESSION_KEY = 'managerSession';
+const PRIVACY_POLICY_QUERY_KEY = 'privacy_policy';
 const ALL_FILTER = 'all';
 const LEGACY_MANAGER_TOKEN = 'legacy-admin-session';
 const EMPTY_ANALYTICS = {
@@ -135,9 +137,15 @@ const writeSessionToStorage = (key, session, persistInLocalStorage = false) => {
   window.localStorage.removeItem(key);
 };
 
+const getInitialView = () => {
+  if (typeof window === 'undefined') return 'login';
+  const params = new URLSearchParams(window.location.search);
+  return params.get(PRIVACY_POLICY_QUERY_KEY) === '1' ? 'privacy-policy' : 'login';
+};
+
 const App = () => {
   // --- ESTADOS DE NAVEGAÇÃO ---
-  const [view, setView] = useState('login'); 
+  const [view, setView] = useState(getInitialView); 
   const [currentUser, setCurrentUser] = useState(() => {
     const { session } = readSessionFromStorage(ANALYST_SESSION_KEY);
     return session;
@@ -253,6 +261,22 @@ const App = () => {
   const sessionActivityPersistRef = useRef({ manager: 0, analyst: 0 });
   const sessionExpiryGuardRef = useRef(false);
   const loginSuccessTimerRef = useRef(null);
+
+  const openPrivacyPolicy = useCallback(() => {
+    setView('privacy-policy');
+    if (typeof window === 'undefined') return;
+    const url = new URL(window.location.href);
+    url.searchParams.set(PRIVACY_POLICY_QUERY_KEY, '1');
+    window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+  }, []);
+
+  const closePrivacyPolicy = useCallback(() => {
+    setView('login');
+    if (typeof window === 'undefined') return;
+    const url = new URL(window.location.href);
+    url.searchParams.delete(PRIVACY_POLICY_QUERY_KEY);
+    window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+  }, []);
 
   const CRM_BASE_BY_SOURCE = {
     cvcrm: "https://vca.cvcrm.com.br/gestor/comercial/reservas",
@@ -2000,6 +2024,10 @@ const App = () => {
     />
   );
 
+  if (view === 'privacy-policy') return (
+    <PrivacyPolicyView onBackToLogin={closePrivacyPolicy} />
+  );
+
   // --- TELA DE LOGIN ---
   if (view === 'login') return (
     <LoginView
@@ -2021,6 +2049,7 @@ const App = () => {
       keepAnalystLoggedIn={keepAnalystLoggedIn}
       setKeepAnalystLoggedIn={setKeepAnalystLoggedIn}
       handleManagerLogin={handleManagerLogin}
+      onOpenPrivacyPolicy={openPrivacyPolicy}
     />
   );
 

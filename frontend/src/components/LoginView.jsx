@@ -35,6 +35,7 @@ const LoginView = ({
   keepAnalystLoggedIn,
   setKeepAnalystLoggedIn,
   handleManagerLogin,
+  onOpenPrivacyPolicy,
 }) => {
   // --- HERO ANIMATION ---
   const [typedHeroText, setTypedHeroText] = useState('');
@@ -350,6 +351,14 @@ const LoginView = ({
             className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-500 hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50 transition-all duration-200 text-[12px] font-semibold"
           >
             <BarChart4 size={13} /> Acesso de administrador
+          </button>
+
+          <button
+            type="button"
+            onClick={onOpenPrivacyPolicy}
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-transparent bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-800 transition-all duration-200 text-[12px] font-semibold"
+          >
+            Política de Privacidade
           </button>
 
           {/* Rodape */}
