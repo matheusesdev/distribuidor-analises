@@ -2169,7 +2169,7 @@ const App = () => {
               <p className="text-[10px] font-semibold tracking-[0.08em] text-slate-500 uppercase">Resumo rápido</p>
               <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px] font-semibold text-slate-700">
                 <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-2.5 py-1">#{getReservaDisplayId(transferTask.reserva_id)}</span>
-                <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-2.5 py-1">{transferTask.situacao_nome || 'Sem situação'}</span>
+                <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-2.5 py-1">{normalizeUiText(transferTask.situacao_nome || 'Sem situação')}</span>
               </div>
             </div>
 

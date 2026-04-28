@@ -3,6 +3,7 @@ import { BarChart3, Building2, CalendarDays, Download, FileSpreadsheet, FileText
 import ExcelJS from 'exceljs';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { normalizeUiText } from '../../utils/textEncoding';
 
 const formatNumber = (value) => new Intl.NumberFormat('pt-BR').format(value || 0);
 const formatPercent = (value) => `${new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(value || 0)}%`;
@@ -23,7 +24,7 @@ const getSafeFilePart = (value) =>
 
 const getMaxValue = (items) => Math.max(...items.map((item) => item.total || 0), 1);
 const getShare = (total, base) => (base ? ((total || 0) / base) * 100 : 0);
-const normalizeText = (value) => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+const normalizeText = (value) => normalizeUiText(value).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 
 const SITUATION_BADGE_STYLES = [
   { match: 'analise venda loteamento (lotear)', style: { color: '#0b7285', backgroundColor: '#e3f4f7' } },
@@ -148,7 +149,7 @@ const RankingCard = ({ title, icon: Icon, items, accentClass, barClass, emptyMes
         {items.length > 0 ? items.map((item) => (
           <div key={`${title}-${item.label}`} className="space-y-1.5">
             <div className="flex items-center justify-between gap-3 text-[11px]">
-              <span className="font-semibold text-slate-700 truncate">{item.label}</span>
+              <span className="font-semibold text-slate-700 truncate">{normalizeUiText(item.label)}</span>
               <span className="font-semibold text-slate-500 shrink-0">{formatNumber(item.total)}</span>
             </div>
             <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
@@ -189,7 +190,7 @@ const SeriesCard = ({ title, subtitle, items, accent }) => {
             </div>
             <div>
               <div className="text-base font-semibold text-slate-800 leading-none">{formatNumber(item.total)}</div>
-              <div className="text-[9px] font-medium text-slate-400 mt-1.5">{item.label}</div>
+              <div className="text-[9px] font-medium text-slate-400 mt-1.5">{normalizeUiText(item.label)}</div>
             </div>
           </div>
         )) : (
@@ -235,11 +236,11 @@ const AnalystAnalyticsTab = ({ analyticsData, currentUser, notify }) => {
     const topSituation = getTopItem(bySituation);
 
     return [
-      { insight: 'Melhor dia recente', valor: bestDay ? `${bestDay.label} (${formatNumber(bestDay.total)})` : 'Sem dados' },
-      { insight: 'Melhor mês', valor: bestMonth ? `${bestMonth.label} (${formatNumber(bestMonth.total)})` : 'Sem dados' },
-      { insight: 'Resultado dominante', valor: topResult ? `${topResult.label} (${formatPercent(getShare(topResult.total, totalRecords))})` : 'Sem dados' },
-      { insight: 'Empreendimento líder', valor: topEnterprise ? `${topEnterprise.label} (${formatPercent(getShare(topEnterprise.total, totalRecords))})` : 'Sem dados' },
-      { insight: 'Tipo de pasta líder', valor: topSituation ? `${topSituation.label} (${formatPercent(getShare(topSituation.total, totalRecords))})` : (hasSituationTracking ? 'Sem dados' : 'Schema ainda sem rastreamento de tipo') },
+      { insight: 'Melhor dia recente', valor: bestDay ? `${normalizeUiText(bestDay.label)} (${formatNumber(bestDay.total)})` : 'Sem dados' },
+      { insight: 'Melhor mês', valor: bestMonth ? `${normalizeUiText(bestMonth.label)} (${formatNumber(bestMonth.total)})` : 'Sem dados' },
+      { insight: 'Resultado dominante', valor: topResult ? `${normalizeUiText(topResult.label)} (${formatPercent(getShare(topResult.total, totalRecords))})` : 'Sem dados' },
+      { insight: 'Empreendimento líder', valor: topEnterprise ? `${normalizeUiText(topEnterprise.label)} (${formatPercent(getShare(topEnterprise.total, totalRecords))})` : 'Sem dados' },
+      { insight: 'Tipo de pasta líder', valor: topSituation ? `${normalizeUiText(topSituation.label)} (${formatPercent(getShare(topSituation.total, totalRecords))})` : (hasSituationTracking ? 'Sem dados' : 'Schema ainda sem rastreamento de tipo') },
     ];
   }, [daySeries, monthSeries, byResult, byEnterprise, bySituation, totalRecords, hasSituationTracking]);
 
@@ -579,9 +580,9 @@ const AnalystAnalyticsTab = ({ analyticsData, currentUser, notify }) => {
                     <span
                       className="inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-semibold max-w-full truncate"
                       style={getSituationBadgeStyle(row.situacao_nome)}
-                      title={row.situacao_nome || '-'}
+                      title={normalizeUiText(row.situacao_nome || '-')}
                     >
-                      {row.situacao_nome || '-'}
+                      {normalizeUiText(row.situacao_nome || '-')}
                     </span>
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap">

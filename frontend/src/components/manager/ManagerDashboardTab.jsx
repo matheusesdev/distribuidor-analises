@@ -22,6 +22,7 @@ import {
   Users,
   X,
 } from 'lucide-react';
+import { normalizeUiText } from '../../utils/textEncoding';
 
 const formatDateTime = (value) => {
   if (!value) return 'Sem registro';
@@ -233,7 +234,7 @@ const AnalystDetailModal = ({ analyst, currentTasks, recentCompletions, onClose,
                   {situationSeries.length > 0 ? situationSeries.map((item) => (
                     <div key={item.label} className="space-y-1">
                       <div className="flex items-center justify-between text-[10px] font-medium text-slate-600 gap-2">
-                        <span className="truncate">{item.label}</span>
+                        <span className="truncate">{normalizeUiText(item.label)}</span>
                         <span>{item.total}</span>
                       </div>
                       <div className="h-2.5 rounded-full bg-indigo-50 overflow-hidden border border-indigo-100">
@@ -259,7 +260,7 @@ const AnalystDetailModal = ({ analyst, currentTasks, recentCompletions, onClose,
                     return (
                       <div key={`daily-${situation.label}`} className="rounded-2xl border border-sky-100 bg-sky-50/40 p-3 transition-all hover:bg-white">
                         <div className="flex items-center justify-between gap-2">
-                          <p className="text-[10px] font-semibold text-slate-700 truncate">{situation.label}</p>
+                          <p className="text-[10px] font-semibold text-slate-700 truncate">{normalizeUiText(situation.label)}</p>
                           <span className="text-[10px] font-semibold text-sky-700">{situation.total}</span>
                         </div>
                         <div className="mt-2 space-y-1.5">
@@ -296,7 +297,7 @@ const AnalystDetailModal = ({ analyst, currentTasks, recentCompletions, onClose,
                     return (
                       <div key={`monthly-${situation.label}`} className="rounded-2xl border border-violet-100 bg-violet-50/40 p-3 transition-all hover:bg-white">
                         <div className="flex items-center justify-between gap-2">
-                          <p className="text-[10px] font-semibold text-slate-700 truncate">{situation.label}</p>
+                          <p className="text-[10px] font-semibold text-slate-700 truncate">{normalizeUiText(situation.label)}</p>
                           <span className="text-[10px] font-semibold text-violet-700">{situation.total}</span>
                         </div>
                         <div className="mt-2 space-y-1.5">
@@ -337,7 +338,7 @@ const AnalystDetailModal = ({ analyst, currentTasks, recentCompletions, onClose,
                         <div className="min-w-0">
                           <p className="text-[10px] font-semibold tracking-[0.06em] text-slate-500">Reserva {task.reserva_id}</p>
                           <p className="mt-1 truncate text-[12px] font-semibold text-slate-800">{task.cliente || 'Cliente não informado'}</p>
-                          <p className="mt-1 text-[10px] font-medium tracking-[0.01em] text-slate-600">{task.situacao_nome || 'Não informado'}</p>
+                          <p className="mt-1 text-[10px] font-medium tracking-[0.01em] text-slate-600">{normalizeUiText(task.situacao_nome || 'Não informado')}</p>
                         </div>
                       </div>
                     </div>
@@ -358,7 +359,7 @@ const AnalystDetailModal = ({ analyst, currentTasks, recentCompletions, onClose,
                     <div key={`${task.reserva_id}-${task.data_fim || index}`} className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 transition-all hover:bg-white hover:-translate-y-0.5">
                       <p className="text-[10px] font-semibold tracking-[0.04em] text-emerald-700">{task.data_fim ? formatDateTime(task.data_fim) : 'Hoje'}</p>
                       <p className="mt-1 text-[12px] font-semibold text-emerald-900">{task.cliente || `Reserva ${task.reserva_id}`}</p>
-                      <p className="mt-1 text-[10px] font-medium tracking-[0.01em] text-emerald-700">{task.situacao_nome || task.resultado || 'Concluída'}</p>
+                      <p className="mt-1 text-[10px] font-medium tracking-[0.01em] text-emerald-700">{normalizeUiText(task.situacao_nome || task.resultado || 'Concluída')}</p>
                     </div>
                   ))
                 ) : (
