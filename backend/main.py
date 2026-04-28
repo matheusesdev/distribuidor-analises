@@ -747,7 +747,7 @@ def record_session_revoke_audit(*, actor: Dict[str, Any], role: str, user_id: in
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 
 ALLOWED_ORIGINS = parse_allowed_origins(os.getenv("ALLOWED_ORIGINS", "http://localhost:5173"))
-SYNC_INTERVAL_SECONDS = int(os.getenv("SYNC_INTERVAL_SECONDS", "25"))
+SYNC_INTERVAL_SECONDS = int(os.getenv("SYNC_INTERVAL_SECONDS", "60"))
 PORT = int(os.getenv("PORT", "8000"))
 TESTING = parse_bool_env("TESTING", default=False)
 

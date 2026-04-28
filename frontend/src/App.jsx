@@ -26,7 +26,7 @@ import ManagerSuggestionsTab from './components/manager/ManagerSuggestionsTab';
 import EditAnalystModal from './components/manager/EditAnalystModal';
 import { normalizeUiText } from './utils/textEncoding';
 
-const AUTO_REFRESH_SECONDS = 30;
+const AUTO_REFRESH_SECONDS = 60;
 const LOGIN_SUCCESS_SPLASH_MS = 1600;
 const DAILY_ANALYST_LOGOUT_MARKER = 'analystDailyLogoutDate';
 const LAST_LOGIN_DATE_KEY = 'lastSuccessfulLoginDate';

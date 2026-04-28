@@ -85,7 +85,7 @@ API FastAPI que:
 
 ### 4.1. Sincronização com o CRM
 
-O backend executa uma tarefa em background no startup da aplicação. Essa tarefa roda em loop e chama a sincronização em intervalo configurável, hoje com default de `25` segundos (`SYNC_INTERVAL_SECONDS`).
+O backend executa uma tarefa em background no startup da aplicação. Essa tarefa roda em loop e chama a sincronização em intervalo configurável, hoje com default de `60` segundos (`SYNC_INTERVAL_SECONDS`).
 
 Durante a sincronização, o sistema:
 
