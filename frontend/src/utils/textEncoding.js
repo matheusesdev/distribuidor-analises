@@ -23,6 +23,17 @@ const REPLACEMENTS = [
   [`CONFEC${'\uFFFD'}${'\uFFFD'}O`, 'CONFECÇÃO'],
   [`CONFEC${'\uFFFD'}${'\uFFFD'}O DE CONTRATO`, 'CONFECÇÃO DE CONTRATO'],
   [`CONFEC${'\uFFFD'}${'\uFFFD'}O DE CONTRATO (LOTEAR)`, 'CONFECÇÃO DE CONTRATO (LOTEAR)'],
+  [`APROVA${'\uFFFD'}${'\uFFFD'}O EXPANS${'\uFFFD'}${'\uFFFD'}O`, 'APROVAÇÃO EXPANSÃO'],
+  [`APROVA${'\uFFFD'}${'\uFFFD'}O EXPANS${'\uFFFD'}${'\uFFFD'}O (LOTEAR)`, 'APROVAÇÃO EXPANSÃO (LOTEAR)'],
+  // Padrão com diamante ◆
+  ['APROVA◆◆O EXPANS◆O', 'APROVAÇÃO EXPANSÃO'],
+  ['APROVA◆◆O EXPANS◆O (LOTEAR)', 'APROVAÇÃO EXPANSÃO (LOTEAR)'],
+  ['CONFEC◆◆O', 'CONFECÇÃO'],
+  ['CONFEC◆◆O DE CONTRATO', 'CONFECÇÃO DE CONTRATO'],
+  ['CONFEC◆◆O DE CONTRATO (LOTEAR)', 'CONFECÇÃO DE CONTRATO (LOTEAR)'],
+  ['AN◆LISE', 'ANÁLISE'],
+  ['an◆lise', 'análise'],
+  ['ASSINADO (LOTEAR)', 'ASSINADO (LOTEAR)'],
 ];
 
 const tryDecodeLatin1AsUtf8 = (value) => {
@@ -49,6 +60,19 @@ export const normalizeUiText = (value) => {
   for (const [broken, fixed] of REPLACEMENTS) {
     result = result.replaceAll(broken, fixed);
   }
+
+  // Padrões com regex para capturar variações de ◆ (U+25C6) e outros caracteres corrompidos
+  result = result.replace(/APROVA[\u25c6\uFFFD]+O\s+EXPANS[\u25c6\uFFFD]+O\s*\(LOTEAR\)/gi, 'APROVAÇÃO EXPANSÃO (LOTEAR)');
+  result = result.replace(/APROVA[\u25c6\uFFFD]+O\s+EXPANS[\u25c6\uFFFD]+O/gi, 'APROVAÇÃO EXPANSÃO');
+  result = result.replace(/CONFEC[\u25c6\uFFFD]+O\s+DE\s+CONTRATO\s*\(LOTEAR\)/gi, 'CONFECÇÃO DE CONTRATO (LOTEAR)');
+  result = result.replace(/CONFEC[\u25c6\uFFFD]+O\s+DE\s+CONTRATO/gi, 'CONFECÇÃO DE CONTRATO');
+  result = result.replace(/CONFEC[\u25c6\uFFFD]+O/gi, 'CONFECÇÃO');
+  result = result.replace(/AN[\u25c6\uFFFD]+LISE\s*\(LOTEAR\)/gi, 'ANÁLISE (LOTEAR)');
+  result = result.replace(/AN[\u25c6\uFFFD]+LISE/gi, 'ANÁLISE');
+  result = result.replace(/Sess[\u25c6\uFFFD]+es/g, 'Sessões');
+  result = result.replace(/sess[\u25c6\uFFFD]+es/g, 'sessões');
+  result = result.replace(/Sess[\u25c6\uFFFD]+o/g, 'Sessão');
+  result = result.replace(/sess[\u25c6\uFFFD]+o/g, 'sessão');
 
   return result;
 };
