@@ -77,6 +77,23 @@ const PrivacyPolicyView = ({ onBackToLogin }) => {
           </button>
         </div>
 
+        <nav className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+            <FileText size={15} className="text-blue-600" /> Seções
+          </div>
+          <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            {sections.map((section) => (
+              <a
+                key={section.id}
+                href={`#${section.id}`}
+                className="block rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-50 hover:text-slate-950"
+              >
+                {section.title}
+              </a>
+            ))}
+          </div>
+        </nav>
+
         <div className="mt-6 space-y-4">
           <div className="grid gap-4 lg:grid-cols-2">
             {sections.map((section) => {
@@ -169,22 +186,6 @@ const PrivacyPolicyView = ({ onBackToLogin }) => {
                 </div>
               </div>
 
-              <nav className={`${sectionCardClass} p-5`}>
-                <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
-                  <FileText size={15} className="text-blue-600" /> Seções
-                </div>
-                <div className="mt-4 space-y-2">
-                  {sections.map((section) => (
-                    <a
-                      key={section.id}
-                      href={`#${section.id}`}
-                      className="block rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-50 hover:text-slate-950"
-                    >
-                      {section.title}
-                    </a>
-                  ))}
-                </div>
-              </nav>
             </aside>
           </div>
         </div>
