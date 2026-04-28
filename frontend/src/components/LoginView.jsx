@@ -7,14 +7,6 @@ const HERO_TEXT = 'Um sistema de distribuição de pastas que organiza e direcio
 const TYPING_SPEED_MS = 45;
 const CURSOR_BLINK_MS = 220;
 const FULL_TEXT_HOLD_TICKS = 70;
-const LAST_LOGIN_DATE_KEY = 'lastSuccessfulLoginDate';
-
-const getLocalDateKey = (date = new Date()) => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
 
 const LoginView = ({
   toast,
@@ -40,15 +32,8 @@ const LoginView = ({
   // --- HERO ANIMATION ---
   const [typedHeroText, setTypedHeroText] = useState('');
   const [isCursorVisible, setIsCursorVisible] = useState(true);
-  const [hasLoggedInToday] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    return window.localStorage.getItem(LAST_LOGIN_DATE_KEY) === getLocalDateKey();
-  });
-
-  const welcomeTitle = hasLoggedInToday ? 'Sua sessão está pronta' : 'Acesse sua conta';
-  const welcomeSubtitle = hasLoggedInToday
-    ? 'Digite seu e-mail e senha para continuar de onde parou.'
-    : 'Entre com seu e-mail e senha para continuar.';
+  const welcomeTitle = 'Acesse sua conta';
+  const welcomeSubtitle = 'Coloque seus dados de acesso';
 
   // --- FORM STATE ---
   const [loginEmail, setLoginEmail] = useState('');
