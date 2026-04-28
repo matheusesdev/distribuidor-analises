@@ -45,6 +45,11 @@ const LoginView = ({
     return window.localStorage.getItem(LAST_LOGIN_DATE_KEY) === getLocalDateKey();
   });
 
+  const welcomeTitle = hasLoggedInToday ? 'Sua sessão está pronta' : 'Acesse sua conta';
+  const welcomeSubtitle = hasLoggedInToday
+    ? 'Digite seu e-mail e senha para continuar de onde parou.'
+    : 'Entre com seu e-mail e senha para continuar.';
+
   // --- FORM STATE ---
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
@@ -211,9 +216,9 @@ const LoginView = ({
         <div className="w-full max-w-sm space-y-3.5">
           <div>
             <h2 className="text-xl font-semibold text-slate-800 tracking-tight">
-              {hasLoggedInToday ? 'Bem-vindo de volta' : 'Bem-vindo'}
+              {welcomeTitle}
             </h2>
-            <p className="text-slate-500 text-[13px] font-medium mt-1">Entre com seu e-mail e senha para continuar</p>
+            <p className="text-slate-500 text-[13px] font-medium mt-1">{welcomeSubtitle}</p>
             {loginNotice && (
               <div className="mt-3 rounded-2xl border border-amber-200/80 bg-[linear-gradient(135deg,#fff8eb_0%,#fffdf7_60%,#ffffff_100%)] px-3.5 py-3 shadow-[0_12px_26px_-20px_rgba(180,83,9,0.45)] backdrop-blur-sm">
                 <div className="flex items-start gap-2.5">
