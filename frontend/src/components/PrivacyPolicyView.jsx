@@ -1,7 +1,7 @@
 import React from 'react';
-import { ArrowLeft, BadgeInfo, CalendarDays, ChevronRight, Database, Eye, FileText, Globe2, Lock, ShieldCheck, Sparkles } from 'lucide-react';
+import { ArrowLeft, CalendarDays, Database, Eye, FileText, Globe2, Lock, ShieldCheck } from 'lucide-react';
 
-const sectionCardClass = 'rounded-[1.6rem] border border-slate-200/70 bg-white/92 p-5 shadow-[0_20px_70px_-44px_rgba(15,23,42,0.55)] backdrop-blur-sm';
+const sectionCardClass = 'rounded-2xl border border-slate-200 bg-white p-5 shadow-sm';
 
 const quickFacts = [
   { label: 'Atualização', value: '28/04/2026', icon: CalendarDays },
@@ -57,88 +57,72 @@ const sections = [
 ];
 
 const toneStyles = {
-  blue: 'border-sky-100 bg-sky-50/70 text-sky-700',
-  emerald: 'border-emerald-100 bg-emerald-50/70 text-emerald-700',
+  blue: 'border-sky-200 bg-sky-50 text-sky-700',
+  emerald: 'border-emerald-200 bg-emerald-50 text-emerald-700',
   slate: 'border-slate-200 bg-slate-50 text-slate-700',
-  amber: 'border-amber-100 bg-amber-50/80 text-amber-700',
+  amber: 'border-amber-200 bg-amber-50 text-amber-700',
 };
 
 const PrivacyPolicyView = ({ onBackToLogin }) => {
   return (
-    <div className="min-h-[100dvh] w-full overflow-y-auto bg-[radial-gradient(circle_at_top_left,_rgba(59,130,246,0.16)_0%,_rgba(255,255,255,0)_36%),radial-gradient(circle_at_top_right,_rgba(14,165,233,0.12)_0%,_rgba(255,255,255,0)_34%),linear-gradient(180deg,#f8fbff_0%,#edf4fb_40%,#e5edf7_100%)] text-slate-800">
-      <div className="pointer-events-none fixed inset-0 opacity-[0.35] [background-image:radial-gradient(circle_at_1px_1px,rgba(148,163,184,0.16)_1px,transparent_0)] [background-size:26px_26px]" />
-
-      <div className="relative mx-auto flex min-h-[100dvh] w-full max-w-6xl flex-col px-4 py-5 sm:px-6 sm:py-7 lg:px-8">
+    <div className="min-h-[100dvh] w-full overflow-y-auto bg-slate-50 text-slate-800">
+      <div className="mx-auto flex min-h-[100dvh] w-full max-w-5xl flex-col px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
         <div className="flex items-center justify-between gap-3">
           <button
             type="button"
             onClick={onBackToLogin}
-            className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/95 px-4 py-2 text-[12px] font-semibold text-slate-600 shadow-sm transition-all duration-200 hover:border-blue-300 hover:text-blue-700 hover:shadow-md"
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:border-slate-300 hover:text-slate-900"
           >
             <ArrowLeft size={14} /> Voltar ao login
           </button>
-
-          <div className="hidden sm:inline-flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50/80 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-blue-700">
-            <Sparkles size={12} /> Documento público
-          </div>
         </div>
 
-        <div className="mt-6 grid gap-6 lg:grid-cols-[1.2fr_0.8fr] lg:items-start">
-          <header className={`${sectionCardClass} relative overflow-hidden p-6 sm:p-7 lg:p-8`}>
-            <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(37,99,235,0.12)_0%,rgba(14,165,233,0.08)_46%,rgba(255,255,255,0)_100%)]" />
-            <div className="relative space-y-6">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center gap-2 rounded-full border border-blue-100 bg-white/85 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-700 shadow-sm">
-                  <ShieldCheck size={13} /> Política de Privacidade
-                </span>
-                <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/80 px-3 py-1.5 text-[11px] font-semibold text-slate-600 shadow-sm">
-                  <BadgeInfo size={13} /> Acesso rápido na tela de login
-                </span>
-              </div>
-
-              <div className="max-w-2xl space-y-4">
-                <h1 className="text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl lg:text-[3rem] lg:leading-[1.04]">
-                  Como tratamos dados no sistema
-                </h1>
-                <p className="max-w-2xl text-sm leading-7 text-slate-600 sm:text-[15px]">
-                  Esta página descreve, de forma direta, como as informações são coletadas, utilizadas e protegidas no sistema de distribuição de pastas.
-                  O conteúdo foi organizado para facilitar leitura rápida, com uma visão clara sobre o que é armazenado, por que isso acontece e quais
-                  mecanismos ajudam a preservar a segurança das operações.
-                </p>
-              </div>
-
-              <div className="grid gap-3 sm:grid-cols-3">
-                {quickFacts.map(({ label, value, icon: Icon }) => (
-                  <div key={label} className="rounded-2xl border border-white/70 bg-white/90 px-4 py-3 shadow-[0_10px_30px_-26px_rgba(15,23,42,0.45)]">
-                    <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
-                      <Icon size={12} className="text-blue-600" /> {label}
-                    </div>
-                    <div className="mt-2 text-sm font-semibold text-slate-800">{value}</div>
-                  </div>
-                ))}
-              </div>
+        <header className="mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+          <div className="max-w-3xl">
+            <div className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-blue-700">
+              <ShieldCheck size={13} /> Política de Privacidade
             </div>
-          </header>
+            <h1 className="mt-4 text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl">
+              Como tratamos dados no sistema
+            </h1>
+            <p className="mt-3 text-sm leading-7 text-slate-600 sm:text-[15px]">
+              Esta página explica, de forma simples e objetiva, quais dados podem ser tratados na plataforma, para que eles são usados e quais controles
+              existem para preservar a segurança das operações.
+            </p>
+          </div>
 
+          <div className="mt-6 grid gap-3 sm:grid-cols-3">
+            {quickFacts.map(({ label, value, icon: Icon }) => (
+              <div key={label} className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+                  <Icon size={12} className="text-blue-600" /> {label}
+                </div>
+                <div className="mt-2 text-sm font-semibold text-slate-800">{value}</div>
+              </div>
+            ))}
+          </div>
+        </header>
+
+        <div className="mt-6 grid gap-4 lg:grid-cols-[0.78fr_1.22fr] lg:items-start">
           <aside className="space-y-4 lg:sticky lg:top-6">
-            <div className={`${sectionCardClass} p-5 sm:p-6`}>
+            <div className={`${sectionCardClass} p-5`}>
               <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
-                <Lock size={15} className="text-blue-600" /> Resumo executivo
+                <Lock size={15} className="text-blue-600" /> Resumo
               </div>
               <p className="mt-3 text-sm leading-6 text-slate-600">
-                Os dados são usados para autenticação, distribuição de pastas, auditoria operacional e suporte às equipes de análise e gestão.
+                O sistema usa dados para autenticação, distribuição de pastas, auditoria operacional e suporte às equipes de análise e gestão.
               </p>
 
-              <div className="mt-5 space-y-3">
-                <div className="rounded-2xl border border-sky-100 bg-sky-50/70 px-4 py-3">
-                  <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-sky-700">
+              <div className="mt-4 space-y-3">
+                <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                  <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
                     <Eye size={12} /> Acesso restrito
                   </div>
                   <p className="mt-2 text-sm text-slate-700">Somente usuários autorizados acessam informações operacionais.</p>
                 </div>
 
-                <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 px-4 py-3">
-                  <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-700">
+                <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                  <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
                     <Globe2 size={12} /> Escopo interno
                   </div>
                   <p className="mt-2 text-sm text-slate-700">A política vale para o uso interno da plataforma e seus painéis administrativos.</p>
@@ -146,65 +130,65 @@ const PrivacyPolicyView = ({ onBackToLogin }) => {
               </div>
             </div>
 
-            <nav className={`${sectionCardClass} p-5 sm:p-6`}>
+            <nav className={`${sectionCardClass} p-5`}>
               <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
-                <FileText size={15} className="text-blue-600" /> Navegação rápida
+                <FileText size={15} className="text-blue-600" /> Seções
               </div>
-              <div className="mt-4 grid gap-2">
+              <div className="mt-4 space-y-2">
                 {sections.map((section) => (
                   <a
                     key={section.id}
                     href={`#${section.id}`}
-                    className="group flex items-center justify-between rounded-2xl border border-slate-200/80 bg-slate-50/80 px-4 py-3 text-left transition-all duration-200 hover:border-blue-300 hover:bg-white hover:shadow-sm"
+                    className="block rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-50 hover:text-slate-950"
                   >
-                    <span className="text-sm font-medium text-slate-700 group-hover:text-slate-900">{section.title}</span>
-                    <ChevronRight size={14} className="text-slate-400 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-blue-600" />
+                    {section.title}
                   </a>
                 ))}
               </div>
             </nav>
           </aside>
-        </div>
 
-        <div className="mt-6 grid gap-4 lg:grid-cols-2">
-          {sections.map((section) => {
-            const Icon = section.icon;
-            return (
-              <section key={section.id} id={section.id} className={`${sectionCardClass} scroll-mt-6`}>
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] ${toneStyles[section.tone]}`}>
-                      <Icon size={12} /> Seção
+          <div className="space-y-4">
+            {sections.map((section) => {
+              const Icon = section.icon;
+              return (
+                <section key={section.id} id={section.id} className={`${sectionCardClass} scroll-mt-6`}>
+                  <div className="flex items-center gap-3">
+                    <div className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border ${toneStyles[section.tone]}`}>
+                      <Icon size={16} />
                     </div>
-                    <h2 className="mt-3 text-lg font-semibold tracking-tight text-slate-900">{section.title}</h2>
+                    <div>
+                      <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Seção</div>
+                      <h2 className="text-lg font-semibold tracking-tight text-slate-900">{section.title}</h2>
+                    </div>
                   </div>
-                </div>
 
-                {'items' in section ? (
-                  <ul className="mt-4 space-y-3 text-sm leading-6 text-slate-600">
-                    {section.items.map((item) => (
-                      <li key={item} className="flex gap-3 rounded-2xl border border-slate-100 bg-slate-50/60 px-4 py-3">
-                        <span className="mt-1 inline-flex h-2.5 w-2.5 shrink-0 rounded-full bg-blue-500" />
-                        <span>{item}</span>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <div className="mt-4 space-y-3 text-sm leading-6 text-slate-600">
-                    {section.body.map((paragraph) => (
-                      <p key={paragraph} className="rounded-2xl border border-slate-100 bg-slate-50/60 px-4 py-3">
-                        {paragraph}
-                      </p>
-                    ))}
-                  </div>
-                )}
-              </section>
-            );
-          })}
+                  {'items' in section ? (
+                    <ul className="mt-4 space-y-3 text-sm leading-6 text-slate-600">
+                      {section.items.map((item) => (
+                        <li key={item} className="flex gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                          <span className="mt-1 inline-flex h-2.5 w-2.5 shrink-0 rounded-full bg-blue-500" />
+                          <span>{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <div className="mt-4 space-y-3 text-sm leading-6 text-slate-600">
+                      {section.body.map((paragraph) => (
+                        <p key={paragraph} className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                          {paragraph}
+                        </p>
+                      ))}
+                    </div>
+                  )}
+                </section>
+              );
+            })}
+          </div>
         </div>
 
-        <footer className="mt-6 pb-2 text-center text-[11px] font-medium text-slate-500">
-          Página de política de privacidade criada para acesso público no login.
+        <footer className="mt-6 pb-2 text-center text-xs text-slate-500">
+          Página pública de política de privacidade disponível no login.
         </footer>
       </div>
     </div>
