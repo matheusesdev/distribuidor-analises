@@ -77,32 +77,6 @@ const PrivacyPolicyView = ({ onBackToLogin }) => {
           </button>
         </div>
 
-        <header className="mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-          <div className="max-w-3xl">
-            <div className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-blue-700">
-              <ShieldCheck size={13} /> Política de Privacidade
-            </div>
-            <h1 className="mt-4 text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl">
-              Como tratamos dados no sistema
-            </h1>
-            <p className="mt-3 text-sm leading-7 text-slate-600 sm:text-[15px]">
-              Esta página explica, de forma simples e objetiva, quais dados podem ser tratados na plataforma, para que eles são usados e quais controles
-              existem para preservar a segurança das operações.
-            </p>
-          </div>
-
-          <div className="mt-6 grid gap-3 sm:grid-cols-3">
-            {quickFacts.map(({ label, value, icon: Icon }) => (
-              <div key={label} className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-                <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
-                  <Icon size={12} className="text-blue-600" /> {label}
-                </div>
-                <div className="mt-2 text-sm font-semibold text-slate-800">{value}</div>
-              </div>
-            ))}
-          </div>
-        </header>
-
         <div className="mt-6 space-y-4">
           <div className="grid gap-4 lg:grid-cols-2">
             {sections.map((section) => {
@@ -141,6 +115,32 @@ const PrivacyPolicyView = ({ onBackToLogin }) => {
               );
             })}
           </div>
+
+          <header className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+            <div className="max-w-3xl">
+              <div className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-blue-700">
+                <ShieldCheck size={13} /> Política de Privacidade
+              </div>
+              <h1 className="mt-4 text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl">
+                Como tratamos dados no sistema
+              </h1>
+              <p className="mt-3 text-sm leading-7 text-slate-600 sm:text-[15px]">
+                Esta página explica, de forma simples e objetiva, quais dados podem ser tratados na plataforma, para que eles são usados e quais controles
+                existem para preservar a segurança das operações.
+              </p>
+            </div>
+
+            <div className="mt-6 grid gap-3 sm:grid-cols-3">
+              {quickFacts.map(({ label, value, icon: Icon }) => (
+                <div key={label} className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                  <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+                    <Icon size={12} className="text-blue-600" /> {label}
+                  </div>
+                  <div className="mt-2 text-sm font-semibold text-slate-800">{value}</div>
+                </div>
+              ))}
+            </div>
+          </header>
 
           <div className="grid gap-4 lg:grid-cols-[0.78fr_1.22fr] lg:items-start">
             <aside className="space-y-4 lg:sticky lg:top-6">
