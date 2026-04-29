@@ -1,5 +1,5 @@
 ﻿import React, { useEffect, useState } from 'react';
-import { BarChart4, Eye, EyeOff, Lock, Mail, ArrowLeft, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { BarChart4, Eye, EyeOff, Lock, Mail, ArrowLeft, CheckCircle2, AlertTriangle, ShieldCheck, X } from 'lucide-react';
 import { ConfirmActionModal, LoadingOverlay, StatusToast } from './FeedbackOverlays';
 import { api } from '../services/api';
 
@@ -21,6 +21,8 @@ const LoginView = ({
   setManagerPassword,
   showManagerPassword,
   setShowManagerPassword,
+  keepManagerLoggedIn,
+  setKeepManagerLoggedIn,
   loginNotice,
   loginSuccessSplash,
   handleLogin,
@@ -96,6 +98,14 @@ const LoginView = ({
     if (e) e.preventDefault();
     if (!loginEmail.trim() || !loginPassword.trim() || isGlobalLoading) return;
     handleLogin(loginEmail.trim().toLowerCase(), loginPassword, keepAnalystLoggedIn);
+  };
+
+  const isManagerLoginDisabled = isGlobalLoading || !managerUsername.trim() || !managerPassword.trim();
+
+  const handleSubmitManagerLogin = (e) => {
+    if (e) e.preventDefault();
+    if (isManagerLoginDisabled) return;
+    handleManagerLogin();
   };
 
   const handleForgotSubmit = async (e) => {
@@ -462,66 +472,142 @@ const LoginView = ({
       {/* ===== MODAL: ACESSO ADMIN ===== */}
       {showManagerLoginModal && (
         <div
-          className="fixed inset-0 bg-slate-900/45 backdrop-blur-md z-250 flex items-center justify-center p-4 animate-in fade-in duration-200"
+          className="fixed inset-0 bg-slate-950/55 backdrop-blur-md z-250 flex items-center justify-center p-4 animate-in fade-in duration-200"
           onClick={() => setShowManagerLoginModal(false)}
         >
           <div
-            className="bg-white/95 rounded-[1.6rem] w-full max-w-sm shadow-[0_36px_80px_-34px_rgba(2,6,23,0.65)] border border-white/70 overflow-hidden animate-in slide-in-from-bottom-4 zoom-in-95 duration-300 backdrop-blur-xl"
+            className="relative w-full max-w-[26rem] overflow-hidden rounded-[1.75rem] border border-white/80 bg-white shadow-[0_34px_90px_-42px_rgba(2,6,23,0.8)] animate-in slide-in-from-bottom-4 zoom-in-95 duration-300"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="bg-[radial-gradient(circle_at_top,_#1f2937_0%,_#0f172a_70%)] px-8 pt-8 pb-6 flex flex-col items-center gap-3">
-              <div className="w-14 h-14 rounded-2xl bg-white/10 flex items-center justify-center text-white border border-white/20 shadow-inner">
-                <BarChart4 size={22} />
+            <button
+              type="button"
+              onClick={() => setShowManagerLoginModal(false)}
+              className="absolute right-4 top-4 z-10 inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-white/10 text-white/80 transition-all duration-200 hover:bg-white/18 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+              aria-label="Fechar acesso administrativo"
+            >
+              <X size={16} />
+            </button>
+
+            <div className="relative overflow-hidden bg-[linear-gradient(135deg,#101827_0%,#172033_52%,#0f6fbd_100%)] px-7 pt-7 pb-6 text-white">
+              <div className="absolute inset-x-0 bottom-0 h-px bg-white/16" />
+              <div className="absolute -right-16 -top-20 h-40 w-40 rounded-full bg-sky-300/20 blur-3xl" />
+              <div className="absolute left-6 top-6 h-20 w-20 rounded-full border border-white/10" />
+
+              <div className="relative flex items-start gap-4 pr-10">
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-white/20 bg-white/12 shadow-inner">
+                  <ShieldCheck size={24} />
+                </div>
+                <div className="min-w-0 pt-0.5">
+                  <p className="text-[1.05rem] font-semibold leading-tight tracking-[-0.01em]">Painel administrativo</p>
+                  <p className="mt-1.5 text-[12px] font-medium leading-relaxed text-sky-100/85">
+                    Acesso restrito para gestão da fila, equipe e auditoria.
+                  </p>
+                </div>
               </div>
-              <div className="text-center">
-                <p className="text-white font-semibold text-[1.03rem] tracking-[-0.01em]">Painel administrativo</p>
-                <p className="text-slate-300 text-[11px] font-medium tracking-[0.02em] mt-1">Acesso restrito ao gestor</p>
+
+              <div className="relative mt-5 flex items-center gap-2 rounded-2xl border border-white/12 bg-white/10 px-3 py-2 text-[11px] font-medium text-white/82">
+                <Lock size={13} className="shrink-0 text-sky-100" />
+                <span>Sessão protegida por credenciais de administrador.</span>
               </div>
             </div>
-            <div className="px-8 py-8 space-y-5">
-              <div className="space-y-3">
-                <div className="relative">
-                  <Mail size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                  <input
-                    type="email"
-                    value={managerUsername}
-                    onChange={(e) => setManagerUsername(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleManagerLogin()}
-                    className="w-full bg-slate-50/90 border border-slate-200 rounded-2xl py-3.5 pl-11 pr-4 text-slate-900 font-medium outline-none focus:ring-4 focus:ring-sky-100/70 focus:border-sky-400 text-[15px] transition-all duration-200 shadow-[0_10px_24px_-20px_rgba(15,23,42,0.5)]"
-                    placeholder="E-mail do administrador"
-                    autoFocus
-                    autoComplete="email"
-                  />
+
+            <form onSubmit={handleSubmitManagerLogin} className="px-7 py-7 space-y-5" noValidate>
+              <div className="space-y-4">
+                <div>
+                  <label htmlFor="manager-email" className="mb-2 block text-[11px] font-semibold text-slate-600">
+                    E-mail ou usuário
+                  </label>
+                  <div className="relative">
+                    <Mail size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                    <input
+                      id="manager-email"
+                      type="email"
+                      value={managerUsername}
+                      onChange={(e) => setManagerUsername(e.target.value)}
+                      className="w-full rounded-2xl border border-slate-200 bg-slate-50/80 py-3.5 pl-11 pr-4 text-[14px] font-medium text-slate-900 outline-none transition-all duration-200 placeholder:text-slate-400 hover:border-slate-300 focus:border-sky-500 focus:bg-white focus:ring-4 focus:ring-sky-100/80"
+                      placeholder="gestor@vcaconstrutora.com.br"
+                      autoFocus
+                      autoComplete="username"
+                    />
+                  </div>
                 </div>
-                <div className="relative">
-                  <Lock size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+
+                <div>
+                  <label htmlFor="manager-password" className="mb-2 block text-[11px] font-semibold text-slate-600">
+                    Senha
+                  </label>
+                  <div className="relative">
+                    <Lock size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                   <input
+                    id="manager-password"
                     type={showManagerPassword ? 'text' : 'password'}
                     value={managerPassword}
                     onChange={(e) => setManagerPassword(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleManagerLogin()}
-                    className="w-full bg-slate-50/90 border border-slate-200 rounded-2xl py-3.5 pl-11 pr-11 text-slate-900 font-medium outline-none focus:ring-4 focus:ring-sky-100/70 focus:border-sky-400 text-[15px] transition-all duration-200 shadow-[0_10px_24px_-20px_rgba(15,23,42,0.5)]"
-                    placeholder="Senha"
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50/80 py-3.5 pl-11 pr-11 text-[14px] font-medium text-slate-900 outline-none transition-all duration-200 placeholder:text-slate-400 hover:border-slate-300 focus:border-sky-500 focus:bg-white focus:ring-4 focus:ring-sky-100/80"
+                    placeholder="Digite sua senha"
                     autoComplete="current-password"
                   />
                   <button
                     type="button"
                     onClick={() => setShowManagerPassword(p => !p)}
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 transition-colors duration-200 p-1"
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 rounded-lg p-1 text-slate-400 transition-colors duration-200 hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300"
+                    aria-label={showManagerPassword ? 'Ocultar senha do administrador' : 'Mostrar senha do administrador'}
                   >
                     {showManagerPassword ? <EyeOff size={14} /> : <Eye size={14} />}
                   </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50/70 px-3 py-2.5">
+                <button
+                  type="button"
+                  onClick={() => setKeepManagerLoggedIn((prev) => !prev)}
+                  className="group flex items-center gap-2.5 text-left"
+                  aria-pressed={keepManagerLoggedIn}
+                >
+                  <span
+                    className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition-colors duration-200 ${
+                      keepManagerLoggedIn ? 'border-blue-600 bg-blue-600' : 'border-slate-300 bg-slate-200'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-200 ${
+                        keepManagerLoggedIn ? 'translate-x-5' : 'translate-x-0.5'
+                      }`}
+                    />
+                  </span>
+                  <span className="pt-0.5">
+                    <span className="block text-[11px] font-black tracking-[0.02em] text-slate-700">
+                      Manter logado
+                    </span>
+                    <span className="block text-[10px] font-semibold text-slate-400">
+                      {keepManagerLoggedIn ? 'Ativado para este dispositivo' : 'Desativado'}
+                    </span>
+                  </span>
+                </button>
+
+                <div className="relative group/help shrink-0 pt-0.5">
+                  <button
+                    type="button"
+                    aria-label="Explicação sobre manter logado como administrador"
+                    className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-slate-300 bg-white text-[11px] font-black text-slate-500 transition-colors duration-200 hover:border-blue-400 hover:text-blue-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
+                  >
+                    ?
+                  </button>
+                  <div className="pointer-events-none absolute right-0 top-8 z-20 w-60 rounded-xl border border-slate-200 bg-white px-3 py-2 text-[10px] font-semibold leading-relaxed text-slate-600 opacity-0 shadow-xl transition-opacity duration-150 group-hover/help:opacity-100 group-focus-within/help:opacity-100">
+                    Com esta opção ligada, o painel administrativo permanece conectado ao reabrir o navegador neste dispositivo.
+                  </div>
                 </div>
               </div>
 
               <button
-                type="button"
-                disabled={isGlobalLoading || !managerUsername.trim() || !managerPassword.trim()}
-                onClick={handleManagerLogin}
-                className={`w-full py-3.5 rounded-full font-semibold text-[15px] tracking-[0.01em] transition-all duration-200 flex items-center justify-center gap-2.5 ${
-                  isGlobalLoading || !managerUsername.trim() || !managerPassword.trim()
+                type="submit"
+                disabled={isManagerLoginDisabled}
+                className={`w-full rounded-2xl py-3.5 text-[14px] font-semibold tracking-[0.01em] transition-all duration-200 flex items-center justify-center gap-2.5 ${
+                  isManagerLoginDisabled
                     ? 'bg-slate-100 text-slate-300 cursor-not-allowed'
-                    : 'bg-[#0071e3] text-white shadow-[0_18px_34px_-18px_rgba(0,113,227,0.82)] hover:bg-[#0077ed] hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.99]'
+                    : 'bg-[#0071e3] text-white shadow-[0_18px_34px_-18px_rgba(0,113,227,0.82)] hover:bg-[#0077ed] hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-200'
                 }`}
               >
                 {isGlobalLoading ? (
@@ -537,11 +623,11 @@ const LoginView = ({
               <button
                 type="button"
                 onClick={() => setShowManagerLoginModal(false)}
-                className="w-full py-2.5 text-slate-500 font-medium text-[13px] hover:text-slate-700 hover:bg-slate-100/80 rounded-xl transition-all duration-200"
+                className="w-full rounded-xl py-2.5 text-[13px] font-medium text-slate-500 transition-all duration-200 hover:bg-slate-100/80 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
               >
                 Cancelar
               </button>
-            </div>
+            </form>
           </div>
         </div>
       )}

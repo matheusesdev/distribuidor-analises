@@ -32,6 +32,7 @@ const LOGIN_SUCCESS_SPLASH_MS = 1600;
 const DAILY_ANALYST_LOGOUT_MARKER = 'analystDailyLogoutDate';
 const LAST_LOGIN_DATE_KEY = 'lastSuccessfulLoginDate';
 const ANALYST_REMEMBER_MARKER = 'analystRememberMe';
+const MANAGER_REMEMBER_MARKER = 'managerRememberMe';
 const ANALYST_SESSION_KEY = 'analystSession';
 const MANAGER_SESSION_KEY = 'managerSession';
 const PRIVACY_POLICY_QUERY_KEY = 'privacy_policy';
@@ -218,6 +219,12 @@ const App = () => {
   const [managerSession, setManagerSession] = useState(() => {
     const { session } = readSessionFromStorage(MANAGER_SESSION_KEY);
     return session;
+  });
+  const [keepManagerLoggedIn, setKeepManagerLoggedIn] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    const { source } = readSessionFromStorage(MANAGER_SESSION_KEY);
+    if (source === 'localStorage') return true;
+    return window.localStorage.getItem(MANAGER_REMEMBER_MARKER) === '1';
   });
   const [keepAnalystLoggedIn, setKeepAnalystLoggedIn] = useState(() => {
     if (typeof window === 'undefined') return false;
@@ -441,7 +448,8 @@ const App = () => {
     setAnalystTab('mesa');
   }, [persistAnalystSession]);
 
-  const persistManagerSession = useCallback((session) => {
+  const persistManagerSession = useCallback((session, options = {}) => {
+    const keepLoggedIn = options.keepLoggedIn ?? keepManagerLoggedIn;
     const normalizedSession = session
       ? {
           ...session,
@@ -453,12 +461,14 @@ const App = () => {
     if (typeof window === 'undefined') return;
 
     if (normalizedSession) {
-      window.sessionStorage.setItem(MANAGER_SESSION_KEY, JSON.stringify(normalizedSession));
+      writeSessionToStorage(MANAGER_SESSION_KEY, normalizedSession, keepLoggedIn);
+      window.localStorage.setItem(MANAGER_REMEMBER_MARKER, keepLoggedIn ? '1' : '0');
       return;
     }
 
-    window.sessionStorage.removeItem(MANAGER_SESSION_KEY);
-  }, []);
+    clearSessionFromStorage(MANAGER_SESSION_KEY);
+    window.localStorage.removeItem(MANAGER_REMEMBER_MARKER);
+  }, [keepManagerLoggedIn]);
 
   const clearManagerSession = useCallback(() => {
     persistManagerSession(null);
@@ -487,7 +497,8 @@ const App = () => {
       if (!prev?.token) return prev;
       const next = { ...prev, lastActivityAt: now };
       if (typeof window !== 'undefined') {
-        window.sessionStorage.setItem('managerSession', JSON.stringify(next));
+        const keepLoggedIn = window.localStorage.getItem(MANAGER_REMEMBER_MARKER) === '1';
+        writeSessionToStorage(MANAGER_SESSION_KEY, next, keepLoggedIn);
       }
       return next;
     });
@@ -824,7 +835,8 @@ const App = () => {
       const res = await api.managerLogin(managerIdentifier.trim().toLowerCase(), managerPassword);
       if (res.ok) {
         const session = normalizeUiData(await res.json());
-        persistManagerSession(session);
+        setKeepManagerLoggedIn(Boolean(keepManagerLoggedIn));
+        persistManagerSession(session, { keepLoggedIn: Boolean(keepManagerLoggedIn) });
         markSuccessfulLoginToday();
         setShowManagerLoginModal(false);
         setManagerPassword('');
@@ -837,11 +849,14 @@ const App = () => {
         const legacyOverview = await api.getManagerOverview();
 
         if (legacyOverview.ok) {
+          setKeepManagerLoggedIn(Boolean(keepManagerLoggedIn));
           persistManagerSession({
             usuario: managerIdentifier.trim(),
             email: null,
             token: LEGACY_MANAGER_TOKEN,
             legacyMode: true,
+          }, {
+            keepLoggedIn: Boolean(keepManagerLoggedIn),
           });
           markSuccessfulLoginToday();
           setShowManagerLoginModal(false);
@@ -2043,6 +2058,8 @@ const App = () => {
       setManagerPassword={setManagerPassword}
       showManagerPassword={showManagerPassword}
       setShowManagerPassword={setShowManagerPassword}
+      keepManagerLoggedIn={keepManagerLoggedIn}
+      setKeepManagerLoggedIn={setKeepManagerLoggedIn}
       loginNotice={loginNotice}
       loginSuccessSplash={loginSuccessSplash}
       handleLogin={handleLogin}
