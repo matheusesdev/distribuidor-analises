@@ -35,6 +35,7 @@ const ANALYST_REMEMBER_MARKER = 'analystRememberMe';
 const MANAGER_REMEMBER_MARKER = 'managerRememberMe';
 const ANALYST_SESSION_KEY = 'analystSession';
 const MANAGER_SESSION_KEY = 'managerSession';
+const MESA_FREEZE_STORAGE_KEY = 'analystFrozenMesa';
 const PRIVACY_POLICY_QUERY_KEY = 'privacy_policy';
 const ALL_FILTER = 'all';
 const LEGACY_MANAGER_TOKEN = 'legacy-admin-session';
@@ -138,6 +139,38 @@ const writeSessionToStorage = (key, session, persistInLocalStorage = false) => {
   window.localStorage.removeItem(key);
 };
 
+const getStoredMesaFreeze = (analystId) => {
+  if (typeof window === 'undefined' || !analystId) return { active: false, taskIds: [] };
+
+  try {
+    const stored = JSON.parse(window.localStorage.getItem(`${MESA_FREEZE_STORAGE_KEY}:${analystId}`) || 'null');
+    if (!stored?.active || !Array.isArray(stored.taskIds)) return { active: false, taskIds: [] };
+
+    return {
+      active: true,
+      taskIds: stored.taskIds.map((id) => String(id)).filter(Boolean),
+    };
+  } catch {
+    return { active: false, taskIds: [] };
+  }
+};
+
+const writeStoredMesaFreeze = (analystId, freezeState) => {
+  if (typeof window === 'undefined' || !analystId) return;
+  const key = `${MESA_FREEZE_STORAGE_KEY}:${analystId}`;
+
+  if (!freezeState?.active || !freezeState.taskIds?.length) {
+    window.localStorage.removeItem(key);
+    return;
+  }
+
+  window.localStorage.setItem(key, JSON.stringify({
+    active: true,
+    taskIds: freezeState.taskIds.map((id) => String(id)),
+    frozenAt: new Date().toISOString(),
+  }));
+};
+
 const getInitialView = () => {
   if (typeof window === 'undefined') return 'login';
   const params = new URLSearchParams(window.location.search);
@@ -172,6 +205,7 @@ const App = () => {
   const [analyticsData, setAnalyticsData] = useState(EMPTY_ANALYTICS);
   const [suggestions, setSuggestions] = useState([]);
   const [managerSuggestions, setManagerSuggestions] = useState([]);
+  const [hasLoadedMesa, setHasLoadedMesa] = useState(false);
   const [dashData, setDashData] = useState({ 
     equipe: [], 
     resumo_equipe: [],
@@ -205,6 +239,7 @@ const App = () => {
   // --- ESTADOS DE FILTROS ---
   const [taskSearch, setTaskSearch] = useState("");
   const [filterSit, setFilterSit] = useState("all");
+  const [mesaFreeze, setMesaFreeze] = useState(() => getStoredMesaFreeze(currentUser?.id));
 
   // --- ESTADOS DE MODAIS ---
   const [showEditModal, setShowEditModal] = useState(false);
@@ -684,6 +719,7 @@ const App = () => {
         const resM = await api.getMesa(currentUser.id);
         if (resM.ok) {
           setMyTasks(normalizeUiData(await resM.json()));
+          setHasLoadedMesa(true);
         } else if (resM.status === 401) {
           handleAnalystUnauthorized();
           return;
@@ -777,6 +813,35 @@ const App = () => {
     const interval = setInterval(() => fetchData(true), AUTO_REFRESH_SECONDS * 1000);
     return () => clearInterval(interval);
   }, [fetchData]);
+
+  useEffect(() => {
+    setMesaFreeze(getStoredMesaFreeze(currentUser?.id));
+    setSelectedTaskIds(new Set());
+    setHasLoadedMesa(false);
+  }, [currentUser?.id]);
+
+  useEffect(() => {
+    if (!currentUser?.id) return;
+    writeStoredMesaFreeze(currentUser.id, mesaFreeze);
+  }, [currentUser?.id, mesaFreeze]);
+
+  useEffect(() => {
+    if (!mesaFreeze.active || !hasLoadedMesa) return;
+
+    const currentIds = new Set((myTasks || []).map((task) => String(task.reserva_id)));
+    const remainingFrozenIds = mesaFreeze.taskIds.filter((id) => currentIds.has(String(id)));
+
+    if (remainingFrozenIds.length === 0 && mesaFreeze.taskIds.length > 0) {
+      setMesaFreeze({ active: false, taskIds: [] });
+      setSelectedTaskIds(new Set());
+      notify('Mesa congelada finalizada. Novas pastas já podem aparecer.', 'success');
+      return;
+    }
+
+    if (remainingFrozenIds.length !== mesaFreeze.taskIds.length) {
+      setMesaFreeze({ active: true, taskIds: remainingFrozenIds });
+    }
+  }, [hasLoadedMesa, mesaFreeze, myTasks, notify]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -1776,8 +1841,42 @@ const App = () => {
     }
   }; 
 
+  const displayedMesaTasks = useMemo(() => {
+    if (!mesaFreeze.active) return myTasks || [];
+    const frozenIds = new Set((mesaFreeze.taskIds || []).map((id) => String(id)));
+    return (myTasks || []).filter((task) => frozenIds.has(String(task.reserva_id)));
+  }, [mesaFreeze, myTasks]);
+
+  const hiddenFrozenMesaCount = Math.max(0, (myTasks || []).length - displayedMesaTasks.length);
+
+  useEffect(() => {
+    const visibleIds = new Set(displayedMesaTasks.map((task) => task.reserva_id));
+    setSelectedTaskIds((prev) => {
+      const next = new Set(Array.from(prev).filter((id) => visibleIds.has(id)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [displayedMesaTasks]);
+
+  const toggleMesaFreeze = useCallback(() => {
+    if (mesaFreeze.active) {
+      setMesaFreeze({ active: false, taskIds: [] });
+      notify('Mesa descongelada. Novas pastas voltarão a aparecer.', 'success');
+      return;
+    }
+
+    const taskIds = (myTasks || []).map((task) => String(task.reserva_id)).filter(Boolean);
+    if (!taskIds.length) {
+      notify('Não há pastas na mesa para congelar.', 'error');
+      return;
+    }
+
+    setMesaFreeze({ active: true, taskIds });
+    setSelectedTaskIds(new Set());
+    notify(`${taskIds.length} pasta(s) congelada(s) na mesa atual.`);
+  }, [mesaFreeze.active, myTasks, notify]);
+
   const filteredTasks = useMemo(() => {
-    return (myTasks || []).filter(task => {
+    return (displayedMesaTasks || []).filter(task => {
       const reservaDisplayId = getReservaDisplayId(task.reserva_id);
       const matchesSearch = task.cliente.toLowerCase().includes(taskSearch.toLowerCase()) || 
                           task.empreendimento.toLowerCase().includes(taskSearch.toLowerCase()) ||
@@ -1785,7 +1884,7 @@ const App = () => {
       const matchesSit = filterSit === "all" || task.situacao_id.toString() === filterSit;
       return matchesSearch && matchesSit;
     });
-  }, [myTasks, taskSearch, filterSit, getReservaDisplayId]);
+  }, [displayedMesaTasks, taskSearch, filterSit, getReservaDisplayId]);
 
   const transferTargetOptions = useMemo(() => {
     if (!currentUser) return [];
@@ -2632,6 +2731,11 @@ const App = () => {
               getReservaDisplayId={getReservaDisplayId}
               openTransferModal={openTransferModal}
               handleFinish={handleFinish}
+              isMesaFrozen={mesaFreeze.active}
+              onToggleMesaFreeze={toggleMesaFreeze}
+              frozenMesaVisibleCount={displayedMesaTasks.length}
+              hiddenFrozenMesaCount={hiddenFrozenMesaCount}
+              totalMesaCount={(myTasks || []).length}
             />
           ) : (
             <div className="space-y-6 py-20 text-center text-slate-300 italic text-[11px] uppercase tracking-[0.4em] font-bold px-6">Nenhum conteúdo disponível nesta aba.</div>

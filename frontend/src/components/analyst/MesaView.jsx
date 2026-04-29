@@ -1,5 +1,5 @@
 ﻿import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowRightLeft, CheckCircle2, CheckSquare, ChevronDown, HelpCircle, Search, Square, Tag, UserCheck } from 'lucide-react';
+import { ArrowRightLeft, CheckCircle2, CheckSquare, ChevronDown, HelpCircle, Lock, Search, Square, Tag, UserCheck } from 'lucide-react';
 import { driver } from 'driver.js';
 import 'driver.js/dist/driver.css';
 import { normalizeUiText } from '../../utils/textEncoding';
@@ -20,6 +20,11 @@ const MesaView = ({
   getReservaDisplayId,
   openTransferModal,
   handleFinish,
+  isMesaFrozen = false,
+  onToggleMesaFreeze,
+  frozenMesaVisibleCount = 0,
+  hiddenFrozenMesaCount = 0,
+  totalMesaCount = 0,
 }) => {
   const [isSituacaoMenuOpen, setIsSituacaoMenuOpen] = useState(false);
   const [finishingTaskIds, setFinishingTaskIds] = useState(() => new Set());
@@ -399,6 +404,28 @@ const MesaView = ({
               <span className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-[10px] font-semibold text-blue-700">
                 {filteredTasks.length} ativas
               </span>
+              {isMesaFrozen && (
+                <span
+                  className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[10px] font-semibold text-amber-700"
+                  title={`${frozenMesaVisibleCount} pasta(s) da mesa congelada em exibição. ${hiddenFrozenMesaCount} pasta(s) chegaram na fila e aguardam liberação.`}
+                >
+                  <Lock size={11} />
+                  Congelada
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={onToggleMesaFreeze}
+                className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-medium transition-all ${
+                  isMesaFrozen
+                    ? 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100'
+                    : 'border-slate-200 bg-white text-slate-600 hover:border-amber-200 hover:text-amber-700'
+                }`}
+                title={isMesaFrozen ? `Descongelar mesa e mostrar ${totalMesaCount} pasta(s)` : 'Congelar as pastas que estão na mesa agora'}
+              >
+                <Lock size={12} />
+                {isMesaFrozen ? 'Descongelar' : 'Congelar mesa'}
+              </button>
               {filteredTasks.length > 0 && (
                 <button
                   onClick={toggleSelectAll}
@@ -484,6 +511,11 @@ const MesaView = ({
               </div>
             </div>
           </div>
+          {isMesaFrozen && hiddenFrozenMesaCount > 0 && (
+            <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] font-semibold text-amber-800">
+              {hiddenFrozenMesaCount} pasta{hiddenFrozenMesaCount !== 1 ? 's chegaram' : ' chegou'} na fila enquanto a mesa está congelada. Conclua a mesa atual ou descongele para visualizar.
+            </div>
+          )}
         </div>
 
         <div className="relative z-0 space-y-3">
