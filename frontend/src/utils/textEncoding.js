@@ -72,8 +72,10 @@ export const normalizeUiText = (value) => {
   }
 
   // Padrões com regex para capturar variações de ◆ (U+25C6) e outros caracteres corrompidos
-  result = result.replace(/APROVA[\u25c6\uFFFD]+O\s+EXPANS[\u25c6\uFFFD]+O\s*\(LOTEAR\)/gi, 'APROVAÇÃO EXPANSÃO (LOTEAR)');
-  result = result.replace(/APROVA[\u25c6\uFFFD]+O\s+EXPANS[\u25c6\uFFFD]+O/gi, 'APROVAÇÃO EXPANSÃO');
+  result = result.replace(/APROVA[\u25c6\uFFFD]+O\s+FINANCEIRA\s*\(LOTEAR\)/gi, 'APROVAÇÃO FINANCEIRA (LOTEAR)');
+  result = result.replace(/APROVA[\u25c6\uFFFD]+O\s+FINANCEIRA/gi, 'APROVAÇÃO FINANCEIRA');
+  result = result.replace(/APROVA[\u25c6\uFFFD]+O\s+EXPANS(?:ÃO|[\u25c6\uFFFD]+O)\s*\(LOTEAR\)/gi, 'APROVAÇÃO EXPANSÃO (LOTEAR)');
+  result = result.replace(/APROVA[\u25c6\uFFFD]+O\s+EXPANS(?:ÃO|[\u25c6\uFFFD]+O)/gi, 'APROVAÇÃO EXPANSÃO');
   result = result.replace(/CONFEC[\u25c6\uFFFD]+O\s+DE\s+CONTRATO\s*\(LOTEAR\)/gi, 'CONFECÇÃO DE CONTRATO (LOTEAR)');
   result = result.replace(/CONFEC[\u25c6\uFFFD]+O\s+DE\s+CONTRATO/gi, 'CONFECÇÃO DE CONTRATO');
   result = result.replace(/CONFEC[\u25c6\uFFFD]+O/gi, 'CONFECÇÃO');

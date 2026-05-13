@@ -8,6 +8,7 @@ import base64
 import binascii
 import hashlib
 import hmac
+import re
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -41,6 +42,13 @@ REPLACEMENT_CHAR_FIXES = (
     ("CL\uFFFDAUDIA", "CLÁUDIA"),
 )
 
+REPLACEMENT_CHAR_REGEX_FIXES = (
+    (re.compile(r"APROVA[\u25c6\uFFFD]+O\s+FINANCEIRA\s*\(LOTEAR\)", re.IGNORECASE), "APROVAÇÃO FINANCEIRA (LOTEAR)"),
+    (re.compile(r"APROVA[\u25c6\uFFFD]+O\s+FINANCEIRA", re.IGNORECASE), "APROVAÇÃO FINANCEIRA"),
+    (re.compile(r"APROVA[\u25c6\uFFFD]+O\s+EXPANS(?:ÃO|[\u25c6\uFFFD]+O)\s*\(LOTEAR\)", re.IGNORECASE), "APROVAÇÃO EXPANSÃO (LOTEAR)"),
+    (re.compile(r"APROVA[\u25c6\uFFFD]+O\s+EXPANS(?:ÃO|[\u25c6\uFFFD]+O)", re.IGNORECASE), "APROVAÇÃO EXPANSÃO"),
+)
+
 
 def repair_replacement_chars(value: str) -> str:
     result = value
@@ -48,6 +56,8 @@ def repair_replacement_chars(value: str) -> str:
         result = result.replace(broken, fixed)
         result = result.replace(broken.lower(), fixed.lower())
         result = result.replace(broken.title(), fixed.title())
+    for pattern, fixed in REPLACEMENT_CHAR_REGEX_FIXES:
+        result = pattern.sub(fixed, result)
     return result
 
 
