@@ -29,6 +29,8 @@ const normalizeText = (value) => normalizeUiText(value).normalize('NFD').replace
 const SITUATION_BADGE_STYLES = [
   { match: 'analise venda loteamento (lotear)', style: { color: '#0b7285', backgroundColor: '#e3f4f7' } },
   { match: 'analise venda loteamento', style: { color: '#355e3b', backgroundColor: '#e8f3eb' } },
+  { match: 'aprovacao financeira (lotear)', style: { color: '#5c611f', backgroundColor: '#e5ee78' } },
+  { match: 'aprovacao financeira', style: { color: '#5c611f', backgroundColor: '#f4f1a6' } },
   { match: 'analise venda parcelamento incorporadora', style: { color: '#2f6b2f', backgroundColor: '#e4f2e4' } },
   { match: 'analise venda caixa', style: { color: '#3b6b2f', backgroundColor: '#edf7e7' } },
   { match: 'aprovacao expansao (lotear)', style: { color: '#5f3dc4', backgroundColor: '#ede9fe' } },
