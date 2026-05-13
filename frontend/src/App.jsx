@@ -31,6 +31,7 @@ const AUTO_REFRESH_SECONDS = 60;
 const LOGIN_SUCCESS_SPLASH_MS = 1600;
 const DAILY_ANALYST_LOGOUT_MARKER = 'analystDailyLogoutDate';
 const LAST_LOGIN_DATE_KEY = 'lastSuccessfulLoginDate';
+const RETURNED_AFTER_LOGOUT_KEY = 'returnedAfterLogout';
 const ANALYST_REMEMBER_MARKER = 'analystRememberMe';
 const MANAGER_REMEMBER_MARKER = 'managerRememberMe';
 const ANALYST_SESSION_KEY = 'analystSession';
@@ -92,6 +93,7 @@ const getLocalDateKey = (date = new Date()) => {
 const markSuccessfulLoginToday = () => {
   if (typeof window === 'undefined') return;
   window.localStorage.setItem(LAST_LOGIN_DATE_KEY, getLocalDateKey());
+  window.localStorage.removeItem(RETURNED_AFTER_LOGOUT_KEY);
 };
 
 const parseStoredSession = (rawSession) => {
@@ -230,6 +232,10 @@ const App = () => {
   const [nextRefreshAt, setNextRefreshAt] = useState(Date.now() + (AUTO_REFRESH_SECONDS * 1000));
   const [toast, setToast] = useState({ show: false, message: "", type: "success" });
   const [loginNotice, setLoginNotice] = useState(null);
+  const [hasReturnedAfterLogout, setHasReturnedAfterLogout] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return window.localStorage.getItem(RETURNED_AFTER_LOGOUT_KEY) === '1';
+  });
   const [apiError, setApiError] = useState(null);
   const [isDarkMode, setIsDarkMode] = useState(() => {
     if (typeof window === 'undefined') return false;
@@ -414,6 +420,13 @@ const App = () => {
     setLoginNotice(typeof message === 'string' ? normalizeUiText(message) : message);
   }, []);
 
+  const markReturnedAfterLogout = useCallback(() => {
+    setHasReturnedAfterLogout(true);
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(RETURNED_AFTER_LOGOUT_KEY, '1');
+    }
+  }, []);
+
   const normalizeUiData = useCallback((value) => {
     if (typeof value === 'string') {
       return normalizeUiText(value);
@@ -542,12 +555,14 @@ const App = () => {
   const handleAnalystLogout = useCallback(async ({ reason = 'manual' } = {}) => {
     if (!currentUser?.id) {
       clearAnalystSession();
+      markReturnedAfterLogout();
       setView('login');
       return;
     }
 
     clearAnalystSession();
     setIdlePrompt({ visible: false, role: null, secondsLeft: 0 });
+    markReturnedAfterLogout();
     setView('login');
 
     if (reason === 'idle') {
@@ -574,7 +589,7 @@ const App = () => {
       return;
     }
     notify('Sessão encerrada.', 'success');
-  }, [currentUser, clearAnalystSession, notify, setSafeLoginNotice]);
+  }, [currentUser, clearAnalystSession, markReturnedAfterLogout, notify, setSafeLoginNotice]);
 
   const handleManagerUnauthorized = useCallback(() => {
     clearManagerSession();
@@ -583,10 +598,11 @@ const App = () => {
     setManagerPassword('');
     setShowManagerPassword(false);
     setManagerTab('dashboard');
+    markReturnedAfterLogout();
     setView('login');
     setSafeLoginNotice('Sua sessão de gestor expirou. Faça login novamente para continuar no painel.');
     notify('Sessão do administrador expirada. Faça login novamente.', 'error');
-  }, [clearManagerSession, notify, setSafeLoginNotice]);
+  }, [clearManagerSession, markReturnedAfterLogout, notify, setSafeLoginNotice]);
 
   const handleAnalystUnauthorized = useCallback(() => {
     const hasAnalystSession = typeof window !== 'undefined'
@@ -595,13 +611,14 @@ const App = () => {
 
     clearAnalystSession();
     setIdlePrompt({ visible: false, role: null, secondsLeft: 0 });
+    markReturnedAfterLogout();
     setView('login');
 
     if (!hasAnalystSession) return;
 
     setSafeLoginNotice('Sua sessão foi encerrada pelo gestor ou expirou. Faça login novamente para continuar.');
     notify('Sessão revogada ou expirada. Faça login novamente.', 'error');
-  }, [clearAnalystSession, notify, setSafeLoginNotice]);
+  }, [clearAnalystSession, markReturnedAfterLogout, notify, setSafeLoginNotice]);
 
   const getApiErrorMessage = async (response, fallbackMessage) => {
     try {
@@ -881,6 +898,7 @@ const App = () => {
         setKeepAnalystLoggedIn(Boolean(rememberMe));
         persistAnalystSession(userData, { keepLoggedIn: Boolean(rememberMe) });
         markSuccessfulLoginToday();
+        setHasReturnedAfterLogout(false);
         setAnalystTab('mesa');
         setSafeLoginNotice(null);
         notify(`Olá, ${userData.nome}!`);
@@ -903,6 +921,7 @@ const App = () => {
         setKeepManagerLoggedIn(Boolean(keepManagerLoggedIn));
         persistManagerSession(session, { keepLoggedIn: Boolean(keepManagerLoggedIn) });
         markSuccessfulLoginToday();
+        setHasReturnedAfterLogout(false);
         setShowManagerLoginModal(false);
         setManagerPassword('');
         setShowManagerPassword(false);
@@ -924,6 +943,7 @@ const App = () => {
             keepLoggedIn: Boolean(keepManagerLoggedIn),
           });
           markSuccessfulLoginToday();
+          setHasReturnedAfterLogout(false);
           setShowManagerLoginModal(false);
           setManagerPassword('');
           setShowManagerPassword(false);
@@ -952,8 +972,9 @@ const App = () => {
     setShowManagerPassword(false);
     setManagerTab('dashboard');
     setSafeLoginNotice(null);
+    markReturnedAfterLogout();
     setView('login');
-  }, [clearManagerSession, setSafeLoginNotice]);
+  }, [clearManagerSession, markReturnedAfterLogout, setSafeLoginNotice]);
 
   const fetchAdminUsers = useCallback(async () => {
     if (!managerSession?.token) return;
@@ -2077,6 +2098,7 @@ const App = () => {
             onClick={() => {
               if (idlePrompt.role === 'admin') {
                 clearManagerSession();
+                markReturnedAfterLogout();
                 setView('login');
                 setSafeLoginNotice('Sua sessão de gestor foi encerrada por escolha manual. Faça login novamente quando precisar.');
                 notify('Sessão de administrador encerrada manualmente.', 'success');
@@ -2160,6 +2182,7 @@ const App = () => {
       keepManagerLoggedIn={keepManagerLoggedIn}
       setKeepManagerLoggedIn={setKeepManagerLoggedIn}
       loginNotice={loginNotice}
+      hasReturnedAfterLogout={hasReturnedAfterLogout}
       loginSuccessSplash={loginSuccessSplash}
       handleLogin={handleLogin}
       keepAnalystLoggedIn={keepAnalystLoggedIn}
