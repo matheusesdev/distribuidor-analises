@@ -333,9 +333,11 @@ const App = () => {
 
   const SITUACOES_MAP = {
     62: normalizeUiText("ANÁLISE VENDA LOTEAMENTO"),
+    63: normalizeUiText("APROVAÇÃO FINANCEIRA"),
     66: normalizeUiText("ANÁLISE VENDA PARCELAMENTO INCORPORADORA"),
     30: normalizeUiText("ANÁLISE VENDA CAIXA"),
     16: normalizeUiText("CONFECÇÃO DE CONTRATO"),
+    15: normalizeUiText("APROVAÇÃO FINANCEIRA (LOTEAR)"),
     31: normalizeUiText("ASSINADO"),
     84: normalizeUiText("APROVAÇÃO EXPANSÃO"),
     1012: normalizeUiText("ANÁLISE VENDA LOTEAMENTO (LOTEAR)"),
@@ -348,10 +350,12 @@ const App = () => {
     if (isDarkMode) {
       return {
         62: { text: '#bbf7d0', bg: '#14532d' },
+        63: { text: '#f4f1a6', bg: '#4f5a12' },
         66: { text: '#86efac', bg: '#166534' },
         30: { text: '#d9f99d', bg: '#3f6212' },
         84: { text: '#99f6e4', bg: '#115e59' },
         16: { text: '#fde68a', bg: '#78350f' },
+        15: { text: '#5c611f', bg: '#8f9718' },
         31: { text: '#fdba74', bg: '#7c2d12' },
         1012: { text: '#67e8f9', bg: '#164e63' },
         1023: { text: '#c4b5fd', bg: '#4c1d95' },
@@ -362,10 +366,12 @@ const App = () => {
 
     return {
       62: { text: '#355e3b', bg: '#e8f3eb' },
+      63: { text: '#5c611f', bg: '#f4f1a6' },
       66: { text: '#2f6b2f', bg: '#e4f2e4' },
       30: { text: '#3b6b2f', bg: '#edf7e7' },
       84: { text: '#1f6b5f', bg: '#e2f3ef' },
       16: { text: '#7a6632', bg: '#faf5e2' },
+      15: { text: '#5c611f', bg: '#e5ee78' },
       31: { text: '#8a5a2b', bg: '#fbeee3' },
       1012: { text: '#0b7285', bg: '#e3f4f7' },
       1023: { text: '#5f3dc4', bg: '#ede9fe' },

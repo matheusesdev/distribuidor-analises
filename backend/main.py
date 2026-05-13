@@ -928,9 +928,11 @@ CRM_SOURCES: Dict[str, Dict[str, Any]] = {
 
 SITUACOES_DEFINITIONS: List[Dict[str, Any]] = [
     {"id": 62, "external_id": 62, "source": "cvcrm", "nome": "ANÁLISE VENDA LOTEAMENTO"},
+    {"id": 63, "external_id": 63, "source": "cvcrm", "nome": "APROVAÇÃO FINANCEIRA"},
     {"id": 66, "external_id": 66, "source": "cvcrm", "nome": "ANÁLISE VENDA PARCELAMENTO INCORPORADORA"},
     {"id": 30, "external_id": 30, "source": "cvcrm", "nome": "ANÁLISE VENDA CAIXA"},
     {"id": 16, "external_id": 16, "source": "cvcrm", "nome": "CONFECÇÃO DE CONTRATO"},
+    {"id": 15, "external_id": 15, "source": "lotear", "nome": "APROVAÇÃO FINANCEIRA (LOTEAR)"},
     {"id": 31, "external_id": 31, "source": "cvcrm", "nome": "ASSINADO"},
     {"id": 84, "external_id": 84, "source": "cvcrm", "nome": "APROVAÇÃO EXPANSÃO"},
     {"id": 1012, "external_id": 12, "source": "lotear", "nome": "ANÁLISE VENDA LOTEAMENTO (LOTEAR)"},
