@@ -337,7 +337,7 @@ const App = () => {
     66: normalizeUiText("ANÁLISE VENDA PARCELAMENTO INCORPORADORA"),
     30: normalizeUiText("ANÁLISE VENDA CAIXA"),
     16: normalizeUiText("CONFECÇÃO DE CONTRATO"),
-    15: normalizeUiText("APROVAÇÃO FINANCEIRA"),
+    15: normalizeUiText("APROVAÇÃO FINANCEIRA (LOTEAR)"),
     31: normalizeUiText("ASSINADO"),
     84: normalizeUiText("APROVAÇÃO EXPANSÃO"),
     1012: normalizeUiText("ANÁLISE VENDA LOTEAMENTO (LOTEAR)"),
