@@ -26,6 +26,31 @@ except ModuleNotFoundError:
         return value
 
 
+REPLACEMENT_CHAR_FIXES = (
+    ("GUSM\uFFFDO", "GUSMÃO"),
+    ("JO\uFFFDO", "JOÃO"),
+    ("S\uFFFDO", "SÃO"),
+    ("JOS\uFFFD", "JOSÉ"),
+    ("ANT\uFFFDNIO", "ANTÔNIO"),
+    ("CONCEI\uFFFD\uFFFDO", "CONCEIÇÃO"),
+    ("GON\uFFFDALVES", "GONÇALVES"),
+    ("ARA\uFFFDAJO", "ARAÚJO"),
+    ("ARA\uFFFDUJO", "ARAÚJO"),
+    ("M\uFFFDRCIA", "MÁRCIA"),
+    ("M\uFFFDRIO", "MÁRIO"),
+    ("CL\uFFFDAUDIA", "CLÁUDIA"),
+)
+
+
+def repair_replacement_chars(value: str) -> str:
+    result = value
+    for broken, fixed in REPLACEMENT_CHAR_FIXES:
+        result = result.replace(broken, fixed)
+        result = result.replace(broken.lower(), fixed.lower())
+        result = result.replace(broken.title(), fixed.title())
+    return result
+
+
 def load_dotenv(dotenv_path: str = ".env") -> None:
     """Carrega variaveis de um .env sem sobrescrever as ja definidas no ambiente."""
     if not os.path.exists(dotenv_path):
@@ -52,7 +77,7 @@ def get_required_env(name: str) -> str:
 
 def normalize_text_value(value: Any) -> Any:
     if isinstance(value, str):
-        return fix_text(value)
+        return repair_replacement_chars(fix_text(value))
     if isinstance(value, list):
         return [normalize_text_value(item) for item in value]
     if isinstance(value, dict):
@@ -61,6 +86,36 @@ def normalize_text_value(value: Any) -> Any:
             for key, item in value.items()
         }
     return value
+
+
+def decode_json_response(response: requests.Response) -> Any:
+    raw_body = response.content
+    candidates: List[str] = []
+
+    for encoding in ("utf-8", "cp1252", "latin-1"):
+        try:
+            candidates.append(raw_body.decode(encoding))
+        except UnicodeDecodeError:
+            continue
+
+    if response.text:
+        candidates.append(response.text)
+
+    candidates = sorted(
+        dict.fromkeys(candidates),
+        key=lambda text: (text.count("\uFFFD"), text.count("�"), len(text)),
+    )
+
+    last_error: Optional[Exception] = None
+    for candidate in candidates:
+        try:
+            return json.loads(candidate)
+        except Exception as exc:
+            last_error = exc
+
+    if last_error:
+        raise last_error
+    return response.json()
 
 
 def parse_allowed_origins(raw: str) -> List[str]:
@@ -1026,7 +1081,7 @@ async def fetch_all_reservas_for_situacao(sit_id: int) -> List[Dict[str, Any]]:
             )
 
         try:
-            data = normalize_text_value(response.json())
+            data = normalize_text_value(decode_json_response(response))
         except Exception as exc:
             print(f"[SYNC] Situação {sit_id} página {page}: resposta não é JSON válido")
             raise RuntimeError(f"Resposta invalida do CVCRM na situacao {sit_id}, pagina {page}") from exc
@@ -1728,7 +1783,7 @@ async def debug_cvcrm_response(
                 "pagina": pagina,
                 "conteudo_bruto": response.text[:500],
             }
-        data = normalize_text_value(response.json())
+        data = normalize_text_value(decode_json_response(response))
         data_type = type(data).__name__
         pairs, total_pages = extract_reservas_from_response(data)
         primeiro_item = pairs[0][1] if pairs else None
