@@ -269,6 +269,44 @@ const LoginView = ({
                   <SessionNotice icon={AlertTriangle}>{loginNotice}</SessionNotice>
                 </div>
               )}
+
+              <div className="mt-5 grid w-full max-w-md gap-3 lg:max-w-none">
+                <div className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50/90 px-4 py-3 text-left shadow-[0_12px_28px_-24px_rgba(15,23,42,0.35)]">
+                  <div className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-blue-100 bg-blue-50 text-blue-600">
+                    <ShieldCheck size={16} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[12px] font-semibold text-slate-900">Acesso seguro</p>
+                    <p className="mt-0.5 text-[11px] leading-relaxed text-slate-500">
+                      Login protegido para manter os dados da operação em ambiente controlado.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50/90 px-4 py-3 text-left shadow-[0_12px_28px_-24px_rgba(15,23,42,0.35)]">
+                  <div className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-emerald-100 bg-emerald-50 text-emerald-600">
+                    <CheckCircle2 size={16} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[12px] font-semibold text-slate-900">Fluxo em tempo real</p>
+                    <p className="mt-0.5 text-[11px] leading-relaxed text-slate-500">
+                      A equipe acompanha a distribuição sem perder contexto entre as etapas.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50/90 px-4 py-3 text-left shadow-[0_12px_28px_-24px_rgba(15,23,42,0.35)]">
+                  <div className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-amber-100 bg-amber-50 text-amber-600">
+                    <BarChart4 size={16} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[12px] font-semibold text-slate-900">Gestão centralizada</p>
+                    <p className="mt-0.5 text-[11px] leading-relaxed text-slate-500">
+                      Acesso rápido para analistas e gestores que precisam agir sem fricção.
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div className="flex flex-col">
