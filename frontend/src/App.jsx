@@ -2201,8 +2201,7 @@ const App = () => {
   // --- PAINEL GESTOR ---
   if (view === 'manager') return (
     <div
-      className={`min-h-screen text-slate-800 flex flex-col overflow-x-hidden ${isDarkMode ? 'bg-[radial-gradient(circle_at_top,#0b1220_0%,#080f1c_46%,#020617_100%)]' : 'bg-[radial-gradient(circle_at_top,#ffffff_0%,#f4f7fb_46%,#edf2f8_100%)]'}`}
-      style={{ fontFamily: '"SF Pro Text", "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif' }}
+      className={`min-h-[100dvh] text-slate-800 flex flex-col overflow-x-hidden ${isDarkMode ? 'bg-[radial-gradient(circle_at_top,#0b1220_0%,#080f1c_46%,#020617_100%)]' : 'bg-[radial-gradient(circle_at_top,#ffffff_0%,#f5f7fb_46%,#edf2f8_100%)]'}`}
     >
       <StatusToast toast={toast} />
       <ConfirmActionModal confirmAction={confirmAction} onClose={closeConfirmation} />
@@ -2218,12 +2217,14 @@ const App = () => {
       />
 
       <main className="w-full max-w-[min(1480px,96vw)] mx-auto p-3 md:p-5 lg:p-6 space-y-5 flex-1">
-        <section className="w-fit rounded-xl border border-slate-200 bg-white p-1 flex gap-1">
-          <button onClick={() => handleManagerTabChange('dashboard')} className={`px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all inline-flex items-center gap-1.5 ${managerTab === 'dashboard' ? 'bg-[#0071e3] text-white' : 'text-slate-600 hover:bg-slate-100'}`}><LayoutDashboard size={13} /> Dashboard</button>
-          <button onClick={() => handleManagerTabChange('fila')} className={`px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all inline-flex items-center gap-1.5 ${managerTab === 'fila' ? 'bg-[#0071e3] text-white' : 'text-slate-600 hover:bg-slate-100'}`}><LineChart size={13} /> Fila</button>
-          <button onClick={() => handleManagerTabChange('transferencias')} className={`px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all inline-flex items-center gap-1.5 ${managerTab === 'transferencias' ? 'bg-[#0071e3] text-white' : 'text-slate-600 hover:bg-slate-100'}`}><ArrowRightLeft size={13} /> Transferências</button>
-          <button onClick={() => handleManagerTabChange('sugestoes')} className={`px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all inline-flex items-center gap-1.5 ${managerTab === 'sugestoes' ? 'bg-[#0071e3] text-white' : 'text-slate-600 hover:bg-slate-100'}`}><MessageSquare size={13} /> Sugestões</button>
-          <button onClick={() => handleManagerTabChange('admins')} className={`px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all inline-flex items-center gap-1.5 ${managerTab === 'admins' ? 'bg-[#0071e3] text-white' : 'text-slate-600 hover:bg-slate-100'}`}><UserPlus size={13} /> Administradores</button>
+        <section className="overflow-x-auto rounded-xl border border-slate-200/80 bg-white/90 p-1 shadow-[0_14px_30px_-26px_rgba(15,23,42,0.48)] backdrop-blur-xl">
+          <div className="flex min-w-max gap-1">
+            <button onClick={() => handleManagerTabChange('dashboard')} className={`px-3 py-1.5 rounded-lg text-[12px] font-semibold transition-all inline-flex items-center gap-1.5 ${managerTab === 'dashboard' ? 'bg-[linear-gradient(135deg,#0b6fd3_0%,#075aa9_100%)] text-white shadow-[0_12px_24px_-18px_rgba(7,90,169,0.88)]' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}><LayoutDashboard size={13} /> Dashboard</button>
+            <button onClick={() => handleManagerTabChange('fila')} className={`px-3 py-1.5 rounded-lg text-[12px] font-semibold transition-all inline-flex items-center gap-1.5 ${managerTab === 'fila' ? 'bg-[linear-gradient(135deg,#0b6fd3_0%,#075aa9_100%)] text-white shadow-[0_12px_24px_-18px_rgba(7,90,169,0.88)]' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}><LineChart size={13} /> Fila</button>
+            <button onClick={() => handleManagerTabChange('transferencias')} className={`px-3 py-1.5 rounded-lg text-[12px] font-semibold transition-all inline-flex items-center gap-1.5 ${managerTab === 'transferencias' ? 'bg-[linear-gradient(135deg,#0b6fd3_0%,#075aa9_100%)] text-white shadow-[0_12px_24px_-18px_rgba(7,90,169,0.88)]' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}><ArrowRightLeft size={13} /> Transferências</button>
+            <button onClick={() => handleManagerTabChange('sugestoes')} className={`px-3 py-1.5 rounded-lg text-[12px] font-semibold transition-all inline-flex items-center gap-1.5 ${managerTab === 'sugestoes' ? 'bg-[linear-gradient(135deg,#0b6fd3_0%,#075aa9_100%)] text-white shadow-[0_12px_24px_-18px_rgba(7,90,169,0.88)]' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}><MessageSquare size={13} /> Sugestões</button>
+            <button onClick={() => handleManagerTabChange('admins')} className={`px-3 py-1.5 rounded-lg text-[12px] font-semibold transition-all inline-flex items-center gap-1.5 ${managerTab === 'admins' ? 'bg-[linear-gradient(135deg,#0b6fd3_0%,#075aa9_100%)] text-white shadow-[0_12px_24px_-18px_rgba(7,90,169,0.88)]' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}><UserPlus size={13} /> Administradores</button>
+          </div>
         </section>
 
         <div

@@ -547,7 +547,7 @@ const ManagerDashboardTab = ({
       ) : (
       <div className="space-y-4 md:space-y-5">
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-3 md:p-4">
+      <section className="rounded-[1.25rem] border border-slate-200/80 bg-white/95 p-3 shadow-[0_18px_38px_-32px_rgba(15,23,42,0.58)] md:p-4">
         <div className="mb-5 flex flex-wrap items-center justify-between gap-2 px-1">
           <div className="flex items-center gap-2.5"><BarChart3 size={16} className="text-[#0071e3]" /><h3 className="text-[11px] font-semibold tracking-[0.06em] text-slate-700">Fluxo por Situação</h3></div>
           <div className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[10px] font-semibold leading-[1.2] border transition-all ${isSyncing ? 'bg-sky-50 text-sky-700 border-sky-200 animate-pulse' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}><RefreshCw size={11} className={isSyncing ? 'animate-spin' : ''}/> {isSyncing ? 'Sincronizando' : 'Sincronizado'}</div>
@@ -580,21 +580,21 @@ const ManagerDashboardTab = ({
       </section>
 
       <section className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <div className="bg-white p-4 rounded-xl border border-slate-200 flex items-center justify-between">
+        <div className="bg-white p-4 rounded-xl border border-slate-200 flex items-center justify-between shadow-[0_14px_28px_-25px_rgba(15,23,42,0.48)] transition-all hover:-translate-y-0.5">
           <div><p className="text-[11px] font-medium text-slate-500 mb-1">Pendente CRM</p><div className="text-3xl font-semibold text-[#0071e3] leading-none">{dashData.total_pendente_cvcrm}</div></div>
           <Hash className="text-blue-100 opacity-70 shrink-0" size={34}/>
         </div>
-        <div className="bg-rose-50 p-4 rounded-xl border border-rose-200 flex items-center justify-between">
+        <div className="bg-rose-50 p-4 rounded-xl border border-rose-200 flex items-center justify-between shadow-[0_14px_28px_-25px_rgba(190,18,60,0.42)] transition-all hover:-translate-y-0.5">
           <div><p className="text-[11px] font-medium text-rose-500 mb-1">Sem Destino</p><div className="text-3xl font-semibold text-rose-600 leading-none">{dashData.pastas_sem_destino || 0}</div></div>
           <AlertTriangle className="text-red-200 opacity-70 shrink-0" size={34}/>
         </div>
-        <div className="bg-[#0071e3] p-4 rounded-xl flex items-center justify-between text-white">
+        <div className="bg-[linear-gradient(135deg,#0b6fd3_0%,#075aa9_100%)] p-4 rounded-xl flex items-center justify-between text-white shadow-[0_18px_34px_-25px_rgba(7,90,169,0.75)] transition-all hover:-translate-y-0.5">
           <div><p className="text-[11px] font-medium text-blue-100 mb-1">Equipe Online</p><div className="text-3xl font-semibold leading-none">{dashData.equipe?.filter(a => a.is_online).length || 0}</div></div>
           <Users className="text-white opacity-25 shrink-0" size={34}/>
         </div>
       </section>
 
-      <section className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+      <section className="bg-white/95 rounded-[1.25rem] border border-slate-200/80 overflow-hidden shadow-[0_20px_42px_-34px_rgba(15,23,42,0.55)]">
         <div className="p-3 md:p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/60">
           <div className="flex items-center gap-2"><PieChart size={18} className="text-[#0071e3]" /><h2 className="text-[11px] font-semibold tracking-[0.06em] text-slate-800">Processo Analítico da Equipe</h2></div>
           <button onClick={() => { setEditForm({id: null, nome: '', email: '', senha: '', permissoes: [62, 66, 30], status: 'ativo'}); setShowEditModal(true); }} className="inline-flex items-center gap-2 rounded-lg bg-[#0071e3] px-3 py-1.5 text-[12px] font-medium text-white transition-all hover:bg-[#0077ed] active:translate-y-0"><UserPlus size={14}/> Novo Analista</button>

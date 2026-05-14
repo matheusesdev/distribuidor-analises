@@ -392,7 +392,7 @@ const MesaView = ({
     <div className="space-y-3 min-w-0">
       <section className="space-y-3 min-w-0">
         <div
-          className="relative z-40 overflow-visible rounded-2xl border border-slate-200 bg-white p-3 md:p-4"
+          className="relative z-40 overflow-visible rounded-xl border border-slate-200/80 bg-white/95 p-3 shadow-[0_14px_30px_-26px_rgba(15,23,42,0.52)] md:p-4"
           data-tour="mesa-header"
         >
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 md:gap-4">
@@ -541,7 +541,7 @@ const MesaView = ({
             return (
               <article
                 key={task.reserva_id}
-                className={`relative overflow-hidden rounded-xl border bg-white p-2.5 md:p-3 transition-colors hover:bg-slate-50/70 cursor-pointer ${isConcludedFx ? 'border-emerald-300 ring-2 ring-emerald-100/80' : isSelected ? 'border-blue-300 ring-2 ring-blue-100/70' : 'border-slate-200'}`}
+                className={`relative overflow-hidden rounded-xl border bg-white p-2.5 md:p-3 transition-all hover:-translate-y-0.5 hover:bg-slate-50/70 hover:shadow-[0_16px_30px_-26px_rgba(15,23,42,0.58)] cursor-pointer ${isConcludedFx ? 'border-emerald-300 ring-2 ring-emerald-100/80' : isSelected ? 'border-blue-300 ring-2 ring-blue-100/70' : 'border-slate-200'}`}
                 onClick={() => openReservaInCRM(task.reserva_id)}
                 onContextMenu={(event) => openTaskContextMenu(event, task)}
                 role="button"
@@ -636,9 +636,14 @@ const MesaView = ({
               </article>
             );
           }) : (
-            <div className="rounded-4xl border border-dashed border-slate-300 bg-white/80 px-6 py-16 text-center">
-              <CheckCircle2 size={40} className="mx-auto mb-4 text-slate-300" />
-              <p className="text-[12px] font-semibold tracking-[0.12em] text-slate-400">Mesa livre no momento</p>
+            <div className="rounded-[1.25rem] border border-dashed border-slate-300 bg-white/90 px-6 py-16 text-center shadow-[0_18px_38px_-32px_rgba(15,23,42,0.5)]">
+              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl border border-emerald-100 bg-emerald-50 text-emerald-600">
+                <CheckCircle2 size={24} />
+              </div>
+              <p className="text-[13px] font-semibold text-slate-700">Mesa livre no momento</p>
+              <p className="mx-auto mt-2 max-w-sm text-[12px] font-medium leading-relaxed text-slate-500">
+                Quando novas pastas forem atribuídas, elas aparecerão aqui com busca, filtros e ações rápidas.
+              </p>
             </div>
           )}
         </div>

@@ -15,7 +15,7 @@ const ManagerTransfersTab = ({
   transferInsights,
   groupedTransferLogs,
 }) => (
-  <section className="rounded-3xl md:rounded-4xl border border-slate-200/80 bg-white/90 overflow-hidden shadow-[0_24px_45px_-30px_rgba(15,23,42,0.5)] backdrop-blur-sm apple-section-reveal">
+  <section className="rounded-[1.25rem] border border-slate-200/80 bg-white/95 overflow-hidden shadow-[0_24px_45px_-32px_rgba(15,23,42,0.55)] backdrop-blur-sm apple-section-reveal">
     <div className="p-5 md:p-6 border-b border-slate-100 flex items-center gap-2 bg-[linear-gradient(140deg,#f8fafc_0%,#ffffff_100%)]">
       <ArrowRightLeft size={18} className="text-[#0071e3]" />
       <h2 className="text-[11px] font-semibold tracking-[0.06em] text-slate-800">Log de Transferências (por dia)</h2>
@@ -86,7 +86,7 @@ const ManagerTransfersTab = ({
                 <div key={`${log.id || log.reserva_id}-${idx}`} className="px-4 py-3 flex flex-col md:flex-row md:items-center md:justify-between gap-1.5 transition-all hover:bg-sky-50/40">
                   <div className="text-[11px] font-semibold text-slate-700 tracking-[0.01em]">
                     <span className="inline-flex items-center rounded-full bg-slate-100 border border-slate-200 px-2 py-0.5 mr-2 text-[10px] text-slate-600">Pasta {log.reserva_id}</span>
-                    {log.analista_origem_nome} <span className="text-slate-300">{'->'}</span> {log.analista_destino_nome}
+                    {log.analista_origem_nome} <span className="text-slate-300">→</span> {log.analista_destino_nome}
                     {log.motivo ? <span className="text-slate-500 normal-case font-medium"> • Motivo: {log.motivo}</span> : null}
                   </div>
                   <div className="text-[10px] text-slate-500 font-semibold tracking-[0.03em] rounded-full border border-slate-200 bg-white px-2.5 py-1 w-fit">{hora}</div>

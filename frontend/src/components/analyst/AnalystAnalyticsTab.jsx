@@ -460,7 +460,7 @@ const AnalystAnalyticsTab = ({ analyticsData, currentUser, notify }) => {
 
   return (
     <div className="space-y-5 md:space-y-6">
-      <section className="apple-section-reveal rounded-3xl border border-slate-200/80 bg-white shadow-[0_16px_30px_-24px_rgba(15,23,42,0.55)]" style={revealStyle(1)}>
+      <section className="apple-section-reveal rounded-[1.25rem] border border-slate-200/80 bg-[radial-gradient(circle_at_top_left,#eff6ff_0%,#ffffff_46%,#f8fafc_100%)] shadow-[0_20px_44px_-34px_rgba(15,23,42,0.58)]" style={revealStyle(1)}>
         <div className="p-5 md:p-6 flex flex-col xl:flex-row xl:items-end xl:justify-between gap-4">
           <div className="max-w-2xl">
             <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-medium text-slate-600">
@@ -476,14 +476,14 @@ const AnalystAnalyticsTab = ({ analyticsData, currentUser, notify }) => {
             <button
               onClick={handleExportExcel}
               disabled={!records.length}
-              className="px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-[11px] font-semibold disabled:bg-emerald-200 flex items-center justify-center gap-2 transition-colors hover:bg-emerald-500"
+              className="px-4 py-2.5 rounded-lg bg-emerald-600 text-white text-[11px] font-semibold disabled:bg-emerald-200 flex items-center justify-center gap-2 transition-all hover:-translate-y-0.5 hover:bg-emerald-500 active:translate-y-0"
             >
               <FileSpreadsheet size={14} /> Excel
             </button>
             <button
               onClick={handleExportPdf}
               disabled={!records.length}
-              className="px-4 py-2.5 rounded-xl bg-slate-900 text-white text-[11px] font-semibold disabled:bg-slate-200 flex items-center justify-center gap-2 transition-colors hover:bg-slate-800"
+              className="px-4 py-2.5 rounded-lg bg-slate-900 text-white text-[11px] font-semibold disabled:bg-slate-200 flex items-center justify-center gap-2 transition-all hover:-translate-y-0.5 hover:bg-slate-800 active:translate-y-0"
             >
               <FileText size={14} /> PDF
             </button>

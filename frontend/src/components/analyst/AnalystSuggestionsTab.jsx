@@ -26,6 +26,7 @@ const AnalystSuggestionsTab = ({
   const [isSavingModal, setIsSavingModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [isActingById, setIsActingById] = useState({});
+  const [pendingConfirmation, setPendingConfirmation] = useState(null);
 
   const orderedSuggestions = useMemo(
     () => [...(suggestions || [])].sort((a, b) => new Date(b?.created_at || 0) - new Date(a?.created_at || 0)),
@@ -94,34 +95,39 @@ const AnalystSuggestionsTab = ({
 
   const handleCancel = async (item) => {
     if (!item?.id || item?.cancelada) return;
-    const confirmed = window.confirm('Deseja realmente cancelar esta sugestão?');
-    if (!confirmed) return;
-
-    markAction(item.id, true);
-    try {
-      await onCancelSuggestion(item.id);
-    } finally {
-      markAction(item.id, false);
-    }
+    setPendingConfirmation({ type: 'cancel', item });
   };
 
   const handleDelete = async (item) => {
     if (!item?.id) return;
-    const confirmed = window.confirm('Deseja realmente excluir esta sugestão? Esta ação não pode ser desfeita.');
-    if (!confirmed) return;
+    setPendingConfirmation({ type: 'delete', item });
+  };
+
+  const confirmPendingAction = async () => {
+    if (!pendingConfirmation?.item?.id) return;
+    const { type, item } = pendingConfirmation;
 
     markAction(item.id, true);
     try {
-      await onDeleteSuggestion(item.id);
+      if (type === 'cancel') {
+        await onCancelSuggestion(item.id);
+      } else {
+        await onDeleteSuggestion(item.id);
+      }
+      setPendingConfirmation(null);
     } finally {
       markAction(item.id, false);
     }
   };
 
+  const isConfirmationBusy = pendingConfirmation?.item?.id
+    ? Boolean(isActingById[pendingConfirmation.item.id]) || isSubmitting
+    : false;
+
   return (
     <div className="space-y-5 md:space-y-6">
-      <section className="relative overflow-hidden rounded-[2rem] border border-slate-200/80 bg-[radial-gradient(circle_at_top_left,#f8fbff_0%,#ffffff_52%,#f8fafc_100%)] p-5 md:p-7 shadow-[0_28px_60px_-40px_rgba(15,23,42,0.6)]">
-        <div className="pointer-events-none absolute -right-12 -top-12 h-44 w-44 rounded-full bg-blue-100/60 blur-3xl" />
+      <section className="relative overflow-hidden rounded-[1.25rem] border border-slate-200/80 bg-[radial-gradient(circle_at_top_left,#f8fbff_0%,#ffffff_52%,#f8fafc_100%)] p-5 md:p-7 shadow-[0_28px_60px_-40px_rgba(15,23,42,0.6)]">
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-[linear-gradient(90deg,transparent_0%,rgba(11,111,211,0.35)_35%,rgba(20,184,166,0.28)_65%,transparent_100%)]" />
         <div className="relative flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div className="max-w-2xl">
             <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-[10px] font-semibold tracking-[0.05em] text-slate-600">
@@ -318,6 +324,56 @@ const AnalystSuggestionsTab = ({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {pendingConfirmation && (
+        <div className="fixed inset-0 z-[220] flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md overflow-hidden rounded-[1.15rem] border border-slate-200 bg-white shadow-[0_32px_70px_-34px_rgba(15,23,42,0.78)]">
+            <div className={`px-5 py-4 ${pendingConfirmation.type === 'delete' ? 'bg-rose-50' : 'bg-amber-50'} border-b border-slate-100`}>
+              <div className="flex items-start gap-3">
+                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border ${pendingConfirmation.type === 'delete' ? 'border-rose-200 bg-white text-rose-600' : 'border-amber-200 bg-white text-amber-700'}`}>
+                  {pendingConfirmation.type === 'delete' ? <Trash2 size={17} /> : <Ban size={17} />}
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-[15px] font-semibold text-slate-900">
+                    {pendingConfirmation.type === 'delete' ? 'Excluir sugestão' : 'Cancelar sugestão'}
+                  </h3>
+                  <p className="mt-1 text-[12px] font-medium leading-relaxed text-slate-600">
+                    {pendingConfirmation.type === 'delete'
+                      ? 'Esta ação remove a sugestão da sua lista e não pode ser desfeita.'
+                      : 'A sugestão será marcada como cancelada e não seguirá para análise.'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="px-5 py-4">
+              <p className="text-[11px] font-semibold text-slate-500">Sugestão</p>
+              <p className="mt-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-[12px] font-semibold text-slate-800">
+                {pendingConfirmation.item?.titulo || 'Sem título'}
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 px-5 pb-5">
+              <button
+                type="button"
+                onClick={() => setPendingConfirmation(null)}
+                disabled={isConfirmationBusy}
+                className="rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-[12px] font-semibold text-slate-600 transition-all hover:bg-slate-50 disabled:opacity-60"
+              >
+                Voltar
+              </button>
+              <button
+                type="button"
+                onClick={confirmPendingAction}
+                disabled={isConfirmationBusy}
+                className={`rounded-lg px-4 py-2.5 text-[12px] font-semibold text-white transition-all disabled:cursor-not-allowed disabled:opacity-60 ${pendingConfirmation.type === 'delete' ? 'bg-rose-600 hover:bg-rose-500' : 'bg-amber-600 hover:bg-amber-500'}`}
+              >
+                {isConfirmationBusy ? 'Processando...' : pendingConfirmation.type === 'delete' ? 'Excluir' : 'Cancelar'}
+              </button>
+            </div>
           </div>
         </div>
       )}

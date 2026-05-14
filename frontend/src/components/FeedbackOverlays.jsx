@@ -1,18 +1,28 @@
 import React from 'react';
-import { AlertTriangle, CheckCircle, CheckCircle2, RefreshCw, ShieldAlert } from 'lucide-react';
+import { AlertTriangle, CheckCircle, CheckCircle2, ShieldAlert } from 'lucide-react';
 import { normalizeUiText } from '../utils/textEncoding';
 
 export const LoadingOverlay = () => (
   <div className="fixed inset-0 z-9999 flex flex-col items-center justify-center bg-slate-950/35 backdrop-blur-sm">
-    <div className="bg-white p-4 rounded-2xl shadow-lg flex flex-col items-center gap-2.5 border border-slate-200 animate-in zoom-in-95">
-      <RefreshCw className="text-blue-600 animate-spin" size={24} />
-      <p className="text-slate-500 font-semibold text-[11px] tracking-[0.04em]">Processando...</p>
+    <div className="w-full max-w-[18rem] rounded-xl border border-white/80 bg-white/95 p-4 shadow-[0_28px_70px_-42px_rgba(2,6,23,0.8)] animate-in zoom-in-95">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-slate-700 font-semibold text-[12px] tracking-[0.01em]">Processando</p>
+        <span className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
+      </div>
+      <div className="mt-3 space-y-2">
+        <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
+          <div className="h-full w-2/3 rounded-full bg-[linear-gradient(90deg,#dbeafe_0%,#0b6fd3_55%,#dbeafe_100%)] animate-pulse" />
+        </div>
+        <div className="h-2 w-4/5 rounded-full bg-slate-100 animate-pulse" />
+        <div className="h-2 w-2/3 rounded-full bg-slate-100 animate-pulse" />
+      </div>
+      <p className="mt-3 text-[10px] font-medium text-slate-500">Aguarde enquanto atualizamos a operação.</p>
     </div>
   </div>
 );
 
 export const StatusToast = ({ toast }) => (
-  <div className={`fixed bottom-5 left-1/2 -translate-x-1/2 z-9999 flex items-center gap-2.5 px-4 py-2.5 rounded-xl shadow-lg border transition-all duration-500 transform ${toast.show ? 'translate-y-0 opacity-100' : 'translate-y-20 opacity-0 pointer-events-none'} ${toast.type === 'success' ? 'bg-[#0071e3] border-blue-400/40' : 'bg-rose-500 border-rose-300/40'} text-white`}>
+  <div className={`fixed bottom-5 left-1/2 -translate-x-1/2 z-9999 flex items-center gap-2.5 px-4 py-2.5 rounded-lg shadow-[0_20px_44px_-28px_rgba(15,23,42,0.9)] border transition-all duration-500 transform ${toast.show ? 'translate-y-0 opacity-100' : 'translate-y-20 opacity-0 pointer-events-none'} ${toast.type === 'success' ? 'bg-[linear-gradient(135deg,#0b6fd3_0%,#075aa9_100%)] border-blue-300/40' : 'bg-[linear-gradient(135deg,#e11d48_0%,#be123c_100%)] border-rose-300/40'} text-white`}>
     {toast.type === 'success' ? <CheckCircle size={16} /> : <AlertTriangle size={16} />}
     <span className="font-semibold text-[12px] tracking-[0.01em]">{normalizeUiText(toast.message)}</span>
   </div>
