@@ -349,18 +349,18 @@ const App = () => {
   const SIT_COLORS = useMemo(() => {
     if (isDarkMode) {
       return {
-        62: { text: '#bbf7d0', bg: '#14532d' },
-        63: { text: '#f4f1a6', bg: '#4f5a12' },
-        66: { text: '#86efac', bg: '#166534' },
-        30: { text: '#d9f99d', bg: '#3f6212' },
-        84: { text: '#99f6e4', bg: '#115e59' },
-        16: { text: '#fde68a', bg: '#78350f' },
-        15: { text: '#5c611f', bg: '#8f9718' },
-        31: { text: '#fdba74', bg: '#7c2d12' },
-        1012: { text: '#67e8f9', bg: '#164e63' },
-        1023: { text: '#c4b5fd', bg: '#4c1d95' },
-        1016: { text: '#e9d5ff', bg: '#701a75' },
-        1021: { text: '#fdba74', bg: '#9a3412' },
+        62: { text: '#9dd6b5', bg: 'rgba(34, 197, 94, 0.10)', border: 'rgba(74, 222, 128, 0.18)' },
+        63: { text: '#d4cf8a', bg: 'rgba(202, 138, 4, 0.11)', border: 'rgba(234, 179, 8, 0.18)' },
+        66: { text: '#a7d9b5', bg: 'rgba(22, 163, 74, 0.10)', border: 'rgba(74, 222, 128, 0.18)' },
+        30: { text: '#bdd98d', bg: 'rgba(101, 163, 13, 0.11)', border: 'rgba(190, 242, 100, 0.16)' },
+        84: { text: '#93d5ca', bg: 'rgba(20, 184, 166, 0.10)', border: 'rgba(94, 234, 212, 0.17)' },
+        16: { text: '#dfc98a', bg: 'rgba(217, 119, 6, 0.11)', border: 'rgba(251, 191, 36, 0.17)' },
+        15: { text: '#c6ca83', bg: 'rgba(132, 145, 32, 0.12)', border: 'rgba(217, 229, 90, 0.15)' },
+        31: { text: '#e4b286', bg: 'rgba(234, 88, 12, 0.11)', border: 'rgba(251, 146, 60, 0.17)' },
+        1012: { text: '#8bd5e2', bg: 'rgba(8, 145, 178, 0.10)', border: 'rgba(103, 232, 249, 0.17)' },
+        1023: { text: '#b7a9df', bg: 'rgba(124, 58, 237, 0.10)', border: 'rgba(196, 181, 253, 0.16)' },
+        1016: { text: '#d1a8d6', bg: 'rgba(192, 38, 211, 0.10)', border: 'rgba(233, 213, 255, 0.15)' },
+        1021: { text: '#e0a986', bg: 'rgba(234, 88, 12, 0.11)', border: 'rgba(251, 146, 60, 0.17)' },
       };
     }
 

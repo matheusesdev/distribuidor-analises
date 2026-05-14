@@ -570,7 +570,7 @@ const ManagerDashboardTab = ({
           {Object.entries(SITUACOES_MAP).map(([id, nome]) => {
             const sitStyle = SIT_COLORS[id] || { text: '#0f172a', bg: '#f8fafc' };
             return (
-              <div key={id} className="p-3 rounded-lg border text-center transition-colors min-h-[88px] flex flex-col justify-between" style={{ backgroundColor: sitStyle.bg, borderColor: sitStyle.bg }}>
+              <div key={id} className="p-3 rounded-lg border text-center transition-colors min-h-[88px] flex flex-col justify-between" style={{ backgroundColor: sitStyle.bg, borderColor: sitStyle.border || sitStyle.bg }}>
                 <p className="text-[9px] font-semibold leading-[1.24] tracking-[0.02em] mb-2 line-clamp-2 min-h-[2.5em]" style={{ color: sitStyle.text, opacity: 0.84 }}>{nome}</p>
                 <div className="text-lg font-semibold leading-none" style={{ color: sitStyle.text }}>{calculatedBreakdown[id] || 0}</div>
               </div>
@@ -588,9 +588,9 @@ const ManagerDashboardTab = ({
           <div><p className="text-[11px] font-medium text-rose-500 mb-1">Sem Destino</p><div className="text-3xl font-semibold text-rose-600 leading-none">{dashData.pastas_sem_destino || 0}</div></div>
           <AlertTriangle className="text-red-200 opacity-70 shrink-0" size={34}/>
         </div>
-        <div className="bg-[linear-gradient(135deg,#0b6fd3_0%,#075aa9_100%)] p-4 rounded-xl flex items-center justify-between text-white shadow-[0_18px_34px_-25px_rgba(7,90,169,0.75)] transition-all hover:-translate-y-0.5">
-          <div><p className="text-[11px] font-medium text-blue-100 mb-1">Equipe Online</p><div className="text-3xl font-semibold leading-none">{dashData.equipe?.filter(a => a.is_online).length || 0}</div></div>
-          <Users className="text-white opacity-25 shrink-0" size={34}/>
+        <div className="bg-blue-50 p-4 rounded-xl border border-blue-200 flex items-center justify-between text-blue-700 shadow-[0_14px_28px_-25px_rgba(0,113,227,0.38)] transition-all hover:-translate-y-0.5">
+          <div><p className="text-[11px] font-medium text-blue-700 mb-1">Equipe Online</p><div className="text-3xl font-semibold leading-none">{dashData.equipe?.filter(a => a.is_online).length || 0}</div></div>
+          <Users className="text-blue-300 opacity-70 shrink-0" size={34}/>
         </div>
       </section>
 
