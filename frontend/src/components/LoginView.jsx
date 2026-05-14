@@ -228,7 +228,7 @@ const LoginView = ({
       <div className="flex-1 min-h-[100dvh] flex flex-col items-center justify-start px-3 py-4 sm:px-6 md:px-8 md:py-6 bg-slate-50 overflow-visible relative lg:h-full lg:justify-center lg:overflow-hidden">
         {/* Logo mobile */}
         <div className="relative z-10 lg:hidden mb-3 sm:mb-5 md:mb-6 flex flex-col items-center gap-1.5 pt-0.5">
-          <img src="/vcacloud.svg" alt="VCACloud Logo" className="h-8 sm:h-11 w-auto object-contain" />
+            <img src="/vcacloud.svg" alt="VCACloud Logo" className="h-8 sm:h-11 w-auto object-contain mt-0 lg:mt-6" />
           <img src="/cvlogo.svg" alt="CV Logo" className="h-5.5 sm:h-7 w-auto object-contain max-w-42.5 brightness-0 invert" />
         </div>
 
