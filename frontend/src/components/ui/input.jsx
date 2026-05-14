@@ -7,7 +7,7 @@ export const Input = React.forwardRef(({ className = '', icon: Icon, rightSlot =
     <input
       ref={ref}
       className={cn(
-        'w-full rounded-[0.95rem] border border-slate-200/90 bg-white/95 py-3 text-[14px] font-semibold text-slate-900 outline-none shadow-[0_12px_28px_-25px_rgba(15,23,42,0.5)] transition-all duration-200 placeholder:text-slate-400 hover:border-slate-300 focus:border-blue-400 focus:bg-white focus:ring-[3px] focus:ring-blue-100/80',
+        'w-full rounded-[0.95rem] border border-slate-200/90 bg-white/95 py-3 text-[14px] font-medium text-slate-900 outline-none shadow-[0_12px_28px_-25px_rgba(15,23,42,0.5)] transition-all duration-200 placeholder:text-slate-400 hover:border-slate-300 focus:border-blue-400 focus:bg-white focus:ring-[3px] focus:ring-blue-100/80',
         Icon ? 'pl-10' : 'pl-3',
         rightSlot ? 'pr-10' : 'pr-3',
         className,

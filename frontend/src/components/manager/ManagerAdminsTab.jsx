@@ -100,7 +100,7 @@ const ManagerAdminsTab = ({
           </span>
         </div>
 
-        <div className="space-y-2 max-h-115 overflow-y-auto pr-1">
+        <div className="space-y-2 max-h-[min(28rem,55dvh)] overflow-y-auto pr-1">
           {sortedAdmins.length > 0 ? (
             sortedAdmins.map((admin) => (
               <div key={admin.id} className="rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3 transition-all hover:-translate-y-0.5 hover:shadow-sm">
@@ -134,7 +134,7 @@ const ManagerAdminsTab = ({
               </div>
             ))
           ) : (
-            <div className="rounded-xl border border-dashed border-slate-200 px-4 py-8 text-center text-[11px] font-bold text-slate-400">
+            <div className="rounded-xl border border-dashed border-slate-200 px-4 py-8 text-center text-[11px] font-medium text-slate-400">
               Nenhum administrador encontrado.
             </div>
           )}
@@ -182,7 +182,7 @@ const ManagerAdminsTab = ({
                 </div>
               ))
             ) : (
-              <div className="rounded-xl border border-dashed border-slate-200 px-4 py-6 text-center text-[11px] font-bold text-slate-400">
+              <div className="rounded-xl border border-dashed border-slate-200 px-4 py-6 text-center text-[11px] font-medium text-slate-400">
                 Nenhum analista encontrado.
               </div>
             )}

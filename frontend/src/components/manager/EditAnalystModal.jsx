@@ -6,7 +6,7 @@ const EditAnalystModal = ({ showEditModal, setShowEditModal, editForm, setEditFo
 
   return (
     <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-md z-[300] flex items-center justify-center p-4 animate-in fade-in duration-200">
-      <div className="bg-white/95 border border-white/70 p-6 md:p-8 rounded-[1.7rem] max-w-md w-full shadow-[0_32px_70px_-28px_rgba(15,23,42,0.7)] flex flex-col max-h-[90vh] animate-in zoom-in-95 text-slate-800 overflow-hidden backdrop-blur-xl">
+      <div className="viewport-dialog bg-white/95 border border-white/70 p-5 md:p-7 rounded-[1.25rem] max-w-md w-full shadow-[0_32px_70px_-28px_rgba(15,23,42,0.7)] flex flex-col animate-in zoom-in-95 text-slate-800 overflow-hidden backdrop-blur-xl">
         <h3 className="text-[1.35rem] font-semibold text-center mb-6 tracking-[-0.01em] shrink-0">Configurar Analista</h3>
         <div className="space-y-4 overflow-y-auto pr-2 custom-scrollbar flex-1">
           <div className="space-y-3 px-1">

@@ -458,7 +458,7 @@ const MesaView = ({
               </button>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] items-center gap-2 w-full lg:w-auto">
+            <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_auto] items-center gap-2 w-full lg:w-auto">
               <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 min-w-0" data-tour="mesa-search">
                 <Search size={14} className="text-slate-400 shrink-0" />
                 <input
@@ -469,12 +469,12 @@ const MesaView = ({
                   onChange={(e) => setTaskSearch(e.target.value)}
                 />
               </div>
-              <div ref={situacaoMenuRef} className="relative z-50">
+              <div ref={situacaoMenuRef} className="relative z-50 min-w-0">
                 <button
                   type="button"
                   onClick={() => setIsSituacaoMenuOpen((prev) => !prev)}
                   data-tour="mesa-filter"
-                  className="inline-flex min-w-55 items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-[11px] font-medium text-slate-600 outline-none transition-all hover:border-sky-300 focus:border-sky-300 focus:ring-3 focus:ring-sky-100/70"
+                  className="inline-flex w-full md:w-auto md:min-w-55 items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-[11px] font-medium text-slate-600 outline-none transition-all hover:border-sky-300 focus:border-sky-300 focus:ring-3 focus:ring-sky-100/70"
                   aria-haspopup="listbox"
                   aria-expanded={isSituacaoMenuOpen}
                 >
@@ -483,7 +483,7 @@ const MesaView = ({
                 </button>
 
                 {isSituacaoMenuOpen && (
-                  <div className="absolute right-0 z-60 mt-1.5 max-h-72 min-w-[320px] overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg">
+                  <div className="absolute left-0 right-0 md:left-auto md:right-0 z-60 mt-1.5 max-h-[min(18rem,48dvh)] min-w-0 md:min-w-[320px] max-w-[calc(100vw-2rem)] overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg">
                     <ul className="space-y-1" role="listbox" aria-label="Filtrar por situação">
                       {situacaoOptions.map((option) => {
                         const isSelected = String(filterSit) === String(option.id);

@@ -80,8 +80,8 @@ export const RevokeAccessModal = ({ revokeAction, onClose }) => {
 
   return (
     <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-md z-500 flex items-center justify-center p-4 animate-in fade-in duration-200" onClick={() => onClose({ confirmed: false })}>
-      <div className="w-full max-w-lg rounded-3xl border border-white/75 bg-white/95 shadow-[0_42px_90px_-36px_rgba(15,23,42,0.75)] overflow-hidden animate-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
-        <div className="px-6 py-5 border-b border-slate-100 bg-[radial-gradient(circle_at_top_right,#fee2e2_0%,#fff1f2_38%,#ffffff_100%)]">
+      <div className="viewport-dialog w-full max-w-lg rounded-[1.25rem] border border-white/75 bg-white/95 shadow-[0_42px_90px_-36px_rgba(15,23,42,0.75)] overflow-hidden animate-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
+        <div className="px-5 py-4 sm:px-6 sm:py-5 border-b border-slate-100 bg-[radial-gradient(circle_at_top_right,#fee2e2_0%,#fff1f2_38%,#ffffff_100%)]">
           <div className="flex items-start gap-3">
             <div className="w-11 h-11 rounded-2xl border border-rose-200 bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
               <ShieldAlert size={18} />
@@ -103,7 +103,7 @@ export const RevokeAccessModal = ({ revokeAction, onClose }) => {
         </div>
 
         {!isStepTwo ? (
-          <div className="px-6 py-5 space-y-4">
+          <div className="px-5 py-4 sm:px-6 sm:py-5 space-y-4">
             <div className="rounded-2xl border border-rose-100 bg-rose-50/60 p-4 space-y-2.5">
               {impactBullets.map((item) => (
                 <div key={item} className="flex items-start gap-2">
@@ -124,7 +124,7 @@ export const RevokeAccessModal = ({ revokeAction, onClose }) => {
             </label>
           </div>
         ) : (
-          <div className="px-6 py-5 space-y-4">
+          <div className="px-5 py-4 sm:px-6 sm:py-5 space-y-4">
             <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 space-y-3">
               <div>
                 <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">Frase de confirmação</p>
@@ -157,7 +157,7 @@ export const RevokeAccessModal = ({ revokeAction, onClose }) => {
           </div>
         )}
 
-        <div className="px-6 pb-6 grid grid-cols-2 gap-3">
+        <div className="px-5 pb-5 sm:px-6 sm:pb-6 grid grid-cols-1 sm:grid-cols-2 gap-3">
           <button
             onClick={() => onClose({ confirmed: false })}
             className="py-2.5 rounded-2xl border border-slate-200 bg-slate-50 text-slate-600 text-[12px] font-semibold transition-all hover:bg-slate-100"

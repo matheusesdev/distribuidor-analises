@@ -55,9 +55,9 @@ const ResetPasswordView = ({ token, onSuccess, onBackToLogin }) => {
   };
 
   return (
-    <div className="min-h-screen flex font-sans overflow-hidden">
+    <div className="min-h-[100dvh] grid grid-cols-1 lg:grid-cols-[minmax(20rem,42%)_1fr] font-sans overflow-x-hidden bg-[#f8fafc]">
       {/* Painel esquerdo azul */}
-      <div className="hidden lg:flex flex-col justify-between w-[45%] bg-blue-600 p-12 relative overflow-hidden shrink-0">
+      <div className="hidden lg:flex min-h-[100dvh] flex-col justify-between bg-blue-600 p-8 xl:p-12 relative overflow-hidden">
         <div className="absolute inset-0 opacity-[0.07]" style={{ backgroundImage: 'radial-gradient(circle, white 1.5px, transparent 1.5px)', backgroundSize: '32px 32px' }} />
         <div className="relative z-10">
           <img src="/vcahub.svg" alt="VCAHub Logo" className="h-10 w-auto object-contain" />
@@ -66,32 +66,32 @@ const ResetPasswordView = ({ token, onSuccess, onBackToLogin }) => {
           <div className="w-16 h-16 rounded-2xl bg-white/20 flex items-center justify-center">
             <Lock size={28} className="text-white" />
           </div>
-          <h2 className="text-3xl font-black text-white leading-tight tracking-tight">Criar nova senha</h2>
-          <p className="text-blue-200 text-sm font-bold leading-relaxed max-w-xs">
+          <h2 className="text-3xl font-semibold text-white leading-tight tracking-tight">Criar nova senha</h2>
+          <p className="text-blue-100 text-sm font-medium leading-relaxed max-w-xs">
             Escolha uma senha segura com pelo menos 8 caracteres, combinando letras maiúsculas, minúsculas, números e símbolos.
           </p>
         </div>
         <div className="relative z-10 flex items-center gap-2.5">
           <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-          <span className="text-blue-200 text-[10px] font-black uppercase tracking-widest">VCA Construtora</span>
+          <span className="text-blue-100 text-[10px] font-semibold uppercase tracking-[0.08em]">VCA Construtora</span>
         </div>
       </div>
 
       {/* Painel direito */}
-      <div className="flex-1 flex flex-col items-center justify-center p-8 bg-[#f8fafc]">
-        <div className="lg:hidden mb-10">
+      <div className="notebook-compact-y flex min-h-[100dvh] flex-col items-center justify-center p-4 sm:p-8 bg-[#f8fafc] overflow-y-auto">
+        <div className="lg:hidden mb-6 sm:mb-10">
           <img src="/vcahub.svg" alt="VCAHub Logo" className="h-9 w-auto object-contain" />
         </div>
 
-        <div className="w-full max-w-sm space-y-8">
+        <div className="w-full max-w-sm space-y-6 sm:space-y-8">
           {success ? (
             <div className="flex flex-col items-center gap-5 text-center py-8">
               <div className="w-20 h-20 rounded-full bg-green-50 flex items-center justify-center">
                 <CheckCircle2 size={40} className="text-green-500" />
               </div>
               <div>
-                <h2 className="text-2xl font-black text-slate-800 tracking-tight">Senha redefinida!</h2>
-                <p className="text-slate-400 text-sm font-bold mt-2 leading-relaxed">
+                <h2 className="text-2xl font-semibold text-slate-800 tracking-tight">Senha redefinida</h2>
+                <p className="text-slate-500 text-sm font-medium mt-2 leading-relaxed">
                   Sua senha foi atualizada com sucesso. Redirecionando para o login...
                 </p>
               </div>
@@ -100,8 +100,8 @@ const ResetPasswordView = ({ token, onSuccess, onBackToLogin }) => {
           ) : (
             <>
               <div>
-                <h2 className="text-2xl font-black text-slate-800 tracking-tight">Criar nova senha</h2>
-                <p className="text-slate-400 text-sm font-bold mt-1.5">
+                <h2 className="text-2xl font-semibold text-slate-800 tracking-tight">Criar nova senha</h2>
+                <p className="text-slate-500 text-sm font-medium mt-1.5">
                   Escolha uma senha segura para sua conta.
                 </p>
               </div>
@@ -109,14 +109,14 @@ const ResetPasswordView = ({ token, onSuccess, onBackToLogin }) => {
               <form onSubmit={handleSubmit} className="space-y-4" noValidate>
                 {/* Nova senha */}
                 <div>
-                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2">Nova senha</label>
+                  <label className="text-[10px] font-semibold text-slate-500 tracking-[0.08em] block mb-2">Nova senha</label>
                   <div className="relative">
                     <Lock size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-300 pointer-events-none" />
                     <input
                       type={showNew ? 'text' : 'password'}
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
-                      className="w-full bg-white border-2 border-slate-100 rounded-2xl py-3.5 pl-10 pr-10 text-slate-800 font-bold outline-none focus:ring-4 focus:ring-blue-50 focus:border-blue-500 text-sm transition-all duration-200 shadow-sm"
+                      className="w-full bg-white border-2 border-slate-100 rounded-2xl py-3.5 pl-10 pr-10 text-slate-800 font-medium outline-none focus:ring-4 focus:ring-blue-50 focus:border-blue-500 text-sm transition-all duration-200 shadow-sm"
                       placeholder="Mínimo 8 caracteres"
                       autoFocus
                       autoComplete="new-password"
@@ -144,7 +144,7 @@ const ResetPasswordView = ({ token, onSuccess, onBackToLogin }) => {
                           );
                         })}
                       </div>
-                      <p className={`text-[10px] font-bold ${strength.acceptable ? 'text-slate-500' : 'text-red-500'}`}>
+                      <p className={`text-[10px] font-medium ${strength.acceptable ? 'text-slate-500' : 'text-red-500'}`}>
                         {strength.label}
                       </p>
                     </div>
@@ -153,14 +153,14 @@ const ResetPasswordView = ({ token, onSuccess, onBackToLogin }) => {
 
                 {/* Confirmar senha */}
                 <div>
-                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2">Confirmar senha</label>
+                  <label className="text-[10px] font-semibold text-slate-500 tracking-[0.08em] block mb-2">Confirmar senha</label>
                   <div className="relative">
                     <Lock size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-300 pointer-events-none" />
                     <input
                       type={showConfirm ? 'text' : 'password'}
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
-                      className={`w-full bg-white border-2 rounded-2xl py-3.5 pl-10 pr-10 text-slate-800 font-bold outline-none focus:ring-4 focus:ring-blue-50 text-sm transition-all duration-200 shadow-sm ${
+                      className={`w-full bg-white border-2 rounded-2xl py-3.5 pl-10 pr-10 text-slate-800 font-medium outline-none focus:ring-4 focus:ring-blue-50 text-sm transition-all duration-200 shadow-sm ${
                         confirmPassword && !passwordsMatch
                           ? 'border-red-300 focus:border-red-400'
                           : 'border-slate-100 focus:border-blue-500'
@@ -177,21 +177,21 @@ const ResetPasswordView = ({ token, onSuccess, onBackToLogin }) => {
                     </button>
                   </div>
                   {confirmPassword && !passwordsMatch && (
-                    <p className="text-red-500 text-[10px] font-bold mt-1.5">As senhas não coincidem</p>
+                    <p className="text-red-500 text-[10px] font-medium mt-1.5">As senhas não coincidem</p>
                   )}
                 </div>
 
                 {error && (
                   <div className="flex items-start gap-2 bg-red-50 border border-red-100 rounded-xl p-3">
                     <AlertCircle size={14} className="text-red-500 mt-0.5 shrink-0" />
-                    <p className="text-red-600 text-[11px] font-bold leading-relaxed">{error}</p>
+                    <p className="text-red-600 text-[11px] font-medium leading-relaxed">{error}</p>
                   </div>
                 )}
 
                 <button
                   type="submit"
                   disabled={!canSubmit}
-                  className={`w-full py-3.5 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg transition-all duration-200 flex items-center justify-center gap-2.5 ${
+                  className={`w-full py-3.5 rounded-2xl font-semibold text-[12px] tracking-[0.02em] shadow-lg transition-all duration-200 flex items-center justify-center gap-2.5 ${
                     !canSubmit
                       ? 'bg-slate-100 text-slate-300 cursor-not-allowed shadow-none'
                       : 'bg-blue-600 text-white hover:bg-blue-700 active:scale-95 shadow-blue-500/30 hover:shadow-blue-500/50 hover:shadow-xl'
@@ -210,7 +210,7 @@ const ResetPasswordView = ({ token, onSuccess, onBackToLogin }) => {
                 <button
                   type="button"
                   onClick={onBackToLogin}
-                  className="w-full py-2.5 text-slate-500 font-bold uppercase text-[9px] tracking-widest hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-all duration-200 flex items-center justify-center gap-1.5"
+                  className="w-full py-2.5 text-slate-500 font-semibold text-[11px] tracking-[0.02em] hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-all duration-200 flex items-center justify-center gap-1.5"
                 >
                   <ArrowLeft size={11} /> Voltar ao login
                 </button>

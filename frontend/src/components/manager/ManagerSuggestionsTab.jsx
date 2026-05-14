@@ -288,8 +288,8 @@ const ManagerSuggestionsTab = ({ suggestions, onUpdateStatus, onRespondSuggestio
       </section>
 
       {responseModal.open && (
-        <div className="fixed inset-0 z-[220] flex items-center justify-center bg-slate-900/45 p-4">
-          <div className="w-full max-w-2xl rounded-[1.8rem] border border-slate-200 bg-white shadow-[0_28px_52px_-28px_rgba(15,23,42,0.7)]">
+        <div className="fixed inset-0 z-[220] flex items-center justify-center bg-slate-900/45 p-3 sm:p-4">
+          <div className="viewport-dialog w-full max-w-2xl rounded-[1.25rem] border border-slate-200 bg-white shadow-[0_28px_52px_-28px_rgba(15,23,42,0.7)]">
             <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-5 py-4">
               <div className="min-w-0">
                 <h3 className="text-[15px] font-semibold text-slate-900">Responder sugestão</h3>
@@ -306,7 +306,7 @@ const ManagerSuggestionsTab = ({ suggestions, onUpdateStatus, onRespondSuggestio
               </button>
             </div>
 
-            <div className="space-y-4 px-5 py-5">
+            <div className="space-y-4 px-4 py-4 sm:px-5 sm:py-5">
               {responseModal.existingResponse && (
                 <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5">
                   <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">Resposta atual</p>

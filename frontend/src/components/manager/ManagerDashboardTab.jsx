@@ -70,7 +70,7 @@ const AnalystDetailModal = ({ analyst, currentTasks, recentCompletions, onClose,
 
   return (
     <div className={asInline ? 'w-full animate-in fade-in duration-300' : 'fixed inset-0 bg-slate-950/55 backdrop-blur-md z-250 flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-200'} onClick={asInline ? undefined : onClose}>
-      <div className={asInline ? 'w-full bg-white/92 border border-white/75 rounded-3xl md:rounded-[2.2rem] shadow-[0_42px_90px_-34px_rgba(15,23,42,0.72)] overflow-hidden backdrop-blur-xl' : 'w-full max-w-[1120px] max-h-[92vh] bg-white/92 border border-white/75 rounded-3xl md:rounded-[2.2rem] shadow-[0_42px_90px_-34px_rgba(15,23,42,0.72)] overflow-hidden backdrop-blur-xl animate-in zoom-in-95 duration-200'} onClick={(event) => event.stopPropagation()}>
+      <div className={asInline ? 'w-full bg-white/92 border border-white/75 rounded-3xl md:rounded-[2.2rem] shadow-[0_42px_90px_-34px_rgba(15,23,42,0.72)] overflow-hidden backdrop-blur-xl' : 'viewport-dialog w-full max-w-[1120px] bg-white/92 border border-white/75 rounded-3xl md:rounded-[2.2rem] shadow-[0_42px_90px_-34px_rgba(15,23,42,0.72)] overflow-hidden backdrop-blur-xl animate-in zoom-in-95 duration-200'} onClick={(event) => event.stopPropagation()}>
         <div className={`${isCompact ? 'px-4 py-3 sm:px-5 sm:py-4 md:px-6 md:py-4' : 'px-4 py-4 sm:px-6 sm:py-5 md:px-8 md:py-6'} border-b border-slate-100/90 flex items-start justify-between gap-4 bg-[radial-gradient(circle_at_top_left,#dbeafe_0%,#f8fbff_40%,#ffffff_100%)]`}>
           <div className="flex items-start gap-3.5 min-w-0">
             <div className="h-12 w-12 rounded-2xl bg-white/90 border border-slate-200 text-[#0071e3] shadow-[0_14px_28px_-22px_rgba(0,113,227,0.9)] flex items-center justify-center text-[13px] font-semibold shrink-0">
@@ -571,7 +571,7 @@ const ManagerDashboardTab = ({
             const sitStyle = SIT_COLORS[id] || { text: '#0f172a', bg: '#f8fafc' };
             return (
               <div key={id} className="p-3 rounded-lg border text-center transition-colors min-h-[88px] flex flex-col justify-between" style={{ backgroundColor: sitStyle.bg, borderColor: sitStyle.bg }}>
-                <p className="text-[9px] font-bold uppercase leading-[1.24] tracking-[0.02em] mb-2 line-clamp-2 min-h-[2.5em]" style={{ color: sitStyle.text, opacity: 0.84 }}>{nome}</p>
+                <p className="text-[9px] font-semibold leading-[1.24] tracking-[0.02em] mb-2 line-clamp-2 min-h-[2.5em]" style={{ color: sitStyle.text, opacity: 0.84 }}>{nome}</p>
                 <div className="text-lg font-semibold leading-none" style={{ color: sitStyle.text }}>{calculatedBreakdown[id] || 0}</div>
               </div>
             );
@@ -650,8 +650,8 @@ const ManagerDashboardTab = ({
           </div>
         </div>
 
-        <div className="overflow-x-auto w-full">
-          <table className="w-full text-left text-[12px] min-w-160">
+        <div className="responsive-scroll w-full">
+          <table className="w-full text-left text-[12px] min-w-[40rem]">
             <thead className="text-[10px] text-slate-500 font-semibold border-b border-slate-100 bg-slate-50/70 text-center tracking-[0.04em]">
               <tr>
                 <th className="p-3 md:p-4 text-center w-10">
@@ -743,7 +743,7 @@ const ManagerDashboardTab = ({
                 );
               }) : (
                 <tr>
-                  <td colSpan={3} className="p-10 text-center text-[12px] font-bold text-slate-400">
+                  <td colSpan={3} className="p-10 text-center text-[12px] font-medium text-slate-400">
                     Nenhum analista encontrado para exibir o processo analítico da equipe.
                   </td>
                 </tr>

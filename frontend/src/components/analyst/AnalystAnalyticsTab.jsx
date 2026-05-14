@@ -559,8 +559,8 @@ const AnalystAnalyticsTab = ({ analyticsData, currentUser, notify }) => {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-215 text-left">
+        <div className="responsive-scroll">
+          <table className="w-full min-w-[48rem] text-left">
             <thead className="bg-white">
               <tr className="text-[9px] font-semibold tracking-[0.06em] text-slate-400 border-b border-slate-100">
                 <th className="px-4 py-3">Data</th>

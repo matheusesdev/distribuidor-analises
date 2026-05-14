@@ -321,12 +321,16 @@
 
 html {
   font-size: var(--fluid-base-font-size);
+  max-width: 100%;
+  overflow-x: hidden;
   scroll-behavior: smooth;
 }
 
 body {
   min-width: 320px;
   min-height: 100dvh;
+  max-width: 100%;
+  overflow-x: hidden;
   margin: 0;
   padding: 0;
   background:
@@ -356,6 +360,7 @@ body::before {
 
 #root {
   min-height: 100dvh;
+  max-width: 100%;
   isolation: isolate;
 }
 
@@ -404,6 +409,50 @@ select {
 td,
 th {
   font-variant-numeric: tabular-nums;
+}
+
+img,
+svg,
+canvas,
+video {
+  max-width: 100%;
+}
+
+table {
+  border-collapse: collapse;
+}
+
+.responsive-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.viewport-dialog {
+  max-height: calc(100dvh - 1.5rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+@media (max-width: 767px) {
+  :root {
+    --fluid-base-font-size: 15px;
+  }
+
+  [class*='rounded-3xl'],
+  [class*='rounded-[1.8rem]'],
+  [class*='rounded-[2rem]'],
+  [class*='rounded-[2.2rem]'] {
+    border-radius: 1.1rem !important;
+  }
+}
+
+@media (max-height: 820px) and (min-width: 1024px) {
+  .notebook-compact-y {
+    padding-top: 1rem !important;
+    padding-bottom: 1rem !important;
+  }
 }
 
 [class~='text-[7px]'] {

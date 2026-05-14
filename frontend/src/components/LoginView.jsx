@@ -146,7 +146,7 @@ const LoginView = ({
   };
 
   return (
-    <div className="min-h-[100dvh] w-full flex flex-col lg:flex-row font-sans overflow-x-hidden overflow-y-visible bg-[#101820] lg:h-[100dvh] lg:overflow-hidden">
+    <div className="min-h-[100dvh] w-full flex flex-col lg:grid lg:grid-cols-[minmax(22rem,38%)_1fr] font-sans overflow-x-hidden overflow-y-visible bg-[#101820]">
       <StatusToast toast={toast} />
       <ConfirmActionModal confirmAction={confirmAction} onClose={closeConfirmation} />
       {isGlobalLoading && <LoadingOverlay />}
@@ -193,7 +193,7 @@ const LoginView = ({
       </AnimatePresence>
 
       <motion.div
-        className="hidden lg:flex h-full min-w-[26rem] w-[38%] flex-col justify-between bg-[#101820] p-8 xl:p-10 relative overflow-hidden shrink-0"
+        className="hidden lg:flex min-h-[100dvh] flex-col justify-between bg-[#101820] p-6 xl:p-10 relative overflow-hidden"
         initial={{ opacity: 0, x: -18 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.42, ease: [0.22, 1, 0.36, 1] }}
@@ -245,7 +245,7 @@ const LoginView = ({
         </div>
       </motion.div>
 
-      <div className="flex-1 min-h-[100dvh] flex flex-col items-center justify-start px-3 py-4 sm:px-6 md:px-8 md:py-6 bg-[#f5f7fb] overflow-visible relative lg:h-full lg:justify-center lg:overflow-hidden">
+      <div className="notebook-compact-y min-h-[100dvh] flex flex-col items-center justify-start px-3 py-4 sm:px-6 md:px-8 md:py-6 bg-[#f5f7fb] overflow-visible relative lg:justify-center lg:overflow-y-auto">
         {/* Logo mobile */}
         <div className="relative z-10 lg:hidden mb-3 sm:mb-5 md:mb-6 flex flex-col items-center gap-1.5 pt-0.5">
             <img src="/vcacloud.svg" alt="VCACloud Logo" className="h-8 sm:h-11 w-auto object-contain mt-0 lg:mt-6" />
@@ -253,7 +253,7 @@ const LoginView = ({
         </div>
 
         <motion.div
-          className="relative z-10 w-full max-w-[min(58rem,100%)] rounded-[1.25rem] border border-white/80 bg-white/95 p-5 shadow-[0_24px_70px_-46px_rgba(15,23,42,0.72)] backdrop-blur-xl sm:p-8 md:p-10"
+          className="relative z-10 w-full max-w-[min(58rem,100%)] rounded-[1.25rem] border border-white/80 bg-white/95 p-5 shadow-[0_24px_70px_-46px_rgba(15,23,42,0.72)] backdrop-blur-xl sm:p-7 md:p-8 xl:p-10"
           {...subtleEnter}
         >
           <div className="flex flex-col items-center text-center">
@@ -427,45 +427,45 @@ const LoginView = ({
       {showForgotModal && (
         <ModalBackdrop key="forgot-password" className="bg-slate-950/45 backdrop-blur-sm" onClose={closeForgotModal}>
           <motion.div
-            className="bg-white rounded-2xl w-full max-w-sm shadow-[0_28px_70px_-42px_rgba(2,6,23,0.75)] border border-slate-200 overflow-hidden"
+            className="viewport-dialog bg-white rounded-2xl w-full max-w-sm shadow-[0_28px_70px_-42px_rgba(2,6,23,0.75)] border border-slate-200 overflow-hidden"
             onClick={(e) => e.stopPropagation()}
             initial={{ opacity: 0, y: 16, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.98 }}
             transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
           >
-            <div className="border-b border-slate-100 px-7 pt-7 pb-5 flex items-center gap-3">
+            <div className="border-b border-slate-100 px-5 pt-6 pb-5 sm:px-7 sm:pt-7 flex items-center gap-3">
               <div className="w-11 h-11 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
                 <Mail size={20} />
               </div>
               <div>
-                <p className="text-slate-900 font-black text-sm tracking-tight">Redefinir senha</p>
-                <p className="text-slate-500 text-[11px] font-bold mt-0.5">Envio de link por e-mail</p>
+                <p className="text-slate-900 font-semibold text-sm tracking-tight">Redefinir senha</p>
+                <p className="text-slate-500 text-[11px] font-medium mt-0.5">Envio de link por e-mail</p>
               </div>
             </div>
 
-            <div className="px-8 py-8">
+            <div className="px-5 py-6 sm:px-8 sm:py-8">
               {forgotSent ? (
                 <div className="flex flex-col items-center gap-4 text-center py-2">
                   <div className="w-14 h-14 rounded-full bg-green-50 flex items-center justify-center">
                     <CheckCircle2 size={28} className="text-green-500" />
                   </div>
                   <div>
-                    <p className="text-slate-800 font-black text-sm">E-mail enviado!</p>
-                    <p className="text-slate-400 text-xs font-bold mt-1.5 leading-relaxed">
+                    <p className="text-slate-800 font-semibold text-sm">E-mail enviado</p>
+                    <p className="text-slate-500 text-xs font-medium mt-1.5 leading-relaxed">
                       Se o endereço estiver cadastrado, você receberá as instruções de redefinição em breve.
                     </p>
                   </div>
                   <button
                     onClick={closeForgotModal}
-                    className="w-full py-3 rounded-xl bg-[#0071e3] text-white font-black uppercase text-[10px] tracking-widest hover:bg-[#0077ed] transition-colors duration-200"
+                    className="w-full py-3 rounded-xl bg-[#0071e3] text-white font-semibold text-[12px] tracking-[0.02em] hover:bg-[#0077ed] transition-colors duration-200"
                   >
                     Fechar
                   </button>
                 </div>
               ) : (
                 <form onSubmit={handleForgotSubmit} className="flex flex-col gap-5" noValidate>
-                  <p className="text-slate-500 text-xs font-bold leading-relaxed">
+                  <p className="text-slate-500 text-xs font-medium leading-relaxed">
                     Informe seu e-mail cadastrado e enviaremos um link para criar uma nova senha.
                   </p>
                   <AuthTextField
@@ -474,7 +474,7 @@ const LoginView = ({
                     value={forgotEmail}
                     onChange={(e) => setForgotEmail(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleForgotSubmit()}
-                    inputClassName="bg-slate-50 border-slate-100 py-3.5 pr-4 text-sm font-bold focus:border-transparent focus:ring-2 focus:ring-blue-500"
+                    inputClassName="bg-slate-50 border-slate-100 py-3.5 pr-4 text-sm font-medium focus:border-transparent focus:ring-2 focus:ring-blue-500"
                     placeholder="seu@vcaconstrutora.com.br"
                     autoFocus
                     autoComplete="email"
@@ -489,7 +489,7 @@ const LoginView = ({
                   <button
                     type="submit"
                     disabled={forgotLoading || !forgotEmail.trim()}
-                    className={`w-full py-3.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-all duration-200 flex items-center justify-center gap-2 ${
+                    className={`w-full py-3.5 rounded-xl font-semibold text-[12px] tracking-[0.02em] transition-all duration-200 flex items-center justify-center gap-2 ${
                       forgotLoading || !forgotEmail.trim()
                         ? 'bg-slate-100 text-slate-300 cursor-not-allowed'
                         : 'bg-[#0071e3] text-white hover:bg-[#0077ed] active:scale-95 shadow-lg shadow-blue-500/30'
@@ -508,7 +508,7 @@ const LoginView = ({
                   <button
                     type="button"
                     onClick={closeForgotModal}
-                    className="w-full py-2.5 text-slate-500 font-bold uppercase text-[9px] tracking-widest hover:text-slate-700 hover:bg-slate-50 rounded-lg transition-all duration-200 flex items-center justify-center gap-1.5"
+                    className="w-full py-2.5 text-slate-500 font-semibold text-[11px] tracking-[0.02em] hover:text-slate-700 hover:bg-slate-50 rounded-lg transition-all duration-200 flex items-center justify-center gap-1.5"
                   >
                     <ArrowLeft size={11} /> Voltar ao login
                   </button>
@@ -525,7 +525,7 @@ const LoginView = ({
       {showManagerLoginModal && (
         <ModalBackdrop key="manager-login" className="bg-slate-950/45 backdrop-blur-sm" onClose={() => setShowManagerLoginModal(false)}>
           <motion.div
-            className="relative w-full max-w-[26rem] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_28px_70px_-42px_rgba(2,6,23,0.75)]"
+            className="viewport-dialog relative w-full max-w-[26rem] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_28px_70px_-42px_rgba(2,6,23,0.75)]"
             onClick={(event) => event.stopPropagation()}
             initial={{ opacity: 0, y: 16, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}

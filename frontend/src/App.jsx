@@ -2066,10 +2066,10 @@ const App = () => {
             <Clock size={18} />
           </div>
           <div>
-            <h3 className="text-sm font-black uppercase tracking-wide text-slate-800">
+            <h3 className="text-sm font-semibold tracking-wide text-slate-800">
               {idlePrompt.role === 'admin' ? 'Sessão de administrador quase expirada' : 'Sua sessão está perto de expirar'}
             </h3>
-            <p className="text-[11px] font-bold text-slate-500 mt-1 leading-relaxed">
+            <p className="text-[11px] font-medium text-slate-500 mt-1 leading-relaxed">
               {idlePrompt.role === 'admin'
                 ? 'Sem atividade recente no painel. Confirme sua presença para manter o acesso ativo.'
                 : 'Sem atividade recente. Se a sessão expirar, você será desconectado e poderá entrar novamente sem alterar o status da sua fila.'}
@@ -2112,7 +2112,7 @@ const App = () => {
                 void handleAnalystLogout({ reason: 'idle' });
               }
             }}
-            className="py-2.5 rounded-xl border border-slate-100 bg-slate-50 text-slate-500 text-[10px] font-black uppercase"
+            className="py-2.5 rounded-xl border border-slate-100 bg-slate-50 text-slate-500 text-[11px] font-semibold"
           >
             {idlePrompt.role === 'admin' ? 'Encerrar agora' : 'Encerrar agora'}
           </button>
@@ -2123,7 +2123,7 @@ const App = () => {
               if (idlePrompt.role === 'analyst') touchAnalystActivity();
               setIdlePrompt({ visible: false, role: null, secondsLeft: 0 });
             }}
-            className="py-2.5 rounded-xl bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-blue-500"
+            className="py-2.5 rounded-xl bg-blue-600 text-white text-[11px] font-semibold tracking-[0.02em] hover:bg-blue-500"
           >
             {idlePrompt.role === 'admin' ? 'Continuar sessão' : 'Continuar trabalhando'}
           </button>
@@ -2217,8 +2217,8 @@ const App = () => {
       />
 
       <main className="w-full max-w-[min(1480px,96vw)] mx-auto p-3 md:p-5 lg:p-6 space-y-5 flex-1">
-        <section className="overflow-x-auto rounded-xl border border-slate-200/80 bg-white/90 p-1 shadow-[0_14px_30px_-26px_rgba(15,23,42,0.48)] backdrop-blur-xl">
-          <div className="flex min-w-max gap-1">
+        <section className="rounded-xl border border-slate-200/80 bg-white/90 p-1 shadow-[0_14px_30px_-26px_rgba(15,23,42,0.48)] backdrop-blur-xl">
+          <div className="flex flex-wrap gap-1">
             <button onClick={() => handleManagerTabChange('dashboard')} className={`px-3 py-1.5 rounded-lg text-[12px] font-semibold transition-all inline-flex items-center gap-1.5 ${managerTab === 'dashboard' ? 'bg-[linear-gradient(135deg,#0b6fd3_0%,#075aa9_100%)] text-white shadow-[0_12px_24px_-18px_rgba(7,90,169,0.88)]' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}><LayoutDashboard size={13} /> Dashboard</button>
             <button onClick={() => handleManagerTabChange('fila')} className={`px-3 py-1.5 rounded-lg text-[12px] font-semibold transition-all inline-flex items-center gap-1.5 ${managerTab === 'fila' ? 'bg-[linear-gradient(135deg,#0b6fd3_0%,#075aa9_100%)] text-white shadow-[0_12px_24px_-18px_rgba(7,90,169,0.88)]' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}><LineChart size={13} /> Fila</button>
             <button onClick={() => handleManagerTabChange('transferencias')} className={`px-3 py-1.5 rounded-lg text-[12px] font-semibold transition-all inline-flex items-center gap-1.5 ${managerTab === 'transferencias' ? 'bg-[linear-gradient(135deg,#0b6fd3_0%,#075aa9_100%)] text-white shadow-[0_12px_24px_-18px_rgba(7,90,169,0.88)]' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}><ArrowRightLeft size={13} /> Transferências</button>
@@ -2312,14 +2312,14 @@ const App = () => {
 
   // --- PAINEL DO ANALISTA ---
   return (
-    <div className={`min-h-screen font-sans text-slate-800 flex flex-col overflow-x-hidden ${isDarkMode ? 'bg-[#020617]' : 'bg-[#f8fafc]'}`}>
+    <div className={`min-h-[100dvh] font-sans text-slate-800 flex flex-col overflow-x-hidden ${isDarkMode ? 'bg-[#020617]' : 'bg-[#f8fafc]'}`}>
       <StatusToast toast={toast} />
       <ConfirmActionModal confirmAction={confirmAction} onClose={closeConfirmation} />
       <RevokeAccessModal revokeAction={revokeAction} onClose={closeRevokeConfirmation} />
       {idlePromptModal}
       {showTransferModal && transferTask && (
         <div className="fixed inset-0 bg-slate-950/55 backdrop-blur-md z-450 flex items-center justify-center p-3 sm:p-4" onClick={() => setShowTransferModal(false)}>
-          <div className="w-full max-w-2xl border border-white/80 rounded-3xl bg-white/95 p-5 sm:p-6 shadow-[0_36px_70px_-30px_rgba(15,23,42,0.88)] animate-in zoom-in-95 duration-300" onClick={(e) => e.stopPropagation()}>
+          <div className="viewport-dialog w-full max-w-2xl border border-white/80 rounded-[1.25rem] bg-white/95 p-4 sm:p-6 shadow-[0_36px_70px_-30px_rgba(15,23,42,0.88)] animate-in zoom-in-95 duration-300" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-start justify-between gap-3.5 mb-4">
               <div className="flex items-start gap-3.5 min-w-0">
                 <div className="w-11 h-11 rounded-2xl flex items-center justify-center bg-blue-50 border border-blue-100 text-[#0071e3] shrink-0">
@@ -2327,7 +2327,7 @@ const App = () => {
                 </div>
                 <div className="min-w-0">
                   <h3 className="text-[16px] font-semibold tracking-[-0.01em] text-slate-900">Transferir pasta</h3>
-                  <p className="text-[12px] font-semibold text-slate-500 mt-1 leading-relaxed truncate">Reserva {transferTask.reserva_id} • {transferTask.cliente}</p>
+                  <p className="text-[12px] font-medium text-slate-500 mt-1 leading-relaxed truncate">Reserva {transferTask.reserva_id} • {transferTask.cliente}</p>
                 </div>
               </div>
               <button
@@ -2341,8 +2341,8 @@ const App = () => {
             </div>
 
             <div className="rounded-2xl border border-slate-200 bg-slate-50/80 px-3.5 py-3 mb-4">
-              <p className="text-[10px] font-semibold tracking-[0.08em] text-slate-500 uppercase">Resumo rápido</p>
-              <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px] font-semibold text-slate-700">
+              <p className="text-[10px] font-medium tracking-[0.08em] text-slate-500 uppercase">Resumo rápido</p>
+              <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px] font-medium text-slate-700">
                 <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-2.5 py-1">#{getReservaDisplayId(transferTask.reserva_id)}</span>
                 <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-2.5 py-1">{normalizeUiText(transferTask.situacao_nome || 'Sem situação')}</span>
               </div>
@@ -2363,7 +2363,7 @@ const App = () => {
                 </div>
               </div>
 
-              <div className="bg-slate-50/80 border border-slate-200 rounded-2xl p-2.5 max-h-56 overflow-y-auto custom-scrollbar space-y-2">
+              <div className="bg-slate-50/80 border border-slate-200 rounded-2xl p-2.5 max-h-[min(14rem,34dvh)] overflow-y-auto custom-scrollbar space-y-2">
                 {filteredTransferTargetOptions.length > 0 ? filteredTransferTargetOptions.map(a => {
                   const isSelected = String(transferToId) === String(a.id);
                   return (
@@ -2424,7 +2424,7 @@ const App = () => {
 
       {showBulkTransferModal && (
         <div className="fixed inset-0 bg-slate-950/55 backdrop-blur-md z-450 flex items-center justify-center p-3 sm:p-4" onClick={() => setShowBulkTransferModal(false)}>
-          <div className="w-full max-w-2xl border border-white/80 rounded-3xl bg-white/95 p-5 sm:p-6 shadow-[0_36px_70px_-30px_rgba(15,23,42,0.88)] animate-in zoom-in-95 duration-300" onClick={(e) => e.stopPropagation()}>
+          <div className="viewport-dialog w-full max-w-2xl border border-white/80 rounded-[1.25rem] bg-white/95 p-4 sm:p-6 shadow-[0_36px_70px_-30px_rgba(15,23,42,0.88)] animate-in zoom-in-95 duration-300" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-start justify-between gap-3.5 mb-4">
               <div className="flex items-start gap-3.5 min-w-0">
                 <div className="w-11 h-11 rounded-2xl flex items-center justify-center bg-blue-50 border border-blue-100 text-[#0071e3] shrink-0">
@@ -2432,7 +2432,7 @@ const App = () => {
                 </div>
                 <div className="min-w-0">
                   <h3 className="text-[16px] font-semibold tracking-[-0.01em] text-slate-900">Transferência em massa</h3>
-                  <p className="text-[12px] font-semibold text-slate-500 mt-1 leading-relaxed">{selectedTaskIds.size} pasta{selectedTaskIds.size !== 1 ? 's' : ''} selecionada{selectedTaskIds.size !== 1 ? 's' : ''}</p>
+                  <p className="text-[12px] font-medium text-slate-500 mt-1 leading-relaxed">{selectedTaskIds.size} pasta{selectedTaskIds.size !== 1 ? 's' : ''} selecionada{selectedTaskIds.size !== 1 ? 's' : ''}</p>
                 </div>
               </div>
               <button
@@ -2446,8 +2446,8 @@ const App = () => {
             </div>
 
             <div className="rounded-2xl border border-slate-200 bg-slate-50/80 px-3.5 py-3 mb-4">
-              <p className="text-[10px] font-semibold tracking-[0.08em] text-slate-500 uppercase">Resumo rápido</p>
-              <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px] font-semibold text-slate-700">
+              <p className="text-[10px] font-medium tracking-[0.08em] text-slate-500 uppercase">Resumo rápido</p>
+              <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px] font-medium text-slate-700">
                 <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-2.5 py-1">{selectedTaskIds.size} itens</span>
                 {selectedBulkTransferTarget && (
                   <span className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-[#0071e3]">Destino: {selectedBulkTransferTarget.nome}</span>
@@ -2470,7 +2470,7 @@ const App = () => {
                 </div>
               </div>
 
-              <div className="bg-slate-50/80 border border-slate-200 rounded-2xl p-2.5 max-h-56 overflow-y-auto custom-scrollbar space-y-2">
+              <div className="bg-slate-50/80 border border-slate-200 rounded-2xl p-2.5 max-h-[min(14rem,34dvh)] overflow-y-auto custom-scrollbar space-y-2">
                 {filteredBulkTransferTargetOptions.length > 0 ? filteredBulkTransferTargetOptions.map(a => {
                   const isSelected = String(bulkTransferToId) === String(a.id);
                   return (
@@ -2523,7 +2523,7 @@ const App = () => {
 
       {isGlobalLoading && <LoadingOverlay />}
       <nav className="sticky top-0 z-100 border-b border-slate-200/80 bg-white/92 backdrop-blur-xl">
-        <div className="min-h-14 px-3 md:px-5 lg:px-6 py-1.5 flex items-center justify-between gap-2 md:gap-3">
+        <div className="min-h-14 px-3 md:px-5 lg:px-6 py-1.5 flex flex-wrap items-center justify-between gap-2 md:gap-3">
           <div className="flex items-center gap-2 md:gap-3 min-w-0">
             <div className="logo-shimmer shrink-0">
               <img
@@ -2550,7 +2550,7 @@ const App = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5 md:gap-2.5 shrink-0">
+          <div className="flex flex-wrap items-center justify-end gap-1.5 md:gap-2.5 shrink min-w-0">
             {analystIdleSecondsLeft !== null && analystIdleSecondsLeft > 0 && analystIdleSecondsLeft <= (ANALYST_IDLE_WARNING_MS / 1000) && (
               <div className="hidden lg:flex items-center gap-2.5 px-3 py-1.5 rounded-2xl border border-amber-200 bg-[linear-gradient(135deg,#fff7ed_0%,#fffbeb_55%,#ffffff_100%)] text-slate-700 shadow-[0_14px_24px_-22px_rgba(251,146,60,0.75)]">
                <div className="w-7 h-7 rounded-xl bg-amber-100 text-amber-700 inline-flex items-center justify-center shrink-0">
@@ -2574,8 +2574,8 @@ const App = () => {
               title="Abrir dashboard analítico"
             >
               <TrendingUp size={12} className="shrink-0" />
-              <span className="text-[9px] font-black uppercase tracking-widest md:hidden">{metrics.hoje}</span>
-              <span className="text-[9px] font-black uppercase tracking-widest hidden md:inline">Hoje: {metrics.hoje}</span>
+              <span className="text-[9px] font-semibold uppercase tracking-[0.08em] md:hidden">{metrics.hoje}</span>
+              <span className="text-[9px] font-semibold uppercase tracking-[0.08em] hidden md:inline">Hoje: {metrics.hoje}</span>
             </button>
             <div
               data-tour="analyst-auto-update"
@@ -2768,7 +2768,7 @@ const App = () => {
               totalMesaCount={(myTasks || []).length}
             />
           ) : (
-            <div className="space-y-6 py-20 text-center text-slate-300 italic text-[11px] uppercase tracking-[0.4em] font-bold px-6">Nenhum conteúdo disponível nesta aba.</div>
+            <div className="space-y-6 py-20 text-center text-slate-300 italic text-[11px] tracking-[0.16em] font-medium px-6">Nenhum conteúdo disponível nesta aba.</div>
           )
         )}
       </main>

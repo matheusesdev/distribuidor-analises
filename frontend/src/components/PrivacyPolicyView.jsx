@@ -72,7 +72,7 @@ const PrivacyPolicyView = ({ onBackToLogin }) => {
               <ShieldCheck size={22} />
             </div>
             <div className="min-w-0">
-              <p className="text-[11px] font-black uppercase tracking-[0.16em] text-blue-600">Política de privacidade</p>
+              <p className="text-[11px] font-semibold tracking-[0.08em] text-blue-600">Política de privacidade</p>
               <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl">
                 Como tratamos dados no sistema
               </h1>
