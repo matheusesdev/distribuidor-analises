@@ -304,23 +304,106 @@
   animation: mesa-help-soft-pulse 4.8s cubic-bezier(0.16, 1, 0.3, 1) infinite;
 }
 
-body {
-  margin: 0;
-  padding: 0;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
 :root {
   --fluid-base-font-size: 15.5px;
+  --font-interface: "Outfit", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-sans: var(--font-interface);
+  --app-bg: #f5f7fb;
+  --app-bg-soft: #eef3f8;
+  --app-ink: #142033;
+  --app-muted: #64748b;
+  --app-accent: #0b6fd3;
+  --app-accent-strong: #075aa9;
+  --app-border: rgba(148, 163, 184, 0.28);
+  color: var(--app-ink);
+  background: var(--app-bg);
 }
 
 html {
   font-size: var(--fluid-base-font-size);
+  scroll-behavior: smooth;
 }
 
 body {
+  min-width: 320px;
+  min-height: 100dvh;
+  margin: 0;
+  padding: 0;
+  background:
+    radial-gradient(circle at 8% 0%, rgba(11, 111, 211, 0.09), transparent 30rem),
+    radial-gradient(circle at 92% 12%, rgba(20, 184, 166, 0.08), transparent 28rem),
+    linear-gradient(180deg, #f8fafc 0%, var(--app-bg) 46%, var(--app-bg-soft) 100%);
+  color: var(--app-ink);
+  font-family: var(--font-interface);
   line-height: 1.5;
+  text-rendering: geometricPrecision;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  pointer-events: none;
+  opacity: 0.045;
+  background-image:
+    radial-gradient(circle at 1px 1px, rgba(15, 23, 42, 0.7) 1px, transparent 0),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.35), transparent 40%);
+  background-size: 4px 4px, 100% 100%;
+}
+
+#root {
+  min-height: 100dvh;
+  isolation: isolate;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+h1,
+h2,
+h3 {
+  text-wrap: balance;
+}
+
+p,
+li {
+  text-wrap: pretty;
+}
+
+button,
+a,
+input,
+textarea,
+select {
+  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+:focus-visible {
+  outline: 2px solid rgba(11, 111, 211, 0.48);
+  outline-offset: 3px;
+}
+
+::selection {
+  background: rgba(11, 111, 211, 0.16);
+  color: #0f172a;
+}
+
+.tabular-nums,
+[class*='tabular-nums'],
+td,
+th {
+  font-variant-numeric: tabular-nums;
 }
 
 [class~='text-[7px]'] {
@@ -355,11 +438,26 @@ body {
 
 :root[data-theme='dark'] {
   color-scheme: dark;
+  --app-bg: #07111f;
+  --app-bg-soft: #0b1424;
+  --app-ink: #e2e8f0;
+  --app-muted: #94a3b8;
+  --app-border: rgba(71, 85, 105, 0.7);
 }
 
 :root[data-theme='dark'] body {
-  background: #020617;
+  background:
+    radial-gradient(circle at 8% 0%, rgba(14, 165, 233, 0.16), transparent 30rem),
+    radial-gradient(circle at 92% 12%, rgba(20, 184, 166, 0.1), transparent 28rem),
+    linear-gradient(180deg, #07111f 0%, #081426 48%, #020617 100%);
   color: #e2e8f0;
+}
+
+:root[data-theme='dark'] body::before {
+  opacity: 0.055;
+  background-image:
+    radial-gradient(circle at 1px 1px, rgba(226, 232, 240, 0.55) 1px, transparent 0),
+    linear-gradient(135deg, rgba(15, 23, 42, 0.2), transparent 40%);
 }
 
 :root[data-theme='dark'] [class*='bg-white'],
@@ -502,4 +600,15 @@ body {
 
 :root[data-theme='dark'] .logo-shimmer::after {
   mix-blend-mode: lighten;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
 }
