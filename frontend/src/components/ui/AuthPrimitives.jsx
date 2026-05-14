@@ -84,8 +84,8 @@ export const KeepLoggedToggle = ({
   helpText,
   className = 'rounded-2xl',
 }) => (
-  <div className={cn('flex items-start justify-between gap-3 border border-slate-200 bg-white/90 px-3.5 py-3 shadow-[0_14px_30px_-26px_rgba(15,23,42,0.45)]', className)}>
-    <button type="button" onClick={onToggle} className="group flex items-center gap-2.5 text-left" aria-pressed={checked}>
+  <div className={cn('flex flex-col gap-3 border border-slate-200 bg-white/90 px-3.5 py-3 shadow-[0_14px_30px_-26px_rgba(15,23,42,0.45)] sm:flex-row sm:items-start sm:justify-between', className)}>
+    <button type="button" onClick={onToggle} className="group flex w-full items-start gap-2.5 text-left sm:w-auto" aria-pressed={checked}>
       <span
         className={cn(
           'relative inline-flex h-6 w-11 items-center rounded-full border transition-colors duration-200',
@@ -106,7 +106,7 @@ export const KeepLoggedToggle = ({
     </button>
 
     {helpText && (
-      <div className="group/help relative shrink-0 pt-0.5">
+      <div className="group/help relative shrink-0 self-end pt-0.5 sm:self-auto">
         <button
           type="button"
           aria-label={helpLabel}
