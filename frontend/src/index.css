@@ -664,6 +664,18 @@ table {
   background-color: transparent;
 }
 
+.manager-analysts-table .manager-analysts-body > tr + tr {
+  border-top: 1px solid rgba(226, 232, 240, 0.9);
+}
+
+:root[data-theme='dark'] .manager-analysts-table .manager-analysts-body > tr + tr {
+  border-top-color: rgba(148, 163, 184, 0.055) !important;
+}
+
+:root[data-theme='dark'] .manager-analysts-table .manager-analysts-body > tr:hover {
+  background-color: rgba(148, 163, 184, 0.035) !important;
+}
+
 :root[data-theme='dark'] [class*='shadow-'] {
   --tw-shadow-color: rgba(0, 0, 0, 0.28);
 }

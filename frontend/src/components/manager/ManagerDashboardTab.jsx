@@ -651,7 +651,7 @@ const ManagerDashboardTab = ({
         </div>
 
         <div className="responsive-scroll w-full">
-          <table className="w-full text-left text-[12px] min-w-[40rem]">
+          <table className="manager-analysts-table w-full text-left text-[12px] min-w-[40rem]">
             <thead className="text-[10px] text-slate-500 font-semibold border-b border-slate-100 bg-slate-50/70 text-center tracking-[0.04em]">
               <tr>
                 <th className="p-3 md:p-4 text-center w-10">
@@ -667,7 +667,7 @@ const ManagerDashboardTab = ({
                 <th className="p-3 md:p-4 text-right">Ações</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="manager-analysts-body">
               {teamProcessData.length > 0 ? teamProcessData.map((analyst) => {
                 return (
                   <tr key={analyst.analista_id} className="hover:bg-slate-50/80 transition-all group text-[12px] text-center">
