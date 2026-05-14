@@ -58,7 +58,7 @@ const ResetPasswordView = ({ token, onSuccess, onBackToLogin }) => {
     <div className="min-h-[100dvh] grid grid-cols-1 lg:grid-cols-[minmax(20rem,42%)_1fr] font-sans overflow-x-hidden bg-[#f8fafc]">
       {/* Painel esquerdo azul */}
       <div className="hidden lg:flex min-h-[100dvh] flex-col justify-between bg-blue-600 p-8 xl:p-12 relative overflow-hidden">
-        <div className="absolute inset-0 opacity-[0.07]" style={{ backgroundImage: 'radial-gradient(circle, white 1.5px, transparent 1.5px)', backgroundSize: '32px 32px' }} />
+        <div className="absolute inset-0 bg-blue-950/5" />
         <div className="relative z-10">
           <img src="/vcahub.svg" alt="VCAHub Logo" className="h-10 w-auto object-contain" />
         </div>
