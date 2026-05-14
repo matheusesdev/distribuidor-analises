@@ -217,28 +217,28 @@ const LoginView = ({
             Acesso interno para analistas e gestores acompanharem a distribuição de reservas.
           </p>
         </div>
-        <div className="relative z-10 flex items-center gap-2.5">
+        <div className="relative z-10 flex flex-wrap items-center gap-x-2 gap-y-1.5">
           <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
           <span className="text-blue-100 text-[10px] font-semibold tracking-[0.04em]">Sincronização em tempo real</span>
-          <img src="/cvlogo.svg" alt="CV Logo" className="h-7 w-auto object-contain max-w-42.5 brightness-0 invert ml-4" />
+          <img src="/cvlogo.svg" alt="CV Logo" className="h-6 sm:h-7 w-auto object-contain max-w-42.5 brightness-0 invert sm:ml-4" />
         </div>
       </motion.div>
 
       {/* ===== PAINEL DIREITO BRANCO ===== */}
-      <div className="flex-1 min-h-[100dvh] flex flex-col items-center justify-start px-4 py-6 sm:px-6 md:px-8 md:py-6 bg-slate-50 overflow-y-auto relative lg:h-full lg:justify-center lg:overflow-hidden">
+      <div className="flex-1 min-h-[100dvh] flex flex-col items-center justify-start px-3 py-4 sm:px-6 md:px-8 md:py-6 bg-slate-50 overflow-y-auto relative lg:h-full lg:justify-center lg:overflow-hidden">
         {/* Logo mobile */}
-        <div className="relative z-10 lg:hidden mb-5 md:mb-6 flex flex-col items-center gap-2 pt-2">
-          <img src="/vcacloud.svg" alt="VCACloud Logo" className="h-11 w-auto object-contain" />
-          <img src="/cvlogo.svg" alt="CV Logo" className="h-7 w-auto object-contain max-w-42.5 brightness-0 invert" />
+        <div className="relative z-10 lg:hidden mb-4 sm:mb-5 md:mb-6 flex flex-col items-center gap-2 pt-1">
+          <img src="/vcacloud.svg" alt="VCACloud Logo" className="h-9 sm:h-11 w-auto object-contain" />
+          <img src="/cvlogo.svg" alt="CV Logo" className="h-6 sm:h-7 w-auto object-contain max-w-42.5 brightness-0 invert" />
         </div>
 
         <motion.div
-          className="relative z-10 w-full max-w-[24rem] rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_18px_44px_-34px_rgba(15,23,42,0.55)] sm:p-5 md:p-6"
+          className="relative z-10 w-full max-w-[min(24rem,100%)] max-h-[calc(100dvh-1.5rem)] overflow-y-auto rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_18px_44px_-34px_rgba(15,23,42,0.55)] sm:p-5 md:p-6"
           {...subtleEnter}
         >
           <div className="flex flex-col items-center text-center">
-            <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-slate-800">
-              <svg viewBox="0 0 24 24" className="size-5" fill="none" aria-hidden="true">
+            <div className="flex size-11 sm:size-12 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-slate-800">
+              <svg viewBox="0 0 24 24" className="size-4.5 sm:size-5" fill="none" aria-hidden="true">
                 <path
                   d="M7.75 10V7.8C7.75 5.45 9.63 3.5 12 3.5s4.25 1.95 4.25 4.3V10"
                   stroke="currentColor"
@@ -255,10 +255,10 @@ const LoginView = ({
               </svg>
             </div>
             <div className="mt-3 min-w-0">
-              <h2 className="text-2xl font-semibold text-slate-900 tracking-tight">
+              <h2 className="text-[1.35rem] sm:text-2xl font-semibold text-slate-900 tracking-tight">
                 {welcomeTitle}
               </h2>
-              <p className="mt-1.5 text-[13px] font-medium text-slate-500">
+              <p className="mt-1.5 text-[12px] sm:text-[13px] font-medium text-slate-500">
                 Entre com seus dados de acesso.
               </p>
             </div>
