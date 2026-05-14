@@ -236,8 +236,9 @@ const LoginView = ({
           className="relative z-10 w-full max-w-[min(44rem,100%)] rounded-2xl border border-slate-200 bg-white p-3 shadow-[0_18px_44px_-34px_rgba(15,23,42,0.55)] sm:p-5 md:p-6"
           {...subtleEnter}
         >
-          <div className="grid gap-5 lg:grid-cols-[0.95fr_1.05fr] lg:gap-8">
-            <div className="flex flex-col items-center text-center lg:items-start lg:text-left">
+          <div className="grid gap-5 lg:grid-cols-[0.95fr_1.05fr] lg:items-stretch lg:gap-8">
+            <div className="flex h-full flex-col items-center text-center lg:items-start lg:justify-between lg:text-left">
+              <div>
               <div className="flex size-10 sm:size-12 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-slate-800">
                 <svg viewBox="0 0 24 24" className="size-4 sm:size-5" fill="none" aria-hidden="true">
                   <path
@@ -307,9 +308,34 @@ const LoginView = ({
                   </div>
                 </div>
               </div>
+              </div>
+
+              <div className="mt-5 w-full max-w-md lg:max-w-none lg:mt-0 lg:pt-6">
+                <div className="rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white px-4 py-4 shadow-[0_12px_28px_-24px_rgba(15,23,42,0.3)]">
+                  <div className="flex items-center gap-2.5 text-slate-700">
+                    <div className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+                      <Lock size={15} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">Ambiente interno</p>
+                      <p className="text-[12px] font-semibold text-slate-900">Acesso rápido para operação e gestão</p>
+                    </div>
+                  </div>
+                  <div className="mt-3 grid grid-cols-2 gap-2 text-left">
+                    <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">Analistas</p>
+                      <p className="mt-0.5 text-[11px] font-semibold text-slate-700">Fila e mesa de trabalho</p>
+                    </div>
+                    <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">Gestores</p>
+                      <p className="mt-0.5 text-[11px] font-semibold text-slate-700">Auditoria e controle</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <div className="flex flex-col">
+            <div className="flex h-full flex-col">
               {/* ===== FORMULARIO DE LOGIN ===== */}
               <motion.form
                 onSubmit={handleSubmitLogin}
