@@ -233,10 +233,10 @@ const LoginView = ({
         </div>
 
         <motion.div
-          className="relative z-10 w-full max-w-[min(44rem,100%)] rounded-2xl border border-slate-200 bg-white p-3 shadow-[0_18px_44px_-34px_rgba(15,23,42,0.55)] sm:p-5 md:p-6"
+          className="relative z-10 w-full max-w-[min(56rem,100%)] rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_18px_44px_-34px_rgba(15,23,42,0.55)] sm:p-8 md:p-10"
           {...subtleEnter}
         >
-          <div className="grid gap-5 lg:grid-cols-[0.95fr_1.05fr] lg:gap-8">
+          <div className="grid items-start gap-5 lg:grid-cols-[0.95fr_1.05fr] lg:gap-8">
             <div className="flex flex-col items-center text-center lg:items-start lg:text-left">
               <div className="flex size-10 sm:size-12 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-slate-800">
                 <svg viewBox="0 0 24 24" className="size-4 sm:size-5" fill="none" aria-hidden="true">
