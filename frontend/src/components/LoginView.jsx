@@ -236,41 +236,42 @@ const LoginView = ({
           className="relative z-10 w-full max-w-[min(56rem,100%)] rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_18px_44px_-34px_rgba(15,23,42,0.55)] sm:p-8 md:p-10"
           {...subtleEnter}
         >
-          <div className="grid items-start gap-5 lg:grid-cols-[0.95fr_1.05fr] lg:gap-8">
-            <div className="flex flex-col items-center text-center lg:items-start lg:text-left">
-              <div className="flex size-10 sm:size-12 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-slate-800">
-                <svg viewBox="0 0 24 24" className="size-4 sm:size-5" fill="none" aria-hidden="true">
-                  <path
-                    d="M7.75 10V7.8C7.75 5.45 9.63 3.5 12 3.5s4.25 1.95 4.25 4.3V10"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                    strokeLinecap="round"
-                  />
-                  <path
-                    d="M6.75 10h10.5c1.1 0 2 .9 2 2v6.25c0 1.1-.9 2-2 2H6.75c-1.1 0-2-.9-2-2V12c0-1.1.9-2 2-2Z"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                    strokeLinejoin="round"
-                  />
-                  <path d="M12 14.25v2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                </svg>
-              </div>
-              <div className="mt-2.5 min-w-0 max-w-md lg:max-w-none">
-                <h2 className="text-[1.25rem] sm:text-2xl font-semibold text-slate-900 tracking-tight">
-                  {welcomeTitle}
-                </h2>
-                <p className="mt-1 text-[11px] sm:text-[13px] font-medium text-slate-500">
-                  Entre com seus dados de acesso.
-                </p>
-              </div>
+          <div className="flex flex-col items-center text-center">
+            <div className="flex size-10 sm:size-12 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-slate-800">
+              <svg viewBox="0 0 24 24" className="size-4 sm:size-5" fill="none" aria-hidden="true">
+                <path
+                  d="M7.75 10V7.8C7.75 5.45 9.63 3.5 12 3.5s4.25 1.95 4.25 4.3V10"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                />
+                <path
+                  d="M6.75 10h10.5c1.1 0 2 .9 2 2v6.25c0 1.1-.9 2-2 2H6.75c-1.1 0-2-.9-2-2V12c0-1.1.9-2 2-2Z"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinejoin="round"
+                />
+                <path d="M12 14.25v2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+              </svg>
+            </div>
+            <div className="mt-2.5 min-w-0 max-w-md lg:max-w-none">
+              <h2 className="text-[1.25rem] sm:text-2xl font-semibold text-slate-900 tracking-tight">
+                {welcomeTitle}
+              </h2>
+              <p className="mt-1 text-[11px] sm:text-[13px] font-medium text-slate-500">
+                Entre com seus dados de acesso.
+              </p>
+            </div>
 
-              {loginNotice && (
-                <div className="mt-3 w-full max-w-md lg:max-w-none">
-                  <SessionNotice icon={AlertTriangle}>{loginNotice}</SessionNotice>
-                </div>
-              )}
+            {loginNotice && (
+              <div className="mt-3 w-full max-w-md lg:max-w-none">
+                <SessionNotice icon={AlertTriangle}>{loginNotice}</SessionNotice>
+              </div>
+            )}
+          </div>
 
-              <div className="mt-5 grid w-full max-w-md gap-3 lg:max-w-none">
+          <div className="mt-7 grid items-start gap-5 lg:grid-cols-[0.95fr_1.05fr] lg:gap-8">
+            <div className="grid w-full max-w-md gap-3 justify-self-center lg:max-w-none lg:pt-4">
                 <div className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50/90 px-4 py-3 text-left shadow-[0_12px_28px_-24px_rgba(15,23,42,0.35)]">
                   <div className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-blue-100 bg-blue-50 text-blue-600">
                     <ShieldCheck size={16} />
@@ -307,7 +308,6 @@ const LoginView = ({
                   </div>
                 </div>
               </div>
-            </div>
 
             <div className="flex flex-col">
               {/* ===== FORMULARIO DE LOGIN ===== */}
