@@ -233,110 +233,114 @@ const LoginView = ({
         </div>
 
         <motion.div
-          className="relative z-10 w-full max-w-[min(24rem,100%)] rounded-2xl border border-slate-200 bg-white p-3 shadow-[0_18px_44px_-34px_rgba(15,23,42,0.55)] sm:p-5 md:p-6"
+          className="relative z-10 w-full max-w-[min(44rem,100%)] rounded-2xl border border-slate-200 bg-white p-3 shadow-[0_18px_44px_-34px_rgba(15,23,42,0.55)] sm:p-5 md:p-6"
           {...subtleEnter}
         >
-          <div className="flex flex-col items-center text-center">
-            <div className="flex size-10 sm:size-12 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-slate-800">
-              <svg viewBox="0 0 24 24" className="size-4 sm:size-5" fill="none" aria-hidden="true">
-                <path
-                  d="M7.75 10V7.8C7.75 5.45 9.63 3.5 12 3.5s4.25 1.95 4.25 4.3V10"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                />
-                <path
-                  d="M6.75 10h10.5c1.1 0 2 .9 2 2v6.25c0 1.1-.9 2-2 2H6.75c-1.1 0-2-.9-2-2V12c0-1.1.9-2 2-2Z"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinejoin="round"
-                />
-                <path d="M12 14.25v2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-              </svg>
-            </div>
-            <div className="mt-2.5 min-w-0">
-              <h2 className="text-[1.25rem] sm:text-2xl font-semibold text-slate-900 tracking-tight">
-                {welcomeTitle}
-              </h2>
-              <p className="mt-1 text-[11px] sm:text-[13px] font-medium text-slate-500">
-                Entre com seus dados de acesso.
-              </p>
-            </div>
-          </div>
-          <div>
-            {loginNotice && (
-              <SessionNotice icon={AlertTriangle}>{loginNotice}</SessionNotice>
-            )}
-          </div>
+          <div className="grid gap-5 lg:grid-cols-[0.95fr_1.05fr] lg:gap-8">
+            <div className="flex flex-col items-center text-center lg:items-start lg:text-left">
+              <div className="flex size-10 sm:size-12 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-slate-800">
+                <svg viewBox="0 0 24 24" className="size-4 sm:size-5" fill="none" aria-hidden="true">
+                  <path
+                    d="M7.75 10V7.8C7.75 5.45 9.63 3.5 12 3.5s4.25 1.95 4.25 4.3V10"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                  />
+                  <path
+                    d="M6.75 10h10.5c1.1 0 2 .9 2 2v6.25c0 1.1-.9 2-2 2H6.75c-1.1 0-2-.9-2-2V12c0-1.1.9-2 2-2Z"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinejoin="round"
+                  />
+                  <path d="M12 14.25v2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                </svg>
+              </div>
+              <div className="mt-2.5 min-w-0 max-w-md lg:max-w-none">
+                <h2 className="text-[1.25rem] sm:text-2xl font-semibold text-slate-900 tracking-tight">
+                  {welcomeTitle}
+                </h2>
+                <p className="mt-1 text-[11px] sm:text-[13px] font-medium text-slate-500">
+                  Entre com seus dados de acesso.
+                </p>
+              </div>
 
-          {/* ===== FORMULARIO DE LOGIN ===== */}
-          <motion.form
-            onSubmit={handleSubmitLogin}
-            className="mt-3 flex flex-col gap-3.5 sm:mt-5 sm:gap-4"
-            noValidate
-            initial="hidden"
-            animate="show"
-            variants={{
-              hidden: {},
-              show: { transition: { staggerChildren: 0.045, delayChildren: 0.08 } },
-            }}
-          >
-            <motion.div variants={{ hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0 } }} transition={{ duration: 0.24 }}>
-            <AuthTextField
-              label="E-mail"
-              icon={Mail}
-              type="email"
-              value={loginEmail}
-              onChange={(e) => setLoginEmail(e.target.value)}
-              placeholder="seu@vcaconstrutora.com.br"
-              autoComplete="email"
-              autoFocus
-            />
-            </motion.div>
-
-            <motion.div variants={{ hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0 } }} transition={{ duration: 0.24 }}>
-            <AuthPasswordField
-              label="Senha"
-              icon={Lock}
-              value={loginPassword}
-              onChange={(e) => setLoginPassword(e.target.value)}
-              visible={showLoginPassword}
-              onToggleVisible={() => setShowLoginPassword(p => !p)}
-              labelAction={(
-                <button
-                  type="button"
-                  onClick={openForgotModal}
-                  className="text-[11px] font-medium text-blue-600 transition-colors duration-200 hover:text-blue-700"
-                >
-                  Esqueceu a senha?
-                </button>
+              {loginNotice && (
+                <div className="mt-3 w-full max-w-md lg:max-w-none">
+                  <SessionNotice icon={AlertTriangle}>{loginNotice}</SessionNotice>
+                </div>
               )}
-            />
-            </motion.div>
+            </div>
 
-            <motion.div variants={{ hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0 } }} transition={{ duration: 0.24 }}>
-            <KeepLoggedToggle
-              checked={keepAnalystLoggedIn}
-              onToggle={() => setKeepAnalystLoggedIn((prev) => !prev)}
-              helpText="Com esta opção ligada, você continua logado mesmo fechando a aba. Desligada, será necessário fazer login novamente ao reabrir."
-            />
-            </motion.div>
+            <div className="flex flex-col">
+              {/* ===== FORMULARIO DE LOGIN ===== */}
+              <motion.form
+                onSubmit={handleSubmitLogin}
+                className="flex flex-col gap-3.5 sm:gap-4"
+                noValidate
+                initial="hidden"
+                animate="show"
+                variants={{
+                  hidden: {},
+                  show: { transition: { staggerChildren: 0.045, delayChildren: 0.08 } },
+                }}
+              >
+                <motion.div variants={{ hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0 } }} transition={{ duration: 0.24 }}>
+                  <AuthTextField
+                    label="E-mail"
+                    icon={Mail}
+                    type="email"
+                    value={loginEmail}
+                    onChange={(e) => setLoginEmail(e.target.value)}
+                    placeholder="seu@vcaconstrutora.com.br"
+                    autoComplete="email"
+                    autoFocus
+                  />
+                </motion.div>
 
-            {/* Botão Entrar */}
-            <motion.div variants={{ hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0 } }} transition={{ duration: 0.24 }}>
-            <PrimaryAuthButton
-              disabled={isGlobalLoading || !loginEmail.trim() || !loginPassword.trim()}
-              loading={isGlobalLoading}
-            >
-              Entrar
-            </PrimaryAuthButton>
-            </motion.div>
-          </motion.form>
+                <motion.div variants={{ hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0 } }} transition={{ duration: 0.24 }}>
+                  <AuthPasswordField
+                    label="Senha"
+                    icon={Lock}
+                    value={loginPassword}
+                    onChange={(e) => setLoginPassword(e.target.value)}
+                    visible={showLoginPassword}
+                    onToggleVisible={() => setShowLoginPassword(p => !p)}
+                    labelAction={(
+                      <button
+                        type="button"
+                        onClick={openForgotModal}
+                        className="text-[11px] font-medium text-blue-600 transition-colors duration-200 hover:text-blue-700"
+                      >
+                        Esqueceu a senha?
+                      </button>
+                    )}
+                  />
+                </motion.div>
 
-          {/* Botão de acesso administrativo */}
-          <SecondaryAuthButton className="mt-3 py-2.5 text-[11px]" onClick={() => setShowManagerLoginModal(true)}>
-            <BarChart4 size={13} /> Acesso de administrador
-          </SecondaryAuthButton>
+                <motion.div variants={{ hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0 } }} transition={{ duration: 0.24 }}>
+                  <KeepLoggedToggle
+                    checked={keepAnalystLoggedIn}
+                    onToggle={() => setKeepAnalystLoggedIn((prev) => !prev)}
+                    helpText="Com esta opção ligada, você continua logado mesmo fechando a aba. Desligada, será necessário fazer login novamente ao reabrir."
+                  />
+                </motion.div>
+
+                <motion.div variants={{ hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0 } }} transition={{ duration: 0.24 }}>
+                  <PrimaryAuthButton
+                    disabled={isGlobalLoading || !loginEmail.trim() || !loginPassword.trim()}
+                    loading={isGlobalLoading}
+                  >
+                    Entrar
+                  </PrimaryAuthButton>
+                </motion.div>
+              </motion.form>
+
+              {/* Botão de acesso administrativo */}
+              <SecondaryAuthButton className="mt-3 py-2.5 text-[11px]" onClick={() => setShowManagerLoginModal(true)}>
+                <BarChart4 size={13} /> Acesso de administrador
+              </SecondaryAuthButton>
+            </div>
+          </div>
 
           {/* Rodape */}
           <div className="mt-3 space-y-0.5 pb-1 md:mt-4 md:space-y-1 md:pb-2">
