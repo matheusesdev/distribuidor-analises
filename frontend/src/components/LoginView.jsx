@@ -82,18 +82,6 @@ const LoginView = ({
   }, []);
 
   useEffect(() => {
-    const previousHtmlOverflow = document.documentElement.style.overflow;
-    const previousBodyOverflow = document.body.style.overflow;
-    document.documentElement.style.overflow = 'hidden';
-    document.body.style.overflow = 'hidden';
-
-    return () => {
-      document.documentElement.style.overflow = previousHtmlOverflow;
-      document.body.style.overflow = previousBodyOverflow;
-    };
-  }, []);
-
-  useEffect(() => {
     if (!loginSuccessSplash?.visible) {
       setShowSuccessCheck(false);
       setShowSuccessMessage(false);
@@ -158,7 +146,7 @@ const LoginView = ({
   };
 
   return (
-    <div className="h-[100dvh] max-h-[100dvh] w-full flex font-sans overflow-hidden bg-slate-950">
+    <div className="min-h-[100dvh] w-full flex flex-col lg:flex-row font-sans overflow-x-hidden overflow-y-auto bg-slate-950 lg:h-[100dvh] lg:overflow-hidden">
       <StatusToast toast={toast} />
       <ConfirmActionModal confirmAction={confirmAction} onClose={closeConfirmation} />
       {isGlobalLoading && <LoadingOverlay />}
@@ -237,15 +225,15 @@ const LoginView = ({
       </motion.div>
 
       {/* ===== PAINEL DIREITO BRANCO ===== */}
-      <div className="flex-1 h-full flex flex-col items-center justify-center px-6 py-4 md:px-8 md:py-6 bg-slate-50 overflow-hidden relative">
+      <div className="flex-1 min-h-[100dvh] flex flex-col items-center justify-start px-4 py-6 sm:px-6 md:px-8 md:py-6 bg-slate-50 overflow-y-auto relative lg:h-full lg:justify-center lg:overflow-hidden">
         {/* Logo mobile */}
-        <div className="relative z-10 lg:hidden mb-5 md:mb-6 flex flex-col items-center gap-2">
+        <div className="relative z-10 lg:hidden mb-5 md:mb-6 flex flex-col items-center gap-2 pt-2">
           <img src="/vcacloud.svg" alt="VCACloud Logo" className="h-11 w-auto object-contain" />
           <img src="/cvlogo.svg" alt="CV Logo" className="h-7 w-auto object-contain max-w-42.5 brightness-0 invert" />
         </div>
 
         <motion.div
-          className="relative z-10 w-full max-w-[24rem] rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_18px_44px_-34px_rgba(15,23,42,0.55)] md:p-6"
+          className="relative z-10 w-full max-w-[24rem] rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_18px_44px_-34px_rgba(15,23,42,0.55)] sm:p-5 md:p-6"
           {...subtleEnter}
         >
           <div className="flex flex-col items-center text-center">
@@ -284,7 +272,7 @@ const LoginView = ({
           {/* ===== FORMULARIO DE LOGIN ===== */}
           <motion.form
             onSubmit={handleSubmitLogin}
-            className="mt-5 flex flex-col gap-4"
+            className="mt-4 flex flex-col gap-4 sm:mt-5"
             noValidate
             initial="hidden"
             animate="show"
@@ -351,7 +339,7 @@ const LoginView = ({
           </SecondaryAuthButton>
 
           {/* Rodape */}
-          <div className="mt-4 space-y-0.5 md:space-y-1">
+          <div className="mt-4 space-y-0.5 pb-2 md:space-y-1">
             <p className="text-center text-[10px] font-medium text-slate-500">Feito por Matheus Santos</p>
             <p className="text-center text-[10px] font-medium text-slate-500">© {new Date().getFullYear()} - Todos os direitos reservados.</p>
             <div className="pt-1.5 md:pt-2 flex justify-center">
