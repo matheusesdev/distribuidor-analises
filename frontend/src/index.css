@@ -487,63 +487,84 @@ table {
 
 :root[data-theme='dark'] {
   color-scheme: dark;
-  --app-bg: #07111f;
-  --app-bg-soft: #0b1424;
-  --app-ink: #e2e8f0;
-  --app-muted: #94a3b8;
-  --app-border: rgba(71, 85, 105, 0.7);
+  --app-bg: #0a101b;
+  --app-bg-soft: #0d1524;
+  --app-ink: #edf4ff;
+  --app-muted: #a9b6c8;
+  --app-border: rgba(99, 116, 139, 0.34);
+  --dark-surface: #111a2a;
+  --dark-surface-soft: #0f1726;
+  --dark-surface-raised: #151f31;
+  --dark-border: rgba(120, 137, 160, 0.26);
+  --dark-border-strong: rgba(148, 163, 184, 0.38);
+  --dark-accent: #5aa7f2;
+  --dark-accent-surface: rgba(37, 99, 235, 0.18);
 }
 
 :root[data-theme='dark'] body {
-  background:
-    radial-gradient(circle at 8% 0%, rgba(14, 165, 233, 0.16), transparent 30rem),
-    radial-gradient(circle at 92% 12%, rgba(20, 184, 166, 0.1), transparent 28rem),
-    linear-gradient(180deg, #07111f 0%, #081426 48%, #020617 100%);
-  color: #e2e8f0;
+  background: var(--app-bg);
+  color: var(--app-ink);
 }
 
 :root[data-theme='dark'] body::before {
-  opacity: 0.055;
-  background-image:
-    radial-gradient(circle at 1px 1px, rgba(226, 232, 240, 0.55) 1px, transparent 0),
-    linear-gradient(135deg, rgba(15, 23, 42, 0.2), transparent 40%);
+  display: none;
 }
 
 :root[data-theme='dark'] [class*='bg-white'],
 :root[data-theme='dark'] [class*='bg-slate-50'],
 :root[data-theme='dark'] [class*='bg-slate-100'],
 :root[data-theme='dark'] [class*='bg-slate-200'] {
-  background-color: rgba(15, 23, 42, 0.92) !important;
+  background-color: var(--dark-surface) !important;
 }
 
 :root[data-theme='dark'] [class*='bg-[linear-gradient'],
 :root[data-theme='dark'] [class*='bg-[radial-gradient'] {
-  background-image: linear-gradient(140deg, #0f172a 0%, #111827 52%, #020617 100%) !important;
+  background-image: none !important;
+  background-color: var(--dark-surface-raised) !important;
+}
+
+:root[data-theme='dark'] [class*='bg-[linear-gradient'][class*='#0071e3'],
+:root[data-theme='dark'] [class*='bg-[linear-gradient'][class*='#0b6fd3'],
+:root[data-theme='dark'] [class*='bg-[linear-gradient'][class*='#005bb7'],
+:root[data-theme='dark'] [class*='bg-[linear-gradient'][class*='#075aa9'] {
+  background-color: #2563eb !important;
+}
+
+:root[data-theme='dark'] [class*='bg-[linear-gradient'][class*='#f59e0b'],
+:root[data-theme='dark'] [class*='bg-[linear-gradient'][class*='#f97316'],
+:root[data-theme='dark'] [class*='bg-[linear-gradient'][class*='#fff7ed'],
+:root[data-theme='dark'] [class*='bg-[linear-gradient'][class*='#fffbeb'] {
+  background-color: rgba(120, 53, 15, 0.48) !important;
+}
+
+:root[data-theme='dark'] [class*='bg-[linear-gradient'][class*='#e11d48'],
+:root[data-theme='dark'] [class*='bg-[linear-gradient'][class*='#be123c'] {
+  background-color: #be123c !important;
 }
 
 :root[data-theme='dark'] [class*='border-slate-'],
 :root[data-theme='dark'] [class*='border-white'] {
-  border-color: rgba(71, 85, 105, 0.65) !important;
+  border-color: var(--dark-border) !important;
 }
 
 :root[data-theme='dark'] [class*='text-slate-900'],
 :root[data-theme='dark'] [class*='text-slate-800'],
 :root[data-theme='dark'] [class*='text-slate-700'] {
-  color: #f8fafc !important;
+  color: var(--app-ink) !important;
 }
 
 :root[data-theme='dark'] [class*='text-slate-600'],
 :root[data-theme='dark'] [class*='text-slate-500'] {
-  color: #cbd5e1 !important;
+  color: #c8d2df !important;
 }
 
 :root[data-theme='dark'] [class*='text-slate-400'],
 :root[data-theme='dark'] [class*='text-slate-300'] {
-  color: #94a3b8 !important;
+  color: var(--app-muted) !important;
 }
 
 :root[data-theme='dark'] [class*='text-blue-700'] {
-  color: #93c5fd !important;
+  color: #a8d4ff !important;
 }
 
 :root[data-theme='dark'] [class*='text-emerald-700'] {
@@ -572,7 +593,7 @@ table {
 }
 
 :root[data-theme='dark'] [class*='bg-blue-50'] {
-  background-color: rgba(30, 58, 138, 0.28) !important;
+  background-color: var(--dark-accent-surface) !important;
 }
 
 :root[data-theme='dark'] [class*='bg-emerald-50'] {
@@ -601,7 +622,7 @@ table {
 
 :root[data-theme='dark'] [class*='border-blue-'],
 :root[data-theme='dark'] [class*='border-sky-'] {
-  border-color: rgba(59, 130, 246, 0.45) !important;
+  border-color: rgba(96, 165, 250, 0.42) !important;
 }
 
 :root[data-theme='dark'] [class*='border-emerald-'] {
@@ -624,14 +645,14 @@ table {
 :root[data-theme='dark'] input,
 :root[data-theme='dark'] textarea,
 :root[data-theme='dark'] select {
-  background-color: #0f172a !important;
-  border-color: #334155 !important;
-  color: #e2e8f0 !important;
+  background-color: var(--dark-surface-soft) !important;
+  border-color: var(--dark-border-strong) !important;
+  color: var(--app-ink) !important;
 }
 
 :root[data-theme='dark'] input::placeholder,
 :root[data-theme='dark'] textarea::placeholder {
-  color: #94a3b8 !important;
+  color: #8391a5 !important;
 }
 
 :root[data-theme='dark'] table,
@@ -644,11 +665,45 @@ table {
 }
 
 :root[data-theme='dark'] [class*='shadow-'] {
-  --tw-shadow-color: rgba(2, 6, 23, 0.8);
+  --tw-shadow-color: rgba(0, 0, 0, 0.45);
 }
 
 :root[data-theme='dark'] .logo-shimmer::after {
   mix-blend-mode: lighten;
+}
+
+:root[data-theme='dark'] nav,
+:root[data-theme='dark'] header,
+:root[data-theme='dark'] .sticky {
+  background-color: rgba(13, 21, 36, 0.9) !important;
+  border-color: var(--dark-border) !important;
+}
+
+:root[data-theme='dark'] .backdrop-blur-xl,
+:root[data-theme='dark'] .backdrop-blur-md,
+:root[data-theme='dark'] .backdrop-blur-sm {
+  backdrop-filter: blur(18px) saturate(120%);
+}
+
+:root[data-theme='dark'] button[class*='hover:bg-slate-']:hover,
+:root[data-theme='dark'] [class*='hover:bg-slate-']:hover {
+  background-color: #182336 !important;
+}
+
+:root[data-theme='dark'] button[class*='text-white'],
+:root[data-theme='dark'] a[class*='text-white'] {
+  color: #ffffff !important;
+}
+
+:root[data-theme='dark'] [class*='disabled:bg-blue-300']:disabled,
+:root[data-theme='dark'] [class*='disabled:bg-slate-100']:disabled {
+  background-color: rgba(71, 85, 105, 0.45) !important;
+  color: rgba(203, 213, 225, 0.58) !important;
+}
+
+:root[data-theme='dark'] .custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgba(148, 163, 184, 0.38);
+  border-color: transparent;
 }
 
 @media (prefers-reduced-motion: reduce) {

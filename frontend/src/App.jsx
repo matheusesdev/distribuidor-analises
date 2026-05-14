@@ -2201,7 +2201,7 @@ const App = () => {
   // --- PAINEL GESTOR ---
   if (view === 'manager') return (
     <div
-      className={`min-h-[100dvh] text-slate-800 flex flex-col overflow-x-hidden ${isDarkMode ? 'bg-[radial-gradient(circle_at_top,#0b1220_0%,#080f1c_46%,#020617_100%)]' : 'bg-[radial-gradient(circle_at_top,#ffffff_0%,#f5f7fb_46%,#edf2f8_100%)]'}`}
+      className={`min-h-[100dvh] text-slate-800 flex flex-col overflow-x-hidden ${isDarkMode ? 'bg-[#0a101b]' : 'bg-[radial-gradient(circle_at_top,#ffffff_0%,#f5f7fb_46%,#edf2f8_100%)]'}`}
     >
       <StatusToast toast={toast} />
       <ConfirmActionModal confirmAction={confirmAction} onClose={closeConfirmation} />
@@ -2312,7 +2312,7 @@ const App = () => {
 
   // --- PAINEL DO ANALISTA ---
   return (
-    <div className={`min-h-[100dvh] font-sans text-slate-800 flex flex-col overflow-x-hidden ${isDarkMode ? 'bg-[#020617]' : 'bg-[#f8fafc]'}`}>
+    <div className={`min-h-[100dvh] font-sans text-slate-800 flex flex-col overflow-x-hidden ${isDarkMode ? 'bg-[#0a101b]' : 'bg-[#f8fafc]'}`}>
       <StatusToast toast={toast} />
       <ConfirmActionModal confirmAction={confirmAction} onClose={closeConfirmation} />
       <RevokeAccessModal revokeAction={revokeAction} onClose={closeRevokeConfirmation} />
