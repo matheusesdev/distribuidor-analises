@@ -4,6 +4,8 @@ Sistema interno da VCA para distribuição, acompanhamento e auditoria de reserv
 
 O projeto conecta o fluxo operacional dos analistas ao CVCRM, distribui pastas entre usuários elegíveis, registra histórico de atendimento e oferece um painel gerencial para acompanhar fila, produtividade, transferências e acessos.
 
+![Tela de login do VCA Distribuidor](./docs/assets/vca-distribuidor-login.jpeg)
+
 ## Sumário
 
 - [Visão geral](#visão-geral)
