@@ -14,7 +14,7 @@ export const FieldHeader = ({ className = '', children }) => (
 );
 
 export const Label = React.forwardRef(({ className = '', ...props }, ref) => (
-  <label ref={ref} className={cn('text-[11px] font-semibold tracking-[0.01em] text-slate-500', className)} {...props} />
+  <label ref={ref} className={cn('text-[11px] font-semibold tracking-[0.015em] text-slate-600', className)} {...props} />
 ));
 
 Label.displayName = 'Label';

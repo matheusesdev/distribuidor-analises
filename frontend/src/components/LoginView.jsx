@@ -146,7 +146,7 @@ const LoginView = ({
   };
 
   return (
-    <div className="min-h-[100dvh] w-full flex flex-col lg:flex-row font-sans overflow-x-hidden overflow-y-visible bg-slate-950 lg:h-[100dvh] lg:overflow-hidden">
+    <div className="min-h-[100dvh] w-full flex flex-col lg:flex-row font-sans overflow-x-hidden overflow-y-visible bg-[#101820] lg:h-[100dvh] lg:overflow-hidden">
       <StatusToast toast={toast} />
       <ConfirmActionModal confirmAction={confirmAction} onClose={closeConfirmation} />
       {isGlobalLoading && <LoadingOverlay />}
@@ -192,52 +192,72 @@ const LoginView = ({
         )}
       </AnimatePresence>
 
-      {/* ===== PAINEL ESQUERDO AZUL (desktop) ===== */}
       <motion.div
-        className="hidden lg:flex h-full flex-col justify-between w-[36%] bg-[#08111f] p-8 xl:p-10 relative overflow-hidden shrink-0"
+        className="hidden lg:flex h-full min-w-[26rem] w-[38%] flex-col justify-between bg-[#101820] p-8 xl:p-10 relative overflow-hidden shrink-0"
         initial={{ opacity: 0, x: -18 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.42, ease: [0.22, 1, 0.36, 1] }}
       >
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_16%,rgba(20,184,166,0.22)_0%,transparent_34%),radial-gradient(circle_at_88%_76%,rgba(11,111,211,0.32)_0%,transparent_38%),linear-gradient(180deg,#101820_0%,#0b1320_100%)]" />
+        <div className="pointer-events-none absolute inset-0 opacity-[0.13] [background-image:linear-gradient(rgba(255,255,255,0.14)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.12)_1px,transparent_1px)] [background-size:42px_42px]" />
         <div className="absolute inset-y-0 right-0 w-px bg-white/10" />
         <div className="relative z-10">
-          <img src="/vcacloud.svg" alt="VCACloud Logo" className="h-12 xl:h-14 w-auto object-contain" />
+          <img src="/vcacloud.svg" alt="VCACloud Logo" className="h-11 xl:h-14 w-auto object-contain" />
         </div>
-        <div className="relative z-10 space-y-5">
+        <div className="relative z-10 space-y-6">
+          <div className="inline-flex w-fit items-center gap-2 rounded-md border border-white/10 bg-white/10 px-3 py-1.5 text-[11px] font-semibold text-slate-200 shadow-[0_18px_36px_-30px_rgba(0,0,0,0.75)]">
+            <span className="h-1.5 w-1.5 rounded-full bg-teal-300" />
+            Operação de reservas
+          </div>
           <div className="relative max-w-lg">
-            <h1 className="text-3xl xl:text-[2.35rem] font-semibold text-white leading-tight tracking-tight opacity-0 select-none" aria-hidden="true">
+            <h1 className="text-4xl xl:text-[2.75rem] font-semibold text-white leading-[1.03] tracking-tight opacity-0 select-none" aria-hidden="true">
               {HERO_TEXT}
             </h1>
-            <h1 className="absolute inset-0 text-3xl xl:text-[2.35rem] font-semibold text-white leading-tight tracking-tight">
+            <h1 className="absolute inset-0 text-4xl xl:text-[2.75rem] font-semibold text-white leading-[1.03] tracking-tight">
               {typedHeroText}
               <span className={`inline-block ml-1 text-white/80 transition-opacity ${isCursorVisible ? 'opacity-100' : 'opacity-0'}`}>|</span>
             </h1>
           </div>
-          <p className="max-w-sm text-[13px] font-medium leading-relaxed text-slate-300">
+          <p className="max-w-md text-[14px] font-medium leading-7 text-slate-300">
             Acesso interno para analistas e gestores acompanharem a distribuição de reservas.
           </p>
+          <div className="grid max-w-md grid-cols-3 gap-2.5">
+            <div className="rounded-xl border border-white/10 bg-white/10 px-3 py-3 backdrop-blur-sm">
+              <p className="text-[10px] font-medium text-slate-400">Fila</p>
+              <p className="mt-2 text-xl font-semibold leading-none text-white tabular-nums">24/7</p>
+            </div>
+            <div className="rounded-xl border border-white/10 bg-white/10 px-3 py-3 backdrop-blur-sm">
+              <p className="text-[10px] font-medium text-slate-400">Roteamento</p>
+              <p className="mt-2 text-xl font-semibold leading-none text-white tabular-nums">60s</p>
+            </div>
+            <div className="rounded-xl border border-white/10 bg-white/10 px-3 py-3 backdrop-blur-sm">
+              <p className="text-[10px] font-medium text-slate-400">Gestão</p>
+              <p className="mt-2 text-xl font-semibold leading-none text-white tabular-nums">1 painel</p>
+            </div>
+          </div>
         </div>
-        <div className="relative z-10 flex flex-wrap items-center gap-x-2 gap-y-1.5">
-          <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-          <span className="text-blue-100 text-[10px] font-semibold tracking-[0.04em]">Sincronização em tempo real</span>
-          <img src="/cvlogo.svg" alt="CV Logo" className="h-6 sm:h-7 w-auto object-contain max-w-42.5 brightness-0 invert sm:ml-4" />
+        <div className="relative z-10 flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-x-2 gap-y-1.5">
+            <div className="w-2 h-2 rounded-full bg-teal-300 animate-pulse" />
+            <span className="text-slate-200 text-[11px] font-semibold tracking-[0.02em]">Sincronização em tempo real</span>
+          </div>
+          <img src="/cvlogo.svg" alt="CV Logo" className="h-6 sm:h-7 w-auto object-contain max-w-42.5 brightness-0 invert opacity-85" />
         </div>
       </motion.div>
 
-      {/* ===== PAINEL DIREITO BRANCO ===== */}
-      <div className="flex-1 min-h-[100dvh] flex flex-col items-center justify-start px-3 py-4 sm:px-6 md:px-8 md:py-6 bg-slate-50 overflow-visible relative lg:h-full lg:justify-center lg:overflow-hidden">
+      <div className="flex-1 min-h-[100dvh] flex flex-col items-center justify-start px-3 py-4 sm:px-6 md:px-8 md:py-6 bg-[#f5f7fb] overflow-visible relative lg:h-full lg:justify-center lg:overflow-hidden">
         {/* Logo mobile */}
         <div className="relative z-10 lg:hidden mb-3 sm:mb-5 md:mb-6 flex flex-col items-center gap-1.5 pt-0.5">
             <img src="/vcacloud.svg" alt="VCACloud Logo" className="h-8 sm:h-11 w-auto object-contain mt-0 lg:mt-6" />
-          <img src="/cvlogo.svg" alt="CV Logo" className="h-5.5 sm:h-7 w-auto object-contain max-w-42.5 brightness-0 invert" />
+          <img src="/cvlogo.svg" alt="CV Logo" className="h-5.5 sm:h-7 w-auto object-contain max-w-42.5 opacity-80" />
         </div>
 
         <motion.div
-          className="relative z-10 w-full max-w-[min(56rem,100%)] rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_18px_44px_-34px_rgba(15,23,42,0.55)] sm:p-8 md:p-10"
+          className="relative z-10 w-full max-w-[min(58rem,100%)] rounded-[1.25rem] border border-white/80 bg-white/95 p-5 shadow-[0_24px_70px_-46px_rgba(15,23,42,0.72)] backdrop-blur-xl sm:p-8 md:p-10"
           {...subtleEnter}
         >
           <div className="flex flex-col items-center text-center">
-            <div className="flex size-10 sm:size-12 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-slate-800">
+            <div className="flex size-10 sm:size-12 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-[linear-gradient(145deg,#ffffff_0%,#eef4fb_100%)] text-slate-800 shadow-[0_14px_28px_-24px_rgba(15,23,42,0.55)]">
               <svg viewBox="0 0 24 24" className="size-4 sm:size-5" fill="none" aria-hidden="true">
                 <path
                   d="M7.75 10V7.8C7.75 5.45 9.63 3.5 12 3.5s4.25 1.95 4.25 4.3V10"
@@ -270,10 +290,10 @@ const LoginView = ({
             )}
           </div>
 
-          <div className="mt-7 grid items-start gap-5 lg:grid-cols-[0.95fr_1.05fr] lg:gap-8">
+          <div className="mt-7 grid items-start gap-5 lg:grid-cols-[0.9fr_1.1fr] lg:gap-8">
             <div className="grid w-full max-w-md gap-3 justify-self-center lg:max-w-none lg:pt-4">
-                <div className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50/90 px-4 py-3 text-left shadow-[0_12px_28px_-24px_rgba(15,23,42,0.35)]">
-                  <div className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-blue-100 bg-blue-50 text-blue-600">
+                <div className="flex items-start gap-3 rounded-xl border border-slate-200/80 bg-[#f8fafc] px-4 py-3 text-left shadow-[0_12px_28px_-25px_rgba(15,23,42,0.42)]">
+                  <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-blue-100 bg-blue-50 text-blue-600">
                     <ShieldCheck size={16} />
                   </div>
                   <div className="min-w-0">
@@ -284,8 +304,8 @@ const LoginView = ({
                   </div>
                 </div>
 
-                <div className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50/90 px-4 py-3 text-left shadow-[0_12px_28px_-24px_rgba(15,23,42,0.35)]">
-                  <div className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-emerald-100 bg-emerald-50 text-emerald-600">
+                <div className="flex items-start gap-3 rounded-xl border border-slate-200/80 bg-[#f8fafc] px-4 py-3 text-left shadow-[0_12px_28px_-25px_rgba(15,23,42,0.42)]">
+                  <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-emerald-100 bg-emerald-50 text-emerald-600">
                     <CheckCircle2 size={16} />
                   </div>
                   <div className="min-w-0">
@@ -296,8 +316,8 @@ const LoginView = ({
                   </div>
                 </div>
 
-                <div className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50/90 px-4 py-3 text-left shadow-[0_12px_28px_-24px_rgba(15,23,42,0.35)]">
-                  <div className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-amber-100 bg-amber-50 text-amber-600">
+                <div className="flex items-start gap-3 rounded-xl border border-slate-200/80 bg-[#f8fafc] px-4 py-3 text-left shadow-[0_12px_28px_-25px_rgba(15,23,42,0.42)]">
+                  <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-amber-100 bg-amber-50 text-amber-600">
                     <BarChart4 size={16} />
                   </div>
                   <div className="min-w-0">
