@@ -146,7 +146,7 @@ const LoginView = ({
   };
 
   return (
-    <div className="min-h-[100dvh] w-full flex flex-col lg:grid lg:grid-cols-[minmax(22rem,38%)_1fr] font-sans overflow-x-hidden overflow-y-visible bg-[#101820]">
+    <div className="min-h-[100dvh] w-full flex flex-col xl:grid xl:grid-cols-[minmax(22rem,38%)_1fr] font-sans overflow-x-hidden overflow-y-visible bg-[#101820]">
       <StatusToast toast={toast} />
       <ConfirmActionModal confirmAction={confirmAction} onClose={closeConfirmation} />
       {isGlobalLoading && <LoadingOverlay />}
@@ -193,7 +193,7 @@ const LoginView = ({
       </AnimatePresence>
 
       <motion.div
-        className="hidden lg:flex min-h-[100dvh] flex-col justify-between bg-[#101820] p-6 xl:p-10 relative overflow-hidden"
+        className="hidden xl:flex min-h-[100dvh] flex-col justify-between bg-[#101820] p-6 xl:p-10 relative overflow-hidden"
         initial={{ opacity: 0, x: -18 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.42, ease: [0.22, 1, 0.36, 1] }}
@@ -245,10 +245,10 @@ const LoginView = ({
         </div>
       </motion.div>
 
-      <div className="notebook-compact-y min-h-[100dvh] flex flex-col items-center justify-start px-3 py-4 sm:px-6 md:px-8 md:py-6 bg-[#f5f7fb] overflow-visible relative lg:justify-center lg:overflow-y-auto">
+      <div className="notebook-compact-y min-h-[100dvh] flex flex-col items-center justify-start px-3 py-4 sm:px-6 md:px-8 md:py-6 bg-[#f5f7fb] overflow-visible relative xl:justify-center xl:overflow-y-auto">
         {/* Logo mobile */}
-        <div className="relative z-10 lg:hidden mb-3 sm:mb-5 md:mb-6 flex flex-col items-center gap-1.5 pt-0.5">
-            <img src="/vcacloud.svg" alt="VCACloud Logo" className="h-8 sm:h-11 w-auto object-contain mt-0 lg:mt-6" />
+        <div className="relative z-10 xl:hidden mb-3 sm:mb-5 md:mb-6 flex flex-col items-center gap-1.5 pt-0.5">
+            <img src="/vcacloud.svg" alt="VCACloud Logo" className="h-8 sm:h-11 w-auto object-contain mt-0 xl:mt-6" />
           <img src="/cvlogo.svg" alt="CV Logo" className="h-5.5 sm:h-7 w-auto object-contain max-w-42.5 opacity-80" />
         </div>
 
@@ -274,7 +274,7 @@ const LoginView = ({
                 <path d="M12 14.25v2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
               </svg>
             </div>
-            <div className="mt-2.5 min-w-0 max-w-md lg:max-w-none">
+            <div className="mt-2.5 min-w-0 max-w-md xl:max-w-none">
               <h2 className="text-[1.25rem] sm:text-2xl font-semibold text-slate-900 tracking-tight">
                 {welcomeTitle}
               </h2>
@@ -284,14 +284,14 @@ const LoginView = ({
             </div>
 
             {loginNotice && (
-              <div className="mt-3 w-full max-w-md lg:max-w-none">
+              <div className="mt-3 w-full max-w-md xl:max-w-none">
                 <SessionNotice icon={AlertTriangle}>{loginNotice}</SessionNotice>
               </div>
             )}
           </div>
 
-          <div className="mt-7 grid items-start gap-5 lg:grid-cols-[0.9fr_1.1fr] lg:gap-8">
-            <div className="grid w-full max-w-md gap-3 justify-self-center lg:max-w-none lg:pt-4">
+          <div className="mt-7 grid items-start gap-5 xl:grid-cols-[0.9fr_1.1fr] xl:gap-8">
+            <div className="grid w-full max-w-md gap-3 justify-self-center xl:max-w-none xl:pt-4">
                 <div className="flex items-start gap-3 rounded-xl border border-slate-200/80 bg-[#f8fafc] px-4 py-3 text-left shadow-[0_12px_28px_-25px_rgba(15,23,42,0.42)]">
                   <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-blue-100 bg-blue-50 text-blue-600">
                     <ShieldCheck size={16} />
