@@ -1375,7 +1375,14 @@ const App = () => {
         notify("Pasta transferida com sucesso.");
         setShowTransferModal(false);
         setTransferTask(null);
-        fetchData();
+        // Atualiza dados e aplica ajuste otimista na contagem da fila do destino
+        try {
+          await fetchData();
+          const destId = parseInt(transferToId);
+          setAnalysts((prev) => (prev || []).map((a) => (String(a?.id) === String(destId) ? { ...a, na_mesa: Number(a?.na_mesa || 0) + 1 } : a)));
+        } catch (e) {
+          // caso falhe, deixa o fetchData cuidar do estado
+        }
       } else {
         notify(await getApiErrorMessage(res, "Erro ao transferir pasta"), "error");
       }
@@ -1430,7 +1437,17 @@ const App = () => {
         notify(`${data.transferidas} pasta(s) transferida(s) com sucesso.${data.erros > 0 ? ` ${data.erros} com erro.` : ''}`);
         setShowBulkTransferModal(false);
         setSelectedTaskIds(new Set());
-        fetchData();
+        // Atualiza dados e aplica ajuste otimista na contagem da fila do destino
+        try {
+          await fetchData();
+          const destId = parseInt(bulkTransferToId);
+          const transferred = Number(data.transferidas || 0);
+          if (transferred > 0) {
+            setAnalysts((prev) => (prev || []).map((a) => (String(a?.id) === String(destId) ? { ...a, na_mesa: Number(a?.na_mesa || 0) + transferred } : a)));
+          }
+        } catch (e) {
+          // deixa fetchData cuidar do estado
+        }
       } else {
         notify(await getApiErrorMessage(res, "Erro ao transferir pastas"), "error");
       }
