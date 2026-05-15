@@ -381,8 +381,67 @@ def serialize_analyst_public(analyst: Dict[str, Any]) -> Dict[str, Any]:
         "status": analyst.get("status") or "ativo",
         "is_online": bool(analyst.get("is_online")),
         "total_hoje": int(analyst.get("total_hoje") or 0),
+        "na_mesa": int(analyst.get("na_mesa") or 0),
         "ultima_atribuicao": analyst.get("ultima_atribuicao"),
     }
+
+
+def build_queue_counts_by_analyst() -> Dict[int, int]:
+    distribuicoes = supabase.table("distribuicoes").select("analista_id").execute().data or []
+    queue_counts: Dict[int, int] = {}
+
+    for item in distribuicoes:
+        analista_id = item.get("analista_id")
+        if analista_id is None:
+            continue
+        queue_counts[int(analista_id)] = queue_counts.get(int(analista_id), 0) + 1
+
+    return queue_counts
+
+
+def enrich_mesa_with_transfer_metadata(mesa_items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    reserva_ids = [str(item.get("reserva_id")) for item in mesa_items if item.get("reserva_id") is not None]
+    if not reserva_ids:
+        return mesa_items
+
+    latest_transfer_by_reserva: Dict[str, Dict[str, Any]] = {}
+
+    try:
+        transfer_logs = (
+            supabase.table("logs_transferencias")
+            .select("id,reserva_id,analista_origem_id,analista_origem_nome,motivo,data_transferencia")
+            .in_("reserva_id", reserva_ids)
+            .order("data_transferencia", desc=True)
+            .execute()
+            .data
+            or []
+        )
+    except Exception:
+        transfer_logs = []
+
+    for log in transfer_logs:
+        reserva_id = str(log.get("reserva_id") or "")
+        if not reserva_id or reserva_id in latest_transfer_by_reserva:
+            continue
+
+        latest_transfer_by_reserva[reserva_id] = {
+            "id": log.get("id"),
+            "reserva_id": reserva_id,
+            "analista_origem_id": log.get("analista_origem_id"),
+            "analista_origem_nome": log.get("analista_origem_nome"),
+            "motivo": log.get("motivo"),
+            "data_transferencia": log.get("data_transferencia"),
+        }
+
+    mesa_enriquecida: List[Dict[str, Any]] = []
+    for item in mesa_items:
+        item_enriquecido = dict(item)
+        transferencia = latest_transfer_by_reserva.get(str(item.get("reserva_id") or ""))
+        if transferencia:
+            item_enriquecido["transferencia_manual"] = transferencia
+        mesa_enriquecida.append(item_enriquecido)
+
+    return mesa_enriquecida
 
 
 def ensure_analyst_online_on_login(analyst: Dict[str, Any]) -> Dict[str, Any]:
@@ -2241,13 +2300,14 @@ async def set_online_status(req: StatusFilaRequest, authorization: Optional[str]
 async def listar_analistas(authorization: Optional[str] = Header(default=None)):
     try:
         require_authenticated_user(authorization)
+        queue_counts = build_queue_counts_by_analyst()
         res = (
             supabase.table("analistas")
             .select("id,nome,email,permissoes,status,is_online,total_hoje,ultima_atribuicao")
             .order("nome")
             .execute()
         )
-        return [serialize_analyst_public(item) for item in (res.data or [])]
+        return [serialize_analyst_public({**item, "na_mesa": queue_counts.get(int(item.get("id") or 0), 0)}) for item in (res.data or [])]
     except HTTPException:
         raise
     except:
@@ -2258,7 +2318,7 @@ async def get_mesa(analista_id: int, authorization: Optional[str] = Header(defau
     require_analyst_auth(authorization, expected_analyst_id=analista_id)
     await reconcile_analyst_mesa_against_current_permissions(analista_id)
     res = supabase.table("distribuicoes").select("*").eq("analista_id", analista_id).execute()
-    return res.data or []
+    return enrich_mesa_with_transfer_metadata(res.data or [])
 
 @app.get("/api/metricas/{analista_id}")
 async def get_metrics(analista_id: int, authorization: Optional[str] = Header(default=None)):

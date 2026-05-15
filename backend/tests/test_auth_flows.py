@@ -123,6 +123,7 @@ def test_list_analysts_requires_auth_and_returns_sanitized_data(client, app_modu
         "status",
         "is_online",
         "total_hoje",
+        "na_mesa",
         "ultima_atribuicao",
     }
 

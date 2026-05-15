@@ -1,0 +1,24 @@
+{
+    "cookies":  [
+
+                ],
+    "origins":  [
+                    {
+                        "localStorage":  [
+                                             {
+                                                 "value":  "dark",
+                                                 "name":  "themeMode"
+                                             },
+                                             {
+                                                 "value":  "{\"username\":\"gestor\",\"expiresAt\":\"2099-01-01T00:00:00.000Z\",\"token\":\"visual-check\",\"usuario\":\"gestor\"}",
+                                                 "name":  "managerSession"
+                                             },
+                                             {
+                                                 "value":  "1",
+                                                 "name":  "managerRememberMe"
+                                             }
+                                         ],
+                        "origin":  "http://127.0.0.1:3001"
+                    }
+                ]
+}
