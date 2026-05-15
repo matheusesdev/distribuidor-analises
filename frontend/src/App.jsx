@@ -37,6 +37,7 @@ const MANAGER_REMEMBER_MARKER = 'managerRememberMe';
 const ANALYST_SESSION_KEY = 'analystSession';
 const MANAGER_SESSION_KEY = 'managerSession';
 const MESA_FREEZE_STORAGE_KEY = 'analystFrozenMesa';
+const MANUAL_TRANSFER_NOTIFICATION_STORAGE_KEY = 'manualTransferNotificationsSeen';
 const PRIVACY_POLICY_QUERY_KEY = 'privacy_policy';
 const ALL_FILTER = 'all';
 const LEGACY_MANAGER_TOKEN = 'legacy-admin-session';
@@ -171,6 +172,29 @@ const writeStoredMesaFreeze = (analystId, freezeState) => {
     taskIds: freezeState.taskIds.map((id) => String(id)),
     frozenAt: new Date().toISOString(),
   }));
+};
+
+const getManualTransferNotificationKey = (analystId) => `${MANUAL_TRANSFER_NOTIFICATION_STORAGE_KEY}:${analystId}`;
+
+const readManualTransferNotificationIds = (analystId) => {
+  if (typeof window === 'undefined' || !analystId) return new Set();
+
+  try {
+    const rawValue = window.localStorage.getItem(getManualTransferNotificationKey(analystId));
+    if (!rawValue) return new Set();
+
+    const parsed = JSON.parse(rawValue);
+    if (!Array.isArray(parsed)) return new Set();
+
+    return new Set(parsed.map((item) => String(item)).filter(Boolean));
+  } catch {
+    return new Set();
+  }
+};
+
+const writeManualTransferNotificationIds = (analystId, ids) => {
+  if (typeof window === 'undefined' || !analystId) return;
+  window.localStorage.setItem(getManualTransferNotificationKey(analystId), JSON.stringify(Array.from(ids)));
 };
 
 const getInitialView = () => {
@@ -309,6 +333,7 @@ const App = () => {
   const sessionActivityPersistRef = useRef({ manager: 0, analyst: 0 });
   const sessionExpiryGuardRef = useRef(false);
   const loginSuccessTimerRef = useRef(null);
+  const manualTransferNotificationRef = useRef({ key: null, ids: new Set() });
 
   const openPrivacyPolicy = useCallback(() => {
     setView('privacy-policy');
@@ -421,6 +446,60 @@ const App = () => {
     setToast({ show: true, message: safeMessage, type });
     setTimeout(() => setToast({ show: false, message: "", type: "success" }), 3500);
   }, []);
+
+  useEffect(() => {
+    if (view !== 'analyst' || !currentUser?.id) {
+      manualTransferNotificationRef.current = { key: null, ids: new Set() };
+      return;
+    }
+
+    const storageKey = getManualTransferNotificationKey(currentUser.id);
+    if (manualTransferNotificationRef.current.key === storageKey) return;
+
+    manualTransferNotificationRef.current = {
+      key: storageKey,
+      ids: readManualTransferNotificationIds(currentUser.id),
+    };
+  }, [currentUser?.id, view]);
+
+  useEffect(() => {
+    if (view !== 'analyst' || !currentUser?.id || !Array.isArray(myTasks) || !myTasks.length) return;
+
+    const storageKey = getManualTransferNotificationKey(currentUser.id);
+    if (manualTransferNotificationRef.current.key !== storageKey) {
+      manualTransferNotificationRef.current = {
+        key: storageKey,
+        ids: readManualTransferNotificationIds(currentUser.id),
+      };
+    }
+
+    const seenIds = manualTransferNotificationRef.current.ids;
+    const newTransfers = (myTasks || [])
+      .map((task) => ({ task, transferencia: task?.transferencia_manual, transferenciaId: task?.transferencia_manual?.id }))
+      .filter(({ transferenciaId }) => transferenciaId !== undefined && transferenciaId !== null && !seenIds.has(String(transferenciaId)));
+
+    if (!newTransfers.length) return;
+
+    const latestTransfer = newTransfers.reduce((latest, current) => {
+      if (!latest) return current;
+      const latestTime = new Date(latest.transferencia?.data_transferencia || 0).getTime();
+      const currentTime = new Date(current.transferencia?.data_transferencia || 0).getTime();
+      return currentTime >= latestTime ? current : latest;
+    }, null);
+
+    const transferCount = newTransfers.length;
+    const sourceName = latestTransfer?.transferencia?.analista_origem_nome || `Analista ${latestTransfer?.transferencia?.analista_origem_id}`;
+    const reason = latestTransfer?.transferencia?.motivo || 'não informado';
+    const reservaLabel = latestTransfer?.task?.reserva_id ? `#${getReservaDisplayId(latestTransfer.task.reserva_id)}` : 'sem identificação';
+    const prefix = transferCount === 1
+      ? 'Uma pasta foi transferida manualmente para você'
+      : `${transferCount} pastas foram transferidas manualmente para você`;
+
+    notify(`${prefix} por ${sourceName}. Última recebida: reserva ${reservaLabel}. Motivo: ${reason}.`, 'success');
+
+    newTransfers.forEach(({ transferenciaId }) => seenIds.add(String(transferenciaId)));
+    writeManualTransferNotificationIds(currentUser.id, seenIds);
+  }, [currentUser?.id, getReservaDisplayId, myTasks, notify, view]);
 
   const setSafeLoginNotice = useCallback((message) => {
     setLoginNotice(typeof message === 'string' ? normalizeUiText(message) : message);
@@ -1915,10 +1994,20 @@ const App = () => {
 
   const transferTargetOptions = useMemo(() => {
     if (!currentUser) return [];
-    return (analysts || []).filter(a => {
-      if (a.id === currentUser.id) return false;
-      return a.status === 'ativo';
-    });
+    return (analysts || [])
+      .filter((a) => {
+        if (a.id === currentUser.id) return false;
+        return a.status === 'ativo';
+      })
+      .sort((a, b) => {
+        const queueDiff = Number(a?.na_mesa || 0) - Number(b?.na_mesa || 0);
+        if (queueDiff !== 0) return queueDiff;
+
+        const onlineDiff = Number(Boolean(b?.is_online)) - Number(Boolean(a?.is_online));
+        if (onlineDiff !== 0) return onlineDiff;
+
+        return String(a?.nome || '').localeCompare(String(b?.nome || ''));
+      });
   }, [analysts, currentUser]);
 
   const selectedTransferTarget = useMemo(() => {
@@ -2366,6 +2455,7 @@ const App = () => {
               <div className="bg-slate-50/80 border border-slate-200 rounded-2xl p-2.5 max-h-[min(14rem,34dvh)] overflow-y-auto custom-scrollbar space-y-2">
                 {filteredTransferTargetOptions.length > 0 ? filteredTransferTargetOptions.map(a => {
                   const isSelected = String(transferToId) === String(a.id);
+                  const queueCount = Number(a.na_mesa || 0);
                   return (
                     <button
                       key={a.id}
@@ -2377,7 +2467,12 @@ const App = () => {
                         {a.nome?.charAt(0) || 'A'}
                       </div>
                       <span className="text-[12px] font-semibold tracking-[0.01em] truncate flex-1">{a.nome}</span>
-                      {a.is_online && <span className={`text-[10px] font-semibold shrink-0 ${isSelected ? 'text-emerald-100' : 'text-emerald-600'}`}>Fila ativa</span>}
+                      <div className="flex flex-col items-end gap-1 shrink-0">
+                        <span className={`text-[10px] font-semibold ${isSelected ? 'text-white/90' : 'text-slate-500'}`}>
+                          {queueCount} pasta{queueCount !== 1 ? 's' : ''} na fila
+                        </span>
+                        {a.is_online && <span className={`text-[10px] font-semibold ${isSelected ? 'text-emerald-100' : 'text-emerald-600'}`}>Fila ativa</span>}
+                      </div>
                     </button>
                   );
                 }) : (
@@ -2389,7 +2484,12 @@ const App = () => {
 
               <div className="bg-slate-50 border border-slate-200 rounded-2xl px-3 py-2.5 text-[11px] font-medium text-slate-600">
                 {selectedTransferTarget ? (
-                  <span>Destino selecionado: <span className="text-[#0071e3] font-semibold">{selectedTransferTarget.nome}</span></span>
+                  <span>
+                    Destino selecionado: <span className="text-[#0071e3] font-semibold">{selectedTransferTarget.nome}</span>
+                    <span className="ml-2 inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-[#0071e3] border border-blue-100">
+                      {Number(selectedTransferTarget.na_mesa || 0)} pasta{Number(selectedTransferTarget.na_mesa || 0) !== 1 ? 's' : ''} na fila
+                    </span>
+                  </span>
                 ) : (
                   <span>Nenhum destino selecionado</span>
                 )}
@@ -2450,7 +2550,12 @@ const App = () => {
               <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px] font-medium text-slate-700">
                 <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-2.5 py-1">{selectedTaskIds.size} itens</span>
                 {selectedBulkTransferTarget && (
-                  <span className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-[#0071e3]">Destino: {selectedBulkTransferTarget.nome}</span>
+                  <span className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-[#0071e3]">
+                    <span>Destino: {selectedBulkTransferTarget.nome}</span>
+                    <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold border border-blue-100">
+                      {Number(selectedBulkTransferTarget.na_mesa || 0)} pasta{Number(selectedBulkTransferTarget.na_mesa || 0) !== 1 ? 's' : ''} na fila
+                    </span>
+                  </span>
                 )}
               </div>
             </div>
@@ -2473,6 +2578,7 @@ const App = () => {
               <div className="bg-slate-50/80 border border-slate-200 rounded-2xl p-2.5 max-h-[min(14rem,34dvh)] overflow-y-auto custom-scrollbar space-y-2">
                 {filteredBulkTransferTargetOptions.length > 0 ? filteredBulkTransferTargetOptions.map(a => {
                   const isSelected = String(bulkTransferToId) === String(a.id);
+                  const queueCount = Number(a.na_mesa || 0);
                   return (
                     <button
                       key={a.id}
@@ -2484,7 +2590,12 @@ const App = () => {
                         {a.nome?.charAt(0) || 'A'}
                       </div>
                       <span className="text-[12px] font-semibold tracking-[0.01em] truncate flex-1">{a.nome}</span>
-                      {a.is_online && <span className={`text-[10px] font-semibold shrink-0 ${isSelected ? 'text-emerald-100' : 'text-emerald-600'}`}>Fila ativa</span>}
+                      <div className="flex flex-col items-end gap-1 shrink-0">
+                        <span className={`text-[10px] font-semibold ${isSelected ? 'text-white/90' : 'text-slate-500'}`}>
+                          {queueCount} pasta{queueCount !== 1 ? 's' : ''} na fila
+                        </span>
+                        {a.is_online && <span className={`text-[10px] font-semibold ${isSelected ? 'text-emerald-100' : 'text-emerald-600'}`}>Fila ativa</span>}
+                      </div>
                     </button>
                   );
                 }) : (
