@@ -39,6 +39,7 @@ const getAnalystAuthHeaders = () => {
 const request = (path, { method = "GET", body, headers } = {}) => {
   const config = {
     method,
+    credentials: "include",
     headers: {
       ...(body ? { "Content-Type": "application/json" } : {}),
       ...(headers || {}),
@@ -219,4 +220,7 @@ export const api = {
     }),
 
   deleteAnalyst: (id) => request(`/api/gestor/analistas/${id}`, { method: "DELETE", headers: getManagerAuthHeaders() }),
+
+  logout: () => request("/api/logout", { method: "POST" }),
+  managerLogout: () => request("/api/gestor/logout", { method: "POST" }),
 };
