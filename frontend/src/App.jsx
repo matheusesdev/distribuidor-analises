@@ -1,15 +1,19 @@
-﻿import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { 
-  Clock, CheckCircle2, History, Building2, 
-  Hash, LayoutDashboard, AlertTriangle, XCircle, X, BarChart4, 
-  TrendingUp, Calendar, LogOut, Lock, Eye, EyeOff,
-  UserPlus, Trash2, Power, Settings, CheckSquare, Square, 
-  Edit3, UserCheck, Users, ShieldCheck, Save,
-  Layout, ChevronDown, Search, User as UserIcon,
-  Tag, BarChart3, PieChart, RotateCcw, ArrowRightLeft, LineChart, MessageSquare,
-  Moon, Sun
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import {
+  Clock, AlertTriangle, X, LayoutDashboard,
+  TrendingUp, LogOut, Power, Settings,
+  Edit3, Users, BarChart3, RotateCcw, ArrowRightLeft, LineChart, MessageSquare,
+  Moon, Sun, UserPlus
 } from 'lucide-react';
 import { api } from './services/api';
+import { normalizeUiText } from './utils/textEncoding';
+import { markSuccessfulLoginToday, getStoredMesaFreeze, writeStoredMesaFreeze, getManualTransferNotificationKey, readManualTransferNotificationIds, writeManualTransferNotificationIds } from './utils/storage';
+import { getLocalDateKey, createTransferOptions, getMonthKey, getLogDateRef, formatIdleCountdown } from './utils/format';
+import { EMPTY_ANALYTICS, AUTO_REFRESH_SECONDS, ALL_FILTER, LEGACY_MANAGER_TOKEN, ANALYST_SESSION_KEY, PRIVACY_POLICY_QUERY_KEY } from './constants';
+import { useToast } from './hooks/useToast';
+import { useTheme } from './hooks/useTheme';
+import { useSession } from './hooks/useSession';
+import { useAutoRefresh } from './hooks/useAutoRefresh';
 import { ConfirmActionModal, LoadingOverlay, RevokeAccessModal, StatusToast } from './components/FeedbackOverlays';
 import LoginView from './components/LoginView';
 import PrivacyPolicyView from './components/PrivacyPolicyView';
@@ -25,177 +29,8 @@ import ManagerQueueTab from './components/manager/ManagerQueueTab';
 import ManagerAdminsTab from './components/manager/ManagerAdminsTab';
 import ManagerSuggestionsTab from './components/manager/ManagerSuggestionsTab';
 import EditAnalystModal from './components/manager/EditAnalystModal';
-import { normalizeUiText } from './utils/textEncoding';
-
-const AUTO_REFRESH_SECONDS = 60;
-const LOGIN_SUCCESS_SPLASH_MS = 1600;
-const DAILY_ANALYST_LOGOUT_MARKER = 'analystDailyLogoutDate';
-const LAST_LOGIN_DATE_KEY = 'lastSuccessfulLoginDate';
-const RETURNED_AFTER_LOGOUT_KEY = 'returnedAfterLogout';
-const ANALYST_REMEMBER_MARKER = 'analystRememberMe';
-const MANAGER_REMEMBER_MARKER = 'managerRememberMe';
-const ANALYST_SESSION_KEY = 'analystSession';
-const MANAGER_SESSION_KEY = 'managerSession';
-const MESA_FREEZE_STORAGE_KEY = 'analystFrozenMesa';
-const MANUAL_TRANSFER_NOTIFICATION_STORAGE_KEY = 'manualTransferNotificationsSeen';
-const PRIVACY_POLICY_QUERY_KEY = 'privacy_policy';
-const ALL_FILTER = 'all';
-const LEGACY_MANAGER_TOKEN = 'legacy-admin-session';
-const EMPTY_ANALYTICS = {
-  resumo: { total: 0, hoje: 0, mes: 0, ano: 0, media_por_dia: 0, dias_com_producao: 0 },
-  series: { por_dia: [], por_mes: [] },
-  rankings: { por_resultado: [], por_situacao: [], por_empreendimento: [] },
-  schema: { historico_tem_analista_nome: false, historico_tem_situacao: false },
-  registros: [],
-  total_registros: 0,
-  gerado_em: null,
-};
-
-const getLogDateRef = (log) => log?.data_transferencia || log?.created_at;
-
-const getMonthKey = (dateValue) => {
-  const d = new Date(dateValue);
-  if (Number.isNaN(d.getTime())) return null;
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-};
-
-const getAnalystDisplayName = (id, name) => name || `Analista ${id}`;
-
-const createTransferOptions = (logs, idField, nameField) => {
-  const map = new Map();
-  (logs || []).forEach((log) => {
-    const id = log?.[idField];
-    if (!id) return;
-    const key = String(id);
-    if (!map.has(key)) {
-      map.set(key, {
-        value: key,
-        label: getAnalystDisplayName(id, log?.[nameField])
-      });
-    }
-  });
-  return Array.from(map.values()).sort((a, b) => a.label.localeCompare(b.label));
-};
-
-const formatIdleCountdown = (secondsLeft) => {
-  const safeSeconds = Math.max(0, Number(secondsLeft) || 0);
-  const minutes = Math.floor(safeSeconds / 60);
-  const seconds = safeSeconds % 60;
-  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-};
-
-const getLocalDateKey = (date = new Date()) => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
-
-const markSuccessfulLoginToday = () => {
-  if (typeof window === 'undefined') return;
-  window.localStorage.setItem(LAST_LOGIN_DATE_KEY, getLocalDateKey());
-  window.localStorage.removeItem(RETURNED_AFTER_LOGOUT_KEY);
-};
-
-const parseStoredSession = (rawSession) => {
-  if (!rawSession) return null;
-  try {
-    return JSON.parse(rawSession);
-  } catch {
-    return null;
-  }
-};
-
-const readSessionFromStorage = (key) => {
-  if (typeof window === 'undefined') return { session: null, source: null };
-
-  const fromSessionStorage = parseStoredSession(window.sessionStorage.getItem(key));
-  if (fromSessionStorage) {
-    return { session: fromSessionStorage, source: 'sessionStorage' };
-  }
-
-  const fromLocalStorage = parseStoredSession(window.localStorage.getItem(key));
-  if (fromLocalStorage) {
-    return { session: fromLocalStorage, source: 'localStorage' };
-  }
-
-  return { session: null, source: null };
-};
-
-const clearSessionFromStorage = (key) => {
-  if (typeof window === 'undefined') return;
-  window.sessionStorage.removeItem(key);
-  window.localStorage.removeItem(key);
-};
-
-const writeSessionToStorage = (key, session, persistInLocalStorage = false) => {
-  if (typeof window === 'undefined') return;
-  const payload = JSON.stringify(session);
-
-  if (persistInLocalStorage) {
-    window.localStorage.setItem(key, payload);
-    window.sessionStorage.removeItem(key);
-    return;
-  }
-
-  window.sessionStorage.setItem(key, payload);
-  window.localStorage.removeItem(key);
-};
-
-const getStoredMesaFreeze = (analystId) => {
-  if (typeof window === 'undefined' || !analystId) return { active: false, taskIds: [] };
-
-  try {
-    const stored = JSON.parse(window.localStorage.getItem(`${MESA_FREEZE_STORAGE_KEY}:${analystId}`) || 'null');
-    if (!stored?.active || !Array.isArray(stored.taskIds)) return { active: false, taskIds: [] };
-
-    return {
-      active: true,
-      taskIds: stored.taskIds.map((id) => String(id)).filter(Boolean),
-    };
-  } catch {
-    return { active: false, taskIds: [] };
-  }
-};
-
-const writeStoredMesaFreeze = (analystId, freezeState) => {
-  if (typeof window === 'undefined' || !analystId) return;
-  const key = `${MESA_FREEZE_STORAGE_KEY}:${analystId}`;
-
-  if (!freezeState?.active || !freezeState.taskIds?.length) {
-    window.localStorage.removeItem(key);
-    return;
-  }
-
-  window.localStorage.setItem(key, JSON.stringify({
-    active: true,
-    taskIds: freezeState.taskIds.map((id) => String(id)),
-    frozenAt: new Date().toISOString(),
-  }));
-};
-
-const getManualTransferNotificationKey = (analystId) => `${MANUAL_TRANSFER_NOTIFICATION_STORAGE_KEY}:${analystId}`;
-
-const readManualTransferNotificationIds = (analystId) => {
-  if (typeof window === 'undefined' || !analystId) return new Set();
-
-  try {
-    const rawValue = window.localStorage.getItem(getManualTransferNotificationKey(analystId));
-    if (!rawValue) return new Set();
-
-    const parsed = JSON.parse(rawValue);
-    if (!Array.isArray(parsed)) return new Set();
-
-    return new Set(parsed.map((item) => String(item)).filter(Boolean));
-  } catch {
-    return new Set();
-  }
-};
-
-const writeManualTransferNotificationIds = (analystId, ids) => {
-  if (typeof window === 'undefined' || !analystId) return;
-  window.localStorage.setItem(getManualTransferNotificationKey(analystId), JSON.stringify(Array.from(ids)));
-};
+import TransferModal from './components/TransferModal';
+import BulkTransferModal from './components/BulkTransferModal';
 
 const getInitialView = () => {
   if (typeof window === 'undefined') return 'login';
@@ -204,27 +39,20 @@ const getInitialView = () => {
 };
 
 const App = () => {
-  // --- ESTADOS DE NAVEGAÇÃO ---
-  const [view, setView] = useState(getInitialView); 
-  const [currentUser, setCurrentUser] = useState(() => {
-    const { session } = readSessionFromStorage(ANALYST_SESSION_KEY);
-    return session;
-  });
-  const [analystTab, setAnalystTab] = useState('mesa'); 
+  const [view, setView] = useState(getInitialView);
+  const [analystTab, setAnalystTab] = useState('mesa');
   const [managerTab, setManagerTab] = useState('dashboard');
   const [managerTabDirection, setManagerTabDirection] = useState('forward');
   const [transferMonthFilter, setTransferMonthFilter] = useState(ALL_FILTER);
   const [transferOriginFilter, setTransferOriginFilter] = useState(ALL_FILTER);
   const [transferDestinationFilter, setTransferDestinationFilter] = useState(ALL_FILTER);
 
-  // Detecta token de reset de senha na URL (?reset_token=...)
   const [resetToken, setResetToken] = useState(() => {
     if (typeof window === 'undefined') return null;
     const params = new URLSearchParams(window.location.search);
     return params.get('reset_token') || null;
   });
 
-  // --- ESTADOS DE DADOS ---
   const [analysts, setAnalysts] = useState([]);
   const [myTasks, setMyTasks] = useState([]);
   const [metrics, setMetrics] = useState({ hoje: 0, ano: 0 });
@@ -232,8 +60,8 @@ const App = () => {
   const [suggestions, setSuggestions] = useState([]);
   const [managerSuggestions, setManagerSuggestions] = useState([]);
   const [hasLoadedMesa, setHasLoadedMesa] = useState(false);
-  const [dashData, setDashData] = useState({ 
-    equipe: [], 
+  const [dashData, setDashData] = useState({
+    equipe: [],
     resumo_equipe: [],
     distribuicao_atual: [],
     historico_recente: [],
@@ -249,91 +77,64 @@ const App = () => {
     timestamp: null,
   });
 
-  // --- ESTADOS DE UI E INTERATIVIDADE ---
   const [isGlobalLoading, setIsGlobalLoading] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [refreshCountdown, setRefreshCountdown] = useState(AUTO_REFRESH_SECONDS);
-  const [nextRefreshAt, setNextRefreshAt] = useState(Date.now() + (AUTO_REFRESH_SECONDS * 1000));
-  const [toast, setToast] = useState({ show: false, message: "", type: "success" });
-  const [loginNotice, setLoginNotice] = useState(null);
-  const [hasReturnedAfterLogout, setHasReturnedAfterLogout] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    return window.localStorage.getItem(RETURNED_AFTER_LOGOUT_KEY) === '1';
-  });
   const [apiError, setApiError] = useState(null);
-  const [isDarkMode, setIsDarkMode] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    return window.localStorage.getItem('themeMode') === 'dark';
-  });
 
-  // --- ESTADOS DE FILTROS ---
-  const [taskSearch, setTaskSearch] = useState("");
-  const [filterSit, setFilterSit] = useState("all");
-  const [mesaFreeze, setMesaFreeze] = useState(() => getStoredMesaFreeze(currentUser?.id));
+  const [taskSearch, setTaskSearch] = useState('');
+  const [filterSit, setFilterSit] = useState('all');
+  const [mesaFreeze, setMesaFreeze] = useState({ active: false, taskIds: [] });
 
-  // --- ESTADOS DE MODAIS ---
   const [showEditModal, setShowEditModal] = useState(false);
-  const [editForm, setEditForm] = useState({ id: null, nome: "", email: "", senha: "", permissoes: [], status: "ativo" });
-  const [showManagerLoginModal, setShowManagerLoginModal] = useState(false);
-  const [managerIdentifier, setManagerIdentifier] = useState(() => {
-    const { session } = readSessionFromStorage(MANAGER_SESSION_KEY);
-    return session?.email || session?.usuario || '';
-  });
-  const [managerPassword, setManagerPassword] = useState("");
-  const [showManagerPassword, setShowManagerPassword] = useState(false);
-  const [managerSession, setManagerSession] = useState(() => {
-    const { session } = readSessionFromStorage(MANAGER_SESSION_KEY);
-    return session;
-  });
-  const [keepManagerLoggedIn, setKeepManagerLoggedIn] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    const { source } = readSessionFromStorage(MANAGER_SESSION_KEY);
-    if (source === 'localStorage') return true;
-    return window.localStorage.getItem(MANAGER_REMEMBER_MARKER) === '1';
-  });
-  const [keepAnalystLoggedIn, setKeepAnalystLoggedIn] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    const { source } = readSessionFromStorage(ANALYST_SESSION_KEY);
-    if (source === 'localStorage') return true;
-    return window.localStorage.getItem(ANALYST_REMEMBER_MARKER) === '1';
-  });
+  const [editForm, setEditForm] = useState({ id: null, nome: '', email: '', senha: '', permissoes: [], status: 'ativo' });
   const [adminUsers, setAdminUsers] = useState([]);
-  const [adminForm, setAdminForm] = useState({
-    email: '',
-    username: '',
-    senha: '',
-    ativo: true,
-  });
-  const [confirmAction, setConfirmAction] = useState({ open: false, title: "", message: "", confirmLabel: "Confirmar", tone: "warning" });
+  const [adminForm, setAdminForm] = useState({ email: '', username: '', senha: '', ativo: true });
+  const [confirmAction, setConfirmAction] = useState({ open: false, title: '', message: '', confirmLabel: 'Confirmar', tone: 'warning' });
   const [revokeAction, setRevokeAction] = useState({
-    open: false,
-    role: 'admin',
-    targetName: '',
-    targetId: null,
-    step: 1,
-    acknowledged: false,
-    confirmPhrase: '',
-    reason: '',
+    open: false, role: 'admin', targetName: '', targetId: null,
+    step: 1, acknowledged: false, confirmPhrase: '', reason: '',
   });
   const [togglingQueueIds, setTogglingQueueIds] = useState([]);
   const [showTransferModal, setShowTransferModal] = useState(false);
   const [transferTask, setTransferTask] = useState(null);
-  const [transferToId, setTransferToId] = useState("");
-  const [transferTargetSearch, setTransferTargetSearch] = useState("");
-  const [transferReason, setTransferReason] = useState("");
+  const [transferToId, setTransferToId] = useState('');
+  const [transferTargetSearch, setTransferTargetSearch] = useState('');
+  const [transferReason, setTransferReason] = useState('');
   const [selectedTaskIds, setSelectedTaskIds] = useState(new Set());
   const [showBulkTransferModal, setShowBulkTransferModal] = useState(false);
-  const [bulkTransferToId, setBulkTransferToId] = useState("");
-  const [bulkTransferTargetSearch, setBulkTransferTargetSearch] = useState("");
-  const [bulkTransferReason, setBulkTransferReason] = useState("");
-  const [idlePrompt, setIdlePrompt] = useState({ visible: false, role: null, secondsLeft: 0 });
-  const [mobileIdleWarningDismissUntil, setMobileIdleWarningDismissUntil] = useState(0);
-  const [loginSuccessSplash, setLoginSuccessSplash] = useState({ visible: false, role: null });
+  const [bulkTransferToId, setBulkTransferToId] = useState('');
+  const [bulkTransferTargetSearch, setBulkTransferTargetSearch] = useState('');
+  const [bulkTransferReason, setBulkTransferReason] = useState('');
+
   const confirmResolverRef = useRef(null);
-  const sessionActivityPersistRef = useRef({ manager: 0, analyst: 0 });
-  const sessionExpiryGuardRef = useRef(false);
-  const loginSuccessTimerRef = useRef(null);
   const manualTransferNotificationRef = useRef({ key: null, ids: new Set() });
+
+  const { toast, notify } = useToast();
+  const { isDarkMode, toggleThemeMode } = useTheme({ view, resetToken });
+
+  const session = useSession({ notify, view, setView, setAnalystTab, setManagerTab });
+  const {
+    currentUser, setCurrentUser,
+    managerSession, setManagerSession,
+    keepAnalystLoggedIn, setKeepAnalystLoggedIn,
+    keepManagerLoggedIn, setKeepManagerLoggedIn,
+    hasReturnedAfterLogout,
+    loginNotice,
+    loginSuccessSplash,
+    idlePrompt, setIdlePrompt,
+    mobileIdleWarningDismissUntil, setMobileIdleWarningDismissUntil,
+    managerIdentifier, setManagerIdentifier,
+    managerPassword, setManagerPassword,
+    showManagerPassword, setShowManagerPassword,
+    showManagerLoginModal, setShowManagerLoginModal,
+    persistAnalystSession, clearAnalystSession,
+    persistManagerSession, clearManagerSession,
+    touchAnalystActivity, touchManagerActivity,
+    setSafeLoginNotice, markReturnedAfterLogout,
+    runLoginSuccessSplash,
+    handleAnalystUnauthorized, handleManagerUnauthorized,
+    normalizeUiData,
+  } = session;
 
   const openPrivacyPolicy = useCallback(() => {
     setView('privacy-policy');
@@ -352,23 +153,23 @@ const App = () => {
   }, []);
 
   const CRM_BASE_BY_SOURCE = {
-    cvcrm: "https://vca.cvcrm.com.br/gestor/comercial/reservas",
-    lotear: "https://vcalotear.cvcrm.com.br/gestor/comercial/reservas",
+    cvcrm: 'https://vca.cvcrm.com.br/gestor/comercial/reservas',
+    lotear: 'https://vcalotear.cvcrm.com.br/gestor/comercial/reservas',
   };
 
   const SITUACOES_MAP = {
-    62: normalizeUiText("ANÁLISE VENDA LOTEAMENTO"),
-    63: normalizeUiText("APROVAÇÃO FINANCEIRA"),
-    66: normalizeUiText("ANÁLISE VENDA PARCELAMENTO INCORPORADORA"),
-    30: normalizeUiText("ANÁLISE VENDA CAIXA"),
-    16: normalizeUiText("CONFECÇÃO DE CONTRATO"),
-    15: normalizeUiText("APROVAÇÃO FINANCEIRA (LOTEAR)"),
-    31: normalizeUiText("ASSINADO"),
-    84: normalizeUiText("APROVAÇÃO EXPANSÃO"),
-    1012: normalizeUiText("ANÁLISE VENDA LOTEAMENTO (LOTEAR)"),
-    1023: normalizeUiText("APROVAÇÃO EXPANSÃO (LOTEAR)"),
-    1016: normalizeUiText("CONFECÇÃO DE CONTRATO (LOTEAR)"),
-    1021: normalizeUiText("ASSINADO (LOTEAR)"),
+    62: normalizeUiText('ANÁLISE VENDA LOTEAMENTO'),
+    63: normalizeUiText('APROVAÇÃO FINANCEIRA'),
+    66: normalizeUiText('ANÁLISE VENDA PARCELAMENTO INCORPORADORA'),
+    30: normalizeUiText('ANÁLISE VENDA CAIXA'),
+    16: normalizeUiText('CONFECÇÃO DE CONTRATO'),
+    15: normalizeUiText('APROVAÇÃO FINANCEIRA (LOTEAR)'),
+    31: normalizeUiText('ASSINADO'),
+    84: normalizeUiText('APROVAÇÃO EXPANSÃO'),
+    1012: normalizeUiText('ANÁLISE VENDA LOTEAMENTO (LOTEAR)'),
+    1023: normalizeUiText('APROVAÇÃO EXPANSÃO (LOTEAR)'),
+    1016: normalizeUiText('CONFECÇÃO DE CONTRATO (LOTEAR)'),
+    1021: normalizeUiText('ASSINADO (LOTEAR)'),
   };
 
   const SIT_COLORS = useMemo(() => {
@@ -388,7 +189,6 @@ const App = () => {
         1021: { text: '#e0a986', bg: 'rgba(234, 88, 12, 0.11)', border: 'rgba(251, 146, 60, 0.17)' },
       };
     }
-
     return {
       62: { text: '#355e3b', bg: '#e8f3eb' },
       63: { text: '#5c611f', bg: '#f4f1a6' },
@@ -421,355 +221,6 @@ const App = () => {
     return parseReservaRef(reservaId).externalId || String(reservaId || '');
   }, [parseReservaRef]);
 
-  useEffect(() => {
-    const handleClickOutside = () => {};
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  useEffect(() => {
-    if (typeof document === 'undefined' || typeof window === 'undefined') return;
-
-    const isAuthScreen = view === 'login' || Boolean(resetToken);
-    const activeTheme = isAuthScreen ? 'light' : (isDarkMode ? 'dark' : 'light');
-
-    document.documentElement.setAttribute('data-theme', activeTheme);
-    window.localStorage.setItem('themeMode', isDarkMode ? 'dark' : 'light');
-  }, [isDarkMode, view, resetToken]);
-
-  const toggleThemeMode = useCallback(() => {
-    setIsDarkMode((prev) => !prev);
-  }, []);
-
-  const notify = useCallback((message, type = "success") => {
-    const safeMessage = normalizeUiText(message);
-    setToast({ show: true, message: safeMessage, type });
-    setTimeout(() => setToast({ show: false, message: "", type: "success" }), 3500);
-  }, []);
-
-  useEffect(() => {
-    if (view !== 'analyst' || !currentUser?.id) {
-      manualTransferNotificationRef.current = { key: null, ids: new Set() };
-      return;
-    }
-
-    const storageKey = getManualTransferNotificationKey(currentUser.id);
-    if (manualTransferNotificationRef.current.key === storageKey) return;
-
-    manualTransferNotificationRef.current = {
-      key: storageKey,
-      ids: readManualTransferNotificationIds(currentUser.id),
-    };
-  }, [currentUser?.id, view]);
-
-  useEffect(() => {
-    if (view !== 'analyst' || !currentUser?.id || !Array.isArray(myTasks) || !myTasks.length) return;
-
-    const storageKey = getManualTransferNotificationKey(currentUser.id);
-    if (manualTransferNotificationRef.current.key !== storageKey) {
-      manualTransferNotificationRef.current = {
-        key: storageKey,
-        ids: readManualTransferNotificationIds(currentUser.id),
-      };
-    }
-
-    const seenIds = manualTransferNotificationRef.current.ids;
-    const newTransfers = (myTasks || [])
-      .map((task) => ({ task, transferencia: task?.transferencia_manual, transferenciaId: task?.transferencia_manual?.id }))
-      .filter(({ transferenciaId }) => transferenciaId !== undefined && transferenciaId !== null && !seenIds.has(String(transferenciaId)));
-
-    if (!newTransfers.length) return;
-
-    const latestTransfer = newTransfers.reduce((latest, current) => {
-      if (!latest) return current;
-      const latestTime = new Date(latest.transferencia?.data_transferencia || 0).getTime();
-      const currentTime = new Date(current.transferencia?.data_transferencia || 0).getTime();
-      return currentTime >= latestTime ? current : latest;
-    }, null);
-
-    const transferCount = newTransfers.length;
-    const sourceName = latestTransfer?.transferencia?.analista_origem_nome || `Analista ${latestTransfer?.transferencia?.analista_origem_id}`;
-    const reason = latestTransfer?.transferencia?.motivo || 'não informado';
-    const reservaLabel = latestTransfer?.task?.reserva_id ? `#${getReservaDisplayId(latestTransfer.task.reserva_id)}` : 'sem identificação';
-    const prefix = transferCount === 1
-      ? 'Uma pasta foi transferida manualmente para você'
-      : `${transferCount} pastas foram transferidas manualmente para você`;
-
-    notify(`${prefix} por ${sourceName}. Última recebida: reserva ${reservaLabel}. Motivo: ${reason}.`, 'success');
-
-    newTransfers.forEach(({ transferenciaId }) => seenIds.add(String(transferenciaId)));
-    writeManualTransferNotificationIds(currentUser.id, seenIds);
-  }, [currentUser?.id, getReservaDisplayId, myTasks, notify, view]);
-
-  const setSafeLoginNotice = useCallback((message) => {
-    setLoginNotice(typeof message === 'string' ? normalizeUiText(message) : message);
-  }, []);
-
-  const markReturnedAfterLogout = useCallback(() => {
-    setHasReturnedAfterLogout(true);
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem(RETURNED_AFTER_LOGOUT_KEY, '1');
-    }
-  }, []);
-
-  const normalizeUiData = useCallback((value) => {
-    if (typeof value === 'string') {
-      return normalizeUiText(value);
-    }
-
-    if (Array.isArray(value)) {
-      return value.map((item) => normalizeUiData(item));
-    }
-
-    if (value && typeof value === 'object') {
-      return Object.fromEntries(
-        Object.entries(value).map(([key, item]) => [normalizeUiText(key), normalizeUiData(item)]),
-      );
-    }
-
-    return value;
-  }, []);
-
-  const runLoginSuccessSplash = useCallback((role, onComplete) => {
-    if (loginSuccessTimerRef.current) {
-      window.clearTimeout(loginSuccessTimerRef.current);
-      loginSuccessTimerRef.current = null;
-    }
-
-    setLoginSuccessSplash({ visible: true, role });
-    loginSuccessTimerRef.current = window.setTimeout(() => {
-      setLoginSuccessSplash({ visible: false, role: null });
-      loginSuccessTimerRef.current = null;
-      if (typeof onComplete === 'function') {
-        onComplete();
-      }
-    }, LOGIN_SUCCESS_SPLASH_MS);
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      if (loginSuccessTimerRef.current) {
-        window.clearTimeout(loginSuccessTimerRef.current);
-      }
-    };
-  }, []);
-
-  const persistAnalystSession = useCallback((session, options = {}) => {
-    const keepLoggedIn = options.keepLoggedIn ?? keepAnalystLoggedIn;
-    const normalizedSession = session
-      ? {
-          ...session,
-          lastActivityAt: session.lastActivityAt || Date.now(),
-        }
-      : null;
-
-    setCurrentUser(normalizedSession);
-    if (typeof window === 'undefined') return;
-
-    if (normalizedSession) {
-      writeSessionToStorage(ANALYST_SESSION_KEY, normalizedSession, keepLoggedIn);
-      window.localStorage.setItem(ANALYST_REMEMBER_MARKER, keepLoggedIn ? '1' : '0');
-      return;
-    }
-
-    clearSessionFromStorage(ANALYST_SESSION_KEY);
-    window.localStorage.removeItem(ANALYST_REMEMBER_MARKER);
-  }, [keepAnalystLoggedIn]);
-
-  const clearAnalystSession = useCallback(() => {
-    persistAnalystSession(null);
-    setAnalystTab('mesa');
-  }, [persistAnalystSession]);
-
-  const persistManagerSession = useCallback((session, options = {}) => {
-    const keepLoggedIn = options.keepLoggedIn ?? keepManagerLoggedIn;
-    const normalizedSession = session
-      ? {
-          ...session,
-          lastActivityAt: session.lastActivityAt || Date.now(),
-        }
-      : null;
-
-    setManagerSession(normalizedSession);
-    if (typeof window === 'undefined') return;
-
-    if (normalizedSession) {
-      writeSessionToStorage(MANAGER_SESSION_KEY, normalizedSession, keepLoggedIn);
-      window.localStorage.setItem(MANAGER_REMEMBER_MARKER, keepLoggedIn ? '1' : '0');
-      return;
-    }
-
-    clearSessionFromStorage(MANAGER_SESSION_KEY);
-    window.localStorage.removeItem(MANAGER_REMEMBER_MARKER);
-  }, [keepManagerLoggedIn]);
-
-  const clearManagerSession = useCallback(() => {
-    persistManagerSession(null);
-  }, [persistManagerSession]);
-
-  const touchAnalystActivity = useCallback(() => {
-    const now = Date.now();
-    if (now - sessionActivityPersistRef.current.analyst < 15000) return;
-    sessionActivityPersistRef.current.analyst = now;
-    setCurrentUser((prev) => {
-      if (!prev?.id) return prev;
-      const next = { ...prev, lastActivityAt: now };
-      if (typeof window !== 'undefined') {
-        const keepLoggedIn = window.localStorage.getItem(ANALYST_REMEMBER_MARKER) === '1';
-        writeSessionToStorage(ANALYST_SESSION_KEY, next, keepLoggedIn);
-      }
-      return next;
-    });
-  }, []);
-
-  const touchManagerActivity = useCallback(() => {
-    const now = Date.now();
-    if (now - sessionActivityPersistRef.current.manager < 15000) return;
-    sessionActivityPersistRef.current.manager = now;
-    setManagerSession((prev) => {
-      if (!prev?.token) return prev;
-      const next = { ...prev, lastActivityAt: now };
-      if (typeof window !== 'undefined') {
-        const keepLoggedIn = window.localStorage.getItem(MANAGER_REMEMBER_MARKER) === '1';
-        writeSessionToStorage(MANAGER_SESSION_KEY, next, keepLoggedIn);
-      }
-      return next;
-    });
-  }, []);
-
-  const handleAnalystLogout = useCallback(async ({ reason = 'manual' } = {}) => {
-    if (!currentUser?.id) {
-      clearAnalystSession();
-      markReturnedAfterLogout();
-      setView('login');
-      return;
-    }
-
-    clearAnalystSession();
-    setIdlePrompt({ visible: false, role: null, secondsLeft: 0 });
-    markReturnedAfterLogout();
-    setView('login');
-
-    if (reason === 'idle') {
-      setSafeLoginNotice('Sua sessão foi encerrada por inatividade. Faça login para retomar o atendimento.');
-      notify('Sessão encerrada por inatividade.', 'error');
-      return;
-    }
-
-    if (reason === 'daily-cutoff') {
-      setSafeLoginNotice('Sessão encerrada automaticamente às 23:59. Faça login novamente para continuar.');
-      notify('Sessão encerrada automaticamente às 23:59.', 'success');
-      return;
-    }
-
-    if (reason === 'password-change') {
-      setSafeLoginNotice('Senha atualizada com sucesso. Entre novamente para abrir uma nova sessão segura.');
-      notify('Senha alterada. Por segurança, faça login novamente.', 'success');
-      return;
-    }
-
-    if (reason === 'manager-revocation') {
-      setSafeLoginNotice('Sua sessão foi encerrada pelo gestor. Faça login novamente para continuar.');
-      notify('Acesso encerrado pelo gestor. Faça login novamente.', 'error');
-      return;
-    }
-    notify('Sessão encerrada.', 'success');
-  }, [currentUser, clearAnalystSession, markReturnedAfterLogout, notify, setSafeLoginNotice]);
-
-  const handleManagerUnauthorized = useCallback(() => {
-    clearManagerSession();
-    setShowManagerLoginModal(false);
-    setManagerIdentifier('');
-    setManagerPassword('');
-    setShowManagerPassword(false);
-    setManagerTab('dashboard');
-    markReturnedAfterLogout();
-    setView('login');
-    setSafeLoginNotice('Sua sessão de gestor expirou. Faça login novamente para continuar no painel.');
-    notify('Sessão do administrador expirada. Faça login novamente.', 'error');
-  }, [clearManagerSession, markReturnedAfterLogout, notify, setSafeLoginNotice]);
-
-  const handleAnalystUnauthorized = useCallback(() => {
-    const hasAnalystSession = typeof window !== 'undefined'
-      && (Boolean(window.sessionStorage.getItem(ANALYST_SESSION_KEY))
-        || Boolean(window.localStorage.getItem(ANALYST_SESSION_KEY)));
-
-    clearAnalystSession();
-    setIdlePrompt({ visible: false, role: null, secondsLeft: 0 });
-    markReturnedAfterLogout();
-    setView('login');
-
-    if (!hasAnalystSession) return;
-
-    setSafeLoginNotice('Sua sessão foi encerrada pelo gestor ou expirou. Faça login novamente para continuar.');
-    notify('Sessão revogada ou expirada. Faça login novamente.', 'error');
-  }, [clearAnalystSession, markReturnedAfterLogout, notify, setSafeLoginNotice]);
-
-  const getApiErrorMessage = async (response, fallbackMessage) => {
-    try {
-      const data = normalizeUiData(await response.json());
-      if (typeof data === 'string' && data.trim()) return data;
-      if (data?.detail) return data.detail;
-      if (data?.message) return data.message;
-    } catch {
-      // ignora erro de parse para usar fallback
-    }
-    return `${fallbackMessage} (${response.status})`;
-  };
-
-  const requestConfirmation = useCallback(({ title, message, confirmLabel = "Confirmar", tone = "warning" }) => {
-    return new Promise((resolve) => {
-      confirmResolverRef.current = resolve;
-      setConfirmAction({ open: true, title, message, confirmLabel, tone });
-    });
-  }, []);
-
-  const closeConfirmation = (confirmed) => {
-    if (confirmResolverRef.current) {
-      confirmResolverRef.current(confirmed);
-      confirmResolverRef.current = null;
-    }
-    setConfirmAction(prev => ({ ...prev, open: false }));
-  };
-
-  const requestRevokeConfirmation = useCallback(({ role, targetName, targetId }) => {
-    return new Promise((resolve) => {
-      confirmResolverRef.current = resolve;
-      setRevokeAction({
-        open: true,
-        role,
-        targetName,
-        targetId,
-        step: 1,
-        acknowledged: false,
-        confirmPhrase: '',
-        reason: '',
-      });
-    });
-  }, []);
-
-  const closeRevokeConfirmation = useCallback((payload) => {
-    if (payload?.updateOnly) {
-      setRevokeAction((prev) => ({ ...prev, ...(payload.patch || {}) }));
-      return;
-    }
-
-    if (confirmResolverRef.current) {
-      confirmResolverRef.current(payload || { confirmed: false });
-      confirmResolverRef.current = null;
-    }
-
-    setRevokeAction((prev) => ({
-      ...prev,
-      open: false,
-      step: 1,
-      acknowledged: false,
-      confirmPhrase: '',
-      reason: '',
-    }));
-  }, []);
-
-  // --- CÁLCULOS ANALÍTICOS (FRONTEND PARA EVITAR ZEROS) ---
   const calculatedStats = useMemo(() => {
     const breakdown = {};
     Object.keys(SITUACOES_MAP).forEach(id => breakdown[id] = 0);
@@ -783,10 +234,10 @@ const App = () => {
         breakdown[id] = Number.isFinite(total) && total > 0 ? total : 0;
       });
     }
-    
+
     const analistasMapa = {};
     dashData.equipe.forEach(a => {
-        analistasMapa[a.id] = { naMesa: 0, feitosHoje: 0 };
+      analistasMapa[a.id] = { naMesa: 0, feitosHoje: 0 };
     });
 
     dashData.distribuicao_atual?.forEach(item => {
@@ -795,15 +246,26 @@ const App = () => {
     });
 
     dashData.historico_recente?.forEach(item => {
-        if (analistasMapa[item.analista_id]) analistasMapa[item.analista_id].feitosHoje++;
+      if (analistasMapa[item.analista_id]) analistasMapa[item.analista_id].feitosHoje++;
     });
 
     return { breakdown, analistasMapa };
   }, [dashData, managerSyncStatus?.por_situacao, SITUACOES_MAP]);
 
-  // Extração das variáveis para uso direto no JSX e evitar ReferenceError
   const calculatedBreakdown = calculatedStats.breakdown;
   const analistasMapa = calculatedStats.analistasMapa;
+
+  const getApiErrorMessage = async (response, fallbackMessage) => {
+    try {
+      const data = normalizeUiData(await response.json());
+      if (typeof data === 'string' && data.trim()) return data;
+      if (data?.detail) return data.detail;
+      if (data?.message) return data.message;
+    } catch {
+      // ignora erro de parse para usar fallback
+    }
+    return `${fallbackMessage} (${response.status})`;
+  };
 
   const fetchData = useCallback(async (silent = true) => {
     if (!silent) setIsGlobalLoading(true);
@@ -902,7 +364,7 @@ const App = () => {
       }
       setApiError(null);
     } catch (e) {
-      if (!silent) setApiError("Backend Offline.");
+      if (!silent) setApiError('Backend Offline.');
     } finally {
       setIsSyncing(false);
       if (!silent) setIsGlobalLoading(false);
@@ -910,11 +372,7 @@ const App = () => {
     }
   }, [currentUser, handleManagerUnauthorized, handleAnalystUnauthorized, view]);
 
-  useEffect(() => {
-    fetchData();
-    const interval = setInterval(() => fetchData(true), AUTO_REFRESH_SECONDS * 1000);
-    return () => clearInterval(interval);
-  }, [fetchData]);
+  const { refreshCountdown, setNextRefreshAt } = useAutoRefresh(fetchData);
 
   useEffect(() => {
     setMesaFreeze(getStoredMesaFreeze(currentUser?.id));
@@ -946,15 +404,6 @@ const App = () => {
   }, [hasLoadedMesa, mesaFreeze, myTasks, notify]);
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      const secondsLeft = Math.max(0, Math.ceil((nextRefreshAt - Date.now()) / 1000));
-      setRefreshCountdown(secondsLeft);
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [nextRefreshAt]);
-
-  useEffect(() => {
     if (managerSession?.token && !loginSuccessSplash.visible) {
       setView('manager');
     }
@@ -972,7 +421,107 @@ const App = () => {
     }
   }, [managerSession, view]);
 
-  // --- AÇÕES OPERACIONAIS ---
+  useEffect(() => {
+    if (view !== 'analyst' || !currentUser?.id) {
+      manualTransferNotificationRef.current = { key: null, ids: new Set() };
+      return;
+    }
+
+    const storageKey = getManualTransferNotificationKey(currentUser.id);
+    if (manualTransferNotificationRef.current.key === storageKey) return;
+
+    manualTransferNotificationRef.current = {
+      key: storageKey,
+      ids: readManualTransferNotificationIds(currentUser.id),
+    };
+  }, [currentUser?.id, view]);
+
+  useEffect(() => {
+    if (view !== 'analyst' || !currentUser?.id || !Array.isArray(myTasks) || !myTasks.length) return;
+
+    const storageKey = getManualTransferNotificationKey(currentUser.id);
+    if (manualTransferNotificationRef.current.key !== storageKey) {
+      manualTransferNotificationRef.current = {
+        key: storageKey,
+        ids: readManualTransferNotificationIds(currentUser.id),
+      };
+    }
+
+    const seenIds = manualTransferNotificationRef.current.ids;
+    const newTransfers = (myTasks || [])
+      .map((task) => ({ task, transferencia: task?.transferencia_manual, transferenciaId: task?.transferencia_manual?.id }))
+      .filter(({ transferenciaId }) => transferenciaId !== undefined && transferenciaId !== null && !seenIds.has(String(transferenciaId)));
+
+    if (!newTransfers.length) return;
+
+    const latestTransfer = newTransfers.reduce((latest, current) => {
+      if (!latest) return current;
+      const latestTime = new Date(latest.transferencia?.data_transferencia || 0).getTime();
+      const currentTime = new Date(current.transferencia?.data_transferencia || 0).getTime();
+      return currentTime >= latestTime ? current : latest;
+    }, null);
+
+    const transferCount = newTransfers.length;
+    const sourceName = latestTransfer?.transferencia?.analista_origem_nome || `Analista ${latestTransfer?.transferencia?.analista_origem_id}`;
+    const reason = latestTransfer?.transferencia?.motivo || 'não informado';
+    const reservaLabel = latestTransfer?.task?.reserva_id ? `#${getReservaDisplayId(latestTransfer.task.reserva_id)}` : 'sem identificação';
+    const prefix = transferCount === 1
+      ? 'Uma pasta foi transferida manualmente para você'
+      : `${transferCount} pastas foram transferidas manualmente para você`;
+
+    notify(`${prefix} por ${sourceName}. Última recebida: reserva ${reservaLabel}. Motivo: ${reason}.`, 'success');
+
+    newTransfers.forEach(({ transferenciaId }) => seenIds.add(String(transferenciaId)));
+    writeManualTransferNotificationIds(currentUser.id, seenIds);
+  }, [currentUser?.id, getReservaDisplayId, myTasks, notify, view]);
+
+  useEffect(() => {
+    if (view === 'manager' && managerTab === 'admins') {
+      fetchAdminUsers();
+    }
+  }, [view, managerTab]);
+
+  const requestConfirmation = useCallback(({ title, message, confirmLabel = 'Confirmar', tone = 'warning' }) => {
+    return new Promise((resolve) => {
+      confirmResolverRef.current = resolve;
+      setConfirmAction({ open: true, title, message, confirmLabel, tone });
+    });
+  }, []);
+
+  const closeConfirmation = (confirmed) => {
+    if (confirmResolverRef.current) {
+      confirmResolverRef.current(confirmed);
+      confirmResolverRef.current = null;
+    }
+    setConfirmAction(prev => ({ ...prev, open: false }));
+  };
+
+  const requestRevokeConfirmation = useCallback(({ role, targetName, targetId }) => {
+    return new Promise((resolve) => {
+      confirmResolverRef.current = resolve;
+      setRevokeAction({
+        open: true, role, targetName, targetId,
+        step: 1, acknowledged: false, confirmPhrase: '', reason: '',
+      });
+    });
+  }, []);
+
+  const closeRevokeConfirmation = useCallback((payload) => {
+    if (payload?.updateOnly) {
+      setRevokeAction((prev) => ({ ...prev, ...(payload.patch || {}) }));
+      return;
+    }
+
+    if (confirmResolverRef.current) {
+      confirmResolverRef.current(payload || { confirmed: false });
+      confirmResolverRef.current = null;
+    }
+
+    setRevokeAction((prev) => ({
+      ...prev, open: false, step: 1, acknowledged: false, confirmPhrase: '', reason: '',
+    }));
+  }, []);
+
   const handleLogin = async (email, senha, rememberMe = false) => {
     if (!email || !senha) return;
     setIsGlobalLoading(true);
@@ -983,15 +532,14 @@ const App = () => {
         setKeepAnalystLoggedIn(Boolean(rememberMe));
         persistAnalystSession(userData, { keepLoggedIn: Boolean(rememberMe) });
         markSuccessfulLoginToday();
-        setHasReturnedAfterLogout(false);
         setAnalystTab('mesa');
         setSafeLoginNotice(null);
         notify(`Olá, ${userData.nome}!`);
         runLoginSuccessSplash('analyst', () => setView('analyst'));
       } else {
-        notify(await getApiErrorMessage(res, "Falha no login"), "error");
+        notify(await getApiErrorMessage(res, 'Falha no login'), 'error');
       }
-    } catch (e) { notify("Erro de conexão com o servidor.", "error"); }
+    } catch (e) { notify('Erro de conexão com o servidor.', 'error'); }
     finally { setIsGlobalLoading(false); }
   };
 
@@ -1002,11 +550,10 @@ const App = () => {
     try {
       const res = await api.managerLogin(managerIdentifier.trim().toLowerCase(), managerPassword);
       if (res.ok) {
-        const session = normalizeUiData(await res.json());
+        const sessionData = normalizeUiData(await res.json());
         setKeepManagerLoggedIn(Boolean(keepManagerLoggedIn));
-        persistManagerSession(session, { keepLoggedIn: Boolean(keepManagerLoggedIn) });
+        persistManagerSession(sessionData, { keepLoggedIn: Boolean(keepManagerLoggedIn) });
         markSuccessfulLoginToday();
-        setHasReturnedAfterLogout(false);
         setShowManagerLoginModal(false);
         setManagerPassword('');
         setShowManagerPassword(false);
@@ -1028,7 +575,6 @@ const App = () => {
             keepLoggedIn: Boolean(keepManagerLoggedIn),
           });
           markSuccessfulLoginToday();
-          setHasReturnedAfterLogout(false);
           setShowManagerLoginModal(false);
           setManagerPassword('');
           setShowManagerPassword(false);
@@ -1060,6 +606,45 @@ const App = () => {
     markReturnedAfterLogout();
     setView('login');
   }, [clearManagerSession, markReturnedAfterLogout, setSafeLoginNotice]);
+
+  const handleAnalystLogout = useCallback(async ({ reason = 'manual' } = {}) => {
+    if (!currentUser?.id) {
+      clearAnalystSession();
+      markReturnedAfterLogout();
+      setView('login');
+      return;
+    }
+
+    clearAnalystSession();
+    setIdlePrompt({ visible: false, role: null, secondsLeft: 0 });
+    markReturnedAfterLogout();
+    setView('login');
+
+    if (reason === 'idle') {
+      setSafeLoginNotice('Sua sessão foi encerrada por inatividade. Faça login para retomar o atendimento.');
+      notify('Sessão encerrada por inatividade.', 'error');
+      return;
+    }
+
+    if (reason === 'daily-cutoff') {
+      setSafeLoginNotice('Sessão encerrada automaticamente às 23:59. Faça login novamente para continuar.');
+      notify('Sessão encerrada automaticamente às 23:59.', 'success');
+      return;
+    }
+
+    if (reason === 'password-change') {
+      setSafeLoginNotice('Senha atualizada com sucesso. Entre novamente para abrir uma nova sessão segura.');
+      notify('Senha alterada. Por segurança, faça login novamente.', 'success');
+      return;
+    }
+
+    if (reason === 'manager-revocation') {
+      setSafeLoginNotice('Sua sessão foi encerrada pelo gestor. Faça login novamente para continuar.');
+      notify('Acesso encerrado pelo gestor. Faça login novamente.', 'error');
+      return;
+    }
+    notify('Sessão encerrada.', 'success');
+  }, [currentUser, clearAnalystSession, markReturnedAfterLogout, notify, setSafeLoginNotice]);
 
   const fetchAdminUsers = useCallback(async () => {
     if (!managerSession?.token) return;
@@ -1099,11 +684,7 @@ const App = () => {
     const username = (usernameRaw || '').trim().toLowerCase();
 
     setAdminForm((prev) => ({
-      ...prev,
-      email,
-      senha,
-      username,
-      ativo: Boolean(ativoRaw),
+      ...prev, email, senha, username, ativo: Boolean(ativoRaw),
     }));
 
     if (!email || !senha) {
@@ -1114,10 +695,7 @@ const App = () => {
     setIsGlobalLoading(true);
     try {
       const res = await api.createManagerAdmin({
-        email,
-        senha,
-        username: username || null,
-        ativo: Boolean(ativoRaw),
+        email, senha, username: username || null, ativo: Boolean(ativoRaw),
       });
 
       if (res.status === 401) {
@@ -1209,100 +787,16 @@ const App = () => {
     }
   };
 
-  useEffect(() => {
-    if (view === 'manager' && managerTab === 'admins') {
-      fetchAdminUsers();
-    }
-  }, [view, managerTab, fetchAdminUsers]);
-
-  useEffect(() => {
-    if (view === 'login') return;
-
-    const handleActivity = () => {
-      if (managerSession?.token) {
-        touchManagerActivity();
-        return;
-      }
-      if (currentUser?.id) {
-        touchAnalystActivity();
-      }
-    };
-
-    const events = ['mousedown', 'keydown', 'touchstart', 'scroll'];
-    events.forEach((eventName) => window.addEventListener(eventName, handleActivity, { passive: true }));
-
-    return () => {
-      events.forEach((eventName) => window.removeEventListener(eventName, handleActivity));
-    };
-  }, [view, managerSession?.token, currentUser?.id, touchManagerActivity, touchAnalystActivity]);
-
-  useEffect(() => {
-    if (view === 'login') {
-      setIdlePrompt({ visible: false, role: null, secondsLeft: 0 });
-      return;
-    }
-
-    const interval = setInterval(() => {
-      const now = Date.now();
-
-      if (managerSession?.token) {
-        if (idlePrompt.visible && idlePrompt.role === 'admin') {
-          setIdlePrompt({ visible: false, role: null, secondsLeft: 0 });
-        }
-        return;
-      }
-
-      if (currentUser?.id) {
-        if (idlePrompt.visible && idlePrompt.role === 'analyst') {
-          setIdlePrompt({ visible: false, role: null, secondsLeft: 0 });
-        }
-      }
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [
-    view,
-    managerSession,
-    currentUser,
-    idlePrompt.visible,
-    idlePrompt.role,
-    clearManagerSession,
-    handleAnalystLogout,
-    notify,
-  ]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return undefined;
-    if (view === 'login' || managerSession?.token || !currentUser?.id) return undefined;
-
-    const maybeDailyLogout = () => {
-      const now = new Date();
-      const isCutoffReached = now.getHours() > 23 || (now.getHours() === 23 && now.getMinutes() >= 59);
-      if (!isCutoffReached) return;
-
-      const todayKey = getLocalDateKey(now);
-      const alreadyLoggedOutToday = window.localStorage.getItem(DAILY_ANALYST_LOGOUT_MARKER) === todayKey;
-      if (alreadyLoggedOutToday) return;
-
-      window.localStorage.setItem(DAILY_ANALYST_LOGOUT_MARKER, todayKey);
-      void handleAnalystLogout({ reason: 'daily-cutoff' });
-    };
-
-    maybeDailyLogout();
-    const interval = window.setInterval(maybeDailyLogout, 30 * 1000);
-    return () => window.clearInterval(interval);
-  }, [view, managerSession?.token, currentUser?.id, handleAnalystLogout]);
-
   const toggleQueueStatus = async (status) => {
     setIsGlobalLoading(true);
     try {
       const res = await api.setQueueStatus(currentUser.id, status);
       if (res.ok) {
         persistAnalystSession({ ...currentUser, is_online: status });
-        notify(status ? "Você está Online!" : "Pausado.");
+        notify(status ? 'Você está Online!' : 'Pausado.');
         fetchData();
       }
-    } catch (e) { notify("Erro de status."); }
+    } catch (e) { notify('Erro de status.'); }
     finally { setIsGlobalLoading(false); }
   };
 
@@ -1326,15 +820,15 @@ const App = () => {
     try {
       const res = await api.finishTask(id, outcome);
       if (res.ok) {
-        notify(isConclusion ? "Pasta concluída com sucesso." : "Pasta enviada para discussão.");
+        notify(isConclusion ? 'Pasta concluída com sucesso.' : 'Pasta enviada para discussão.');
         fetchData();
         return { success: true, confirmed: true };
       } else {
-        notify(await getApiErrorMessage(res, "Erro ao concluir pasta"), "error");
+        notify(await getApiErrorMessage(res, 'Erro ao concluir pasta'), 'error');
         return { success: false, confirmed: true };
       }
     } catch (e) {
-      notify("Erro ao processar conclusão da pasta.", "error");
+      notify('Erro ao processar conclusão da pasta.', 'error');
       return { success: false, confirmed: true };
     } finally { setIsGlobalLoading(false); }
   };
@@ -1349,9 +843,9 @@ const App = () => {
 
   const openTransferModal = (task) => {
     setTransferTask(task);
-    setTransferToId("");
-    setTransferTargetSearch("");
-    setTransferReason("");
+    setTransferToId('');
+    setTransferTargetSearch('');
+    setTransferReason('');
     setShowTransferModal(true);
   };
 
@@ -1359,7 +853,7 @@ const App = () => {
     if (!transferTask || !transferToId || !currentUser) return;
     const trimmedReason = transferReason.trim();
     if (!trimmedReason) {
-      notify("Informe o motivo da transferência.", "error");
+      notify('Informe o motivo da transferência.', 'error');
       return;
     }
     setIsGlobalLoading(true);
@@ -1372,10 +866,9 @@ const App = () => {
       });
 
       if (res.ok) {
-        notify("Pasta transferida com sucesso.");
+        notify('Pasta transferida com sucesso.');
         setShowTransferModal(false);
         setTransferTask(null);
-        // Atualiza dados e aplica ajuste otimista na contagem da fila do destino
         try {
           await fetchData();
           const destId = parseInt(transferToId);
@@ -1384,10 +877,10 @@ const App = () => {
           // caso falhe, deixa o fetchData cuidar do estado
         }
       } else {
-        notify(await getApiErrorMessage(res, "Erro ao transferir pasta"), "error");
+        notify(await getApiErrorMessage(res, 'Erro ao transferir pasta'), 'error');
       }
     } catch (e) {
-      notify("Erro ao transferir pasta.", "error");
+      notify('Erro ao transferir pasta.', 'error');
     } finally {
       setIsGlobalLoading(false);
     }
@@ -1411,9 +904,9 @@ const App = () => {
   };
 
   const openBulkTransferModal = () => {
-    setBulkTransferToId("");
-    setBulkTransferTargetSearch("");
-    setBulkTransferReason("");
+    setBulkTransferToId('');
+    setBulkTransferTargetSearch('');
+    setBulkTransferReason('');
     setShowBulkTransferModal(true);
   };
 
@@ -1421,7 +914,7 @@ const App = () => {
     if (!bulkTransferToId || !currentUser || selectedTaskIds.size === 0) return;
     const trimmedReason = bulkTransferReason.trim();
     if (!trimmedReason) {
-      notify("Informe o motivo da transferência.", "error");
+      notify('Informe o motivo da transferência.', 'error');
       return;
     }
     setIsGlobalLoading(true);
@@ -1437,7 +930,6 @@ const App = () => {
         notify(`${data.transferidas} pasta(s) transferida(s) com sucesso.${data.erros > 0 ? ` ${data.erros} com erro.` : ''}`);
         setShowBulkTransferModal(false);
         setSelectedTaskIds(new Set());
-        // Atualiza dados e aplica ajuste otimista na contagem da fila do destino
         try {
           await fetchData();
           const destId = parseInt(bulkTransferToId);
@@ -1449,10 +941,10 @@ const App = () => {
           // deixa fetchData cuidar do estado
         }
       } else {
-        notify(await getApiErrorMessage(res, "Erro ao transferir pastas"), "error");
+        notify(await getApiErrorMessage(res, 'Erro ao transferir pastas'), 'error');
       }
     } catch (e) {
-      notify("Erro ao transferir pastas.", "error");
+      notify('Erro ao transferir pastas.', 'error');
     } finally {
       setIsGlobalLoading(false);
     }
@@ -1649,10 +1141,10 @@ const App = () => {
 
   const handleRedistribute = async () => {
     const confirmed = await requestConfirmation({
-      title: "Confirmar redistribuição",
-      message: "Deseja realmente redistribuir as pastas agora?",
-      confirmLabel: "Redistribuir",
-      tone: "warning"
+      title: 'Confirmar redistribuição',
+      message: 'Deseja realmente redistribuir as pastas agora?',
+      confirmLabel: 'Redistribuir',
+      tone: 'warning'
     });
     if (!confirmed) return;
     setIsGlobalLoading(true);
@@ -1663,19 +1155,19 @@ const App = () => {
         return;
       }
       if (res.ok) {
-        notify("Redistribuição efetuada!");
+        notify('Redistribuição efetuada!');
         fetchData();
       }
-    } catch (e) { notify("Erro ao redistribuir."); }
+    } catch (e) { notify('Erro ao redistribuir.'); }
     finally { setIsGlobalLoading(false); }
   };
 
   const handleResetData = async () => {
     const confirmed = await requestConfirmation({
-      title: "Confirmar limpeza da mesa",
-      message: "Deseja realmente zerar os dados da mesa atual e reiniciar a ordem da fila (sem excluir histórico)?",
-      confirmLabel: "Zerar Dados",
-      tone: "danger"
+      title: 'Confirmar limpeza da mesa',
+      message: 'Deseja realmente zerar os dados da mesa atual e reiniciar a ordem da fila (sem excluir histórico)?',
+      confirmLabel: 'Zerar Dados',
+      tone: 'danger'
     });
     if (!confirmed) return;
     setIsGlobalLoading(true);
@@ -1686,12 +1178,12 @@ const App = () => {
         return;
       }
       if (res.ok) {
-        notify("Mesas limpas e ordem reiniciada!");
+        notify('Mesas limpas e ordem reiniciada!');
         fetchData();
       } else {
-        notify("Erro ao zerar dados.", "error");
+        notify('Erro ao zerar dados.', 'error');
       }
-    } catch (e) { notify("Erro ao zerar dados.", "error"); }
+    } catch (e) { notify('Erro ao zerar dados.', 'error'); }
     finally { setIsGlobalLoading(false); }
   };
 
@@ -1721,20 +1213,20 @@ const App = () => {
         fetchData(true);
       } else {
         applyAnalystQueueStatus(analyst.id, analyst.is_online);
-        notify("Erro ao atualizar fila do analista.", "error");
+        notify('Erro ao atualizar fila do analista.', 'error');
       }
     } catch (e) {
       applyAnalystQueueStatus(analyst.id, analyst.is_online);
-      notify("Erro ao atualizar fila do analista.", "error");
+      notify('Erro ao atualizar fila do analista.', 'error');
     } finally {
       setTogglingQueueIds(prev => prev.filter(id => id !== analyst.id));
     }
   };
 
-  const handleAdminBulkQueueToggle = async ({ analysts, targetOnline, isFullSelection = false, totalSelected = 0 }) => {
+  const handleAdminBulkQueueToggle = async ({ analysts: bulkAnalysts, targetOnline, isFullSelection = false, totalSelected = 0 }) => {
     const targetStatus = Boolean(targetOnline);
-    const uniqueCandidates = Array.isArray(analysts)
-      ? analysts.filter(
+    const uniqueCandidates = Array.isArray(bulkAnalysts)
+      ? bulkAnalysts.filter(
           (analyst, index, list) =>
             analyst?.id &&
             list.findIndex((item) => Number(item?.id) === Number(analyst.id)) === index
@@ -1880,23 +1372,20 @@ const App = () => {
 
     setIsGlobalLoading(true);
     try {
-        const res = await api.saveAnalyst({
-          id: isEdit ? editForm.id : null,
-          payload
-        });
-        if (res.status === 401) {
-            handleManagerUnauthorized();
-            return;
-        }
-        if (res.ok) {
-            notify(isEdit ? "Analista atualizado com sucesso!" : "Analista cadastrado com sucesso!");
-            setShowEditModal(false);
-            setEditForm({ id: null, nome: "", email: "", senha: "", permissoes: [], status: "ativo" });
-            fetchData();
-        } else {
-            notify(await getApiErrorMessage(res, "Erro ao salvar analista"), "error");
-        }
-    } catch (e) { notify("Erro de conexão.", "error"); }
+      const res = await api.saveAnalyst({ id: isEdit ? editForm.id : null, payload });
+      if (res.status === 401) {
+        handleManagerUnauthorized();
+        return;
+      }
+      if (res.ok) {
+        notify(isEdit ? 'Analista atualizado com sucesso!' : 'Analista cadastrado com sucesso!');
+        setShowEditModal(false);
+        setEditForm({ id: null, nome: '', email: '', senha: '', permissoes: [], status: 'ativo' });
+        fetchData();
+      } else {
+        notify(await getApiErrorMessage(res, 'Erro ao salvar analista'), 'error');
+      }
+    } catch (e) { notify('Erro de conexão.', 'error'); }
     finally { setIsGlobalLoading(false); }
   };
 
@@ -1921,19 +1410,19 @@ const App = () => {
 
     setIsGlobalLoading(true);
     try {
-        const res = await api.deleteAnalyst(analystId);
-        if (res.status === 401) {
-            handleManagerUnauthorized();
-            return;
-        }
+      const res = await api.deleteAnalyst(analystId);
+      if (res.status === 401) {
+        handleManagerUnauthorized();
+        return;
+      }
 
-        if (res.ok) {
-          notify('Analista removido com sucesso.');
-          fetchData();
-        } else {
-          notify(await getApiErrorMessage(res, 'Erro ao remover analista'), 'error');
-        }
-    } catch (e) { notify("Erro ao remover analista.", 'error'); }
+      if (res.ok) {
+        notify('Analista removido com sucesso.');
+        fetchData();
+      } else {
+        notify(await getApiErrorMessage(res, 'Erro ao remover analista'), 'error');
+      }
+    } catch (e) { notify('Erro ao remover analista.', 'error'); }
     finally { setIsGlobalLoading(false); }
   };
 
@@ -1949,7 +1438,6 @@ const App = () => {
       });
 
       if (res.ok) {
-
         await handleAnalystLogout({ reason: 'password-change' });
         return true;
       }
@@ -1962,7 +1450,7 @@ const App = () => {
     } finally {
       setIsGlobalLoading(false);
     }
-  }; 
+  };
 
   const displayedMesaTasks = useMemo(() => {
     if (!mesaFreeze.active) return myTasks || [];
@@ -2001,10 +1489,10 @@ const App = () => {
   const filteredTasks = useMemo(() => {
     return (displayedMesaTasks || []).filter(task => {
       const reservaDisplayId = getReservaDisplayId(task.reserva_id);
-      const matchesSearch = task.cliente.toLowerCase().includes(taskSearch.toLowerCase()) || 
+      const matchesSearch = task.cliente.toLowerCase().includes(taskSearch.toLowerCase()) ||
                           task.empreendimento.toLowerCase().includes(taskSearch.toLowerCase()) ||
                           reservaDisplayId.toString().includes(taskSearch);
-      const matchesSit = filterSit === "all" || task.situacao_id.toString() === filterSit;
+      const matchesSit = filterSit === 'all' || task.situacao_id.toString() === filterSit;
       return matchesSearch && matchesSit;
     });
   }, [displayedMesaTasks, taskSearch, filterSit, getReservaDisplayId]);
@@ -2137,12 +1625,7 @@ const App = () => {
     const topReceiver = Object.entries(receiverCount).sort((a, b) => b[1] - a[1])[0] || null;
     const topPair = Object.entries(pairCount).sort((a, b) => b[1] - a[1])[0] || null;
 
-    return {
-      total: logs.length,
-      topSender,
-      topReceiver,
-      topPair
-    };
+    return { total: logs.length, topSender, topReceiver, topPair };
   }, [groupedTransferLogs]);
 
   const handleManagerTabChange = useCallback((nextTab) => {
@@ -2163,6 +1646,22 @@ const App = () => {
     setTransferOriginFilter(ALL_FILTER);
     setTransferDestinationFilter(ALL_FILTER);
   };
+
+  const managerWarningWindowSeconds = 0;
+  const analystWarningWindowSeconds = 0;
+  const analystIdleSecondsLeft = null;
+  const analystIdleWarningProgress = 0;
+  const showAnalystMobileIdleWarning = false;
+  const idlePromptWarningWindowSeconds = idlePrompt.role === 'admin'
+    ? managerWarningWindowSeconds
+    : analystWarningWindowSeconds;
+  const idlePromptWarningProgress = idlePrompt.visible
+    ? Math.max(0, Math.min(100, (idlePrompt.secondsLeft / Math.max(idlePromptWarningWindowSeconds, 1)) * 100))
+    : 0;
+  const refreshCycleProgress = Math.max(
+    0,
+    Math.min(100, ((AUTO_REFRESH_SECONDS - Math.max(0, refreshCountdown)) / AUTO_REFRESH_SECONDS) * 100)
+  );
 
   const idlePromptModal = idlePrompt.visible ? (
     <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-500 flex items-center justify-center p-4">
@@ -2238,25 +1737,6 @@ const App = () => {
     </div>
   ) : null;
 
-  const managerIdleSecondsLeft = null;
-  const analystIdleSecondsLeft = null;
-  const managerWarningWindowSeconds = 0;
-  const analystWarningWindowSeconds = 0;
-  const managerIdleWarningProgress = 0;
-  const analystIdleWarningProgress = 0;
-  const showAnalystMobileIdleWarning = false;
-  const idlePromptWarningWindowSeconds = idlePrompt.role === 'admin'
-    ? managerWarningWindowSeconds
-    : analystWarningWindowSeconds;
-  const idlePromptWarningProgress = idlePrompt.visible
-    ? Math.max(0, Math.min(100, (idlePrompt.secondsLeft / Math.max(idlePromptWarningWindowSeconds, 1)) * 100))
-    : 0;
-  const refreshCycleProgress = Math.max(
-    0,
-    Math.min(100, ((AUTO_REFRESH_SECONDS - Math.max(0, refreshCountdown)) / AUTO_REFRESH_SECONDS) * 100)
-  );
-
-  // --- TELA DE RESET DE SENHA (URL com ?reset_token=...) ---
   if (resetToken) return (
     <ResetPasswordView
       token={resetToken}
@@ -2276,7 +1756,6 @@ const App = () => {
     <PrivacyPolicyView onBackToLogin={closePrivacyPolicy} />
   );
 
-  // --- TELA DE LOGIN ---
   if (view === 'login') return (
     <LoginView
       toast={toast}
@@ -2304,7 +1783,6 @@ const App = () => {
     />
   );
 
-  // --- PAINEL GESTOR ---
   if (view === 'manager') return (
     <div
       className={`min-h-[100dvh] text-slate-800 flex flex-col overflow-x-hidden ${isDarkMode ? 'bg-[#0a101b]' : 'bg-[radial-gradient(circle_at_top,#ffffff_0%,#f5f7fb_46%,#edf2f8_100%)]'}`}
@@ -2416,7 +1894,6 @@ const App = () => {
     </div>
   );
 
-  // --- PAINEL DO ANALISTA ---
   return (
     <div className={`min-h-[100dvh] font-sans text-slate-800 flex flex-col overflow-x-hidden ${isDarkMode ? 'bg-[#0a101b]' : 'bg-[#f8fafc]'}`}>
       <StatusToast toast={toast} />
@@ -2424,231 +1901,36 @@ const App = () => {
       <RevokeAccessModal revokeAction={revokeAction} onClose={closeRevokeConfirmation} />
       {idlePromptModal}
       {showTransferModal && transferTask && (
-        <div className="fixed inset-0 bg-slate-950/55 backdrop-blur-md z-450 flex items-center justify-center p-3 sm:p-4" onClick={() => setShowTransferModal(false)}>
-          <div className="viewport-dialog w-full max-w-2xl border border-white/80 rounded-[1.25rem] bg-white/95 p-4 sm:p-6 shadow-[0_36px_70px_-30px_rgba(15,23,42,0.88)] animate-in zoom-in-95 duration-300" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-start justify-between gap-3.5 mb-4">
-              <div className="flex items-start gap-3.5 min-w-0">
-                <div className="w-11 h-11 rounded-2xl flex items-center justify-center bg-blue-50 border border-blue-100 text-[#0071e3] shrink-0">
-                  <ArrowRightLeft size={17} />
-                </div>
-                <div className="min-w-0">
-                  <h3 className="text-[16px] font-semibold tracking-[-0.01em] text-slate-900">Transferir pasta</h3>
-                  <p className="text-[12px] font-medium text-slate-500 mt-1 leading-relaxed truncate">Reserva {transferTask.reserva_id} • {transferTask.cliente}</p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowTransferModal(false)}
-                className="w-9 h-9 rounded-xl border border-slate-200 bg-white text-slate-500 inline-flex items-center justify-center hover:bg-slate-50 hover:text-slate-700 transition-all"
-                aria-label="Fechar modal"
-              >
-                <X size={15} />
-              </button>
-            </div>
-
-            <div className="rounded-2xl border border-slate-200 bg-slate-50/80 px-3.5 py-3 mb-4">
-              <p className="text-[10px] font-medium tracking-[0.08em] text-slate-500 uppercase">Resumo rápido</p>
-              <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px] font-medium text-slate-700">
-                <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-2.5 py-1">#{getReservaDisplayId(transferTask.reserva_id)}</span>
-                <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-2.5 py-1">{normalizeUiText(transferTask.situacao_nome || 'Sem situação')}</span>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="text-[11px] font-semibold tracking-[0.06em] text-slate-600">Analista destino</label>
-                <div className="mt-2 flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2.5">
-                  <Search size={14} className="text-slate-400 shrink-0" />
-                  <input
-                    type="text"
-                    value={transferTargetSearch}
-                    onChange={(e) => setTransferTargetSearch(e.target.value)}
-                    placeholder="Buscar analista por nome"
-                    className="w-full bg-transparent text-[12px] font-medium text-slate-700 outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="bg-slate-50/80 border border-slate-200 rounded-2xl p-2.5 max-h-[min(14rem,34dvh)] overflow-y-auto custom-scrollbar space-y-2">
-                {filteredTransferTargetOptions.length > 0 ? filteredTransferTargetOptions.map(a => {
-                  const isSelected = String(transferToId) === String(a.id);
-                  const queueCount = Number(a.na_mesa || 0);
-                  return (
-                    <button
-                      key={a.id}
-                      type="button"
-                      onClick={() => setTransferToId(String(a.id))}
-                      className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-left transition-all border ${isSelected ? 'bg-[linear-gradient(135deg,#0071e3_0%,#005bb7_100%)] text-white border-blue-600 shadow-[0_12px_20px_-16px_rgba(0,113,227,0.9)]' : 'bg-white text-slate-700 border-slate-200 hover:border-blue-200 hover:-translate-y-0.5'}`}
-                    >
-                      <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-semibold ${isSelected ? 'bg-white/20 text-white' : 'bg-slate-50 text-slate-500 border border-slate-200'}`}>
-                        {a.nome?.charAt(0) || 'A'}
-                      </div>
-                      <span className="text-[12px] font-semibold tracking-[0.01em] truncate flex-1">{a.nome}</span>
-                      <div className="flex flex-col items-end gap-1 shrink-0">
-                        <span className={`text-[10px] font-semibold ${isSelected ? 'text-white/90' : 'text-slate-500'}`}>
-                          {queueCount} pasta{queueCount !== 1 ? 's' : ''} na fila
-                        </span>
-                        {a.is_online && <span className={`text-[10px] font-semibold ${isSelected ? 'text-emerald-100' : 'text-emerald-600'}`}>Fila ativa</span>}
-                      </div>
-                    </button>
-                  );
-                }) : (
-                  <div className="px-2 py-4 text-center text-[11px] font-semibold tracking-[0.02em] text-slate-400">
-                    Nenhum analista encontrado para esse filtro
-                  </div>
-                )}
-              </div>
-
-              <div className="bg-slate-50 border border-slate-200 rounded-2xl px-3 py-2.5 text-[11px] font-medium text-slate-600">
-                {selectedTransferTarget ? (
-                  <span>
-                    Destino selecionado: <span className="text-[#0071e3] font-semibold">{selectedTransferTarget.nome}</span>
-                    <span className="ml-2 inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-[#0071e3] border border-blue-100">
-                      {Number(selectedTransferTarget.na_mesa || 0)} pasta{Number(selectedTransferTarget.na_mesa || 0) !== 1 ? 's' : ''} na fila
-                    </span>
-                  </span>
-                ) : (
-                  <span>Nenhum destino selecionado</span>
-                )}
-              </div>
-
-              <div>
-                <label className="text-[11px] font-semibold tracking-[0.06em] text-slate-600">Motivo da transferência *</label>
-                <input
-                  type="text"
-                  value={transferReason}
-                  onChange={(e) => setTransferReason(e.target.value)}
-                  placeholder="Ex.: balanceamento de carga da fila"
-                  className="mt-2 w-full bg-white border border-slate-200 rounded-2xl py-3 px-4 text-[12px] text-slate-700 font-medium outline-none focus:ring-4 focus:ring-blue-100/80 focus:border-blue-300"
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mt-5">
-              <button onClick={() => setShowTransferModal(false)} className="py-2.5 bg-slate-50 text-slate-600 rounded-2xl text-[11px] font-semibold border border-slate-200 transition-all hover:bg-slate-100">Cancelar</button>
-              <button
-                disabled={!transferToId || !transferReason.trim()}
-                onClick={handleTransferTask}
-                className="py-2.5 rounded-2xl text-[11px] font-semibold text-white bg-[linear-gradient(135deg,#0071e3_0%,#005bb7_100%)] disabled:bg-blue-300 disabled:cursor-not-allowed transition-all hover:-translate-y-0.5 active:translate-y-0"
-              >
-                Transferir pasta
-              </button>
-            </div>
-          </div>
-        </div>
+        <TransferModal
+          transferTask={transferTask}
+          transferToId={transferToId}
+          setTransferToId={setTransferToId}
+          transferTargetSearch={transferTargetSearch}
+          setTransferTargetSearch={setTransferTargetSearch}
+          transferReason={transferReason}
+          setTransferReason={setTransferReason}
+          filteredTransferTargetOptions={filteredTransferTargetOptions}
+          selectedTransferTarget={selectedTransferTarget}
+          handleTransferTask={handleTransferTask}
+          onClose={() => setShowTransferModal(false)}
+          getReservaDisplayId={getReservaDisplayId}
+        />
       )}
-
       {showBulkTransferModal && (
-        <div className="fixed inset-0 bg-slate-950/55 backdrop-blur-md z-450 flex items-center justify-center p-3 sm:p-4" onClick={() => setShowBulkTransferModal(false)}>
-          <div className="viewport-dialog w-full max-w-2xl border border-white/80 rounded-[1.25rem] bg-white/95 p-4 sm:p-6 shadow-[0_36px_70px_-30px_rgba(15,23,42,0.88)] animate-in zoom-in-95 duration-300" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-start justify-between gap-3.5 mb-4">
-              <div className="flex items-start gap-3.5 min-w-0">
-                <div className="w-11 h-11 rounded-2xl flex items-center justify-center bg-blue-50 border border-blue-100 text-[#0071e3] shrink-0">
-                  <ArrowRightLeft size={17} />
-                </div>
-                <div className="min-w-0">
-                  <h3 className="text-[16px] font-semibold tracking-[-0.01em] text-slate-900">Transferência em massa</h3>
-                  <p className="text-[12px] font-medium text-slate-500 mt-1 leading-relaxed">{selectedTaskIds.size} pasta{selectedTaskIds.size !== 1 ? 's' : ''} selecionada{selectedTaskIds.size !== 1 ? 's' : ''}</p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowBulkTransferModal(false)}
-                className="w-9 h-9 rounded-xl border border-slate-200 bg-white text-slate-500 inline-flex items-center justify-center hover:bg-slate-50 hover:text-slate-700 transition-all"
-                aria-label="Fechar modal"
-              >
-                <X size={15} />
-              </button>
-            </div>
-
-            <div className="rounded-2xl border border-slate-200 bg-slate-50/80 px-3.5 py-3 mb-4">
-              <p className="text-[10px] font-medium tracking-[0.08em] text-slate-500 uppercase">Resumo rápido</p>
-              <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px] font-medium text-slate-700">
-                <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-2.5 py-1">{selectedTaskIds.size} itens</span>
-                {selectedBulkTransferTarget && (
-                  <span className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-[#0071e3]">
-                    <span>Destino: {selectedBulkTransferTarget.nome}</span>
-                    <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold border border-blue-100">
-                      {Number(selectedBulkTransferTarget.na_mesa || 0)} pasta{Number(selectedBulkTransferTarget.na_mesa || 0) !== 1 ? 's' : ''} na fila
-                    </span>
-                  </span>
-                )}
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="text-[11px] font-semibold tracking-[0.06em] text-slate-600">Analista destino</label>
-                <div className="mt-2 flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2.5">
-                  <Search size={14} className="text-slate-400 shrink-0" />
-                  <input
-                    type="text"
-                    value={bulkTransferTargetSearch}
-                    onChange={(e) => setBulkTransferTargetSearch(e.target.value)}
-                    placeholder="Buscar analista por nome"
-                    className="w-full bg-transparent text-[12px] font-medium text-slate-700 outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="bg-slate-50/80 border border-slate-200 rounded-2xl p-2.5 max-h-[min(14rem,34dvh)] overflow-y-auto custom-scrollbar space-y-2">
-                {filteredBulkTransferTargetOptions.length > 0 ? filteredBulkTransferTargetOptions.map(a => {
-                  const isSelected = String(bulkTransferToId) === String(a.id);
-                  const queueCount = Number(a.na_mesa || 0);
-                  return (
-                    <button
-                      key={a.id}
-                      type="button"
-                      onClick={() => setBulkTransferToId(String(a.id))}
-                      className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-left transition-all border ${isSelected ? 'bg-[linear-gradient(135deg,#0071e3_0%,#005bb7_100%)] text-white border-blue-600 shadow-[0_12px_20px_-16px_rgba(0,113,227,0.9)]' : 'bg-white text-slate-700 border-slate-200 hover:border-blue-200 hover:-translate-y-0.5'}`}
-                    >
-                      <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-semibold ${isSelected ? 'bg-white/20 text-white' : 'bg-slate-50 text-slate-500 border border-slate-200'}`}>
-                        {a.nome?.charAt(0) || 'A'}
-                      </div>
-                      <span className="text-[12px] font-semibold tracking-[0.01em] truncate flex-1">{a.nome}</span>
-                      <div className="flex flex-col items-end gap-1 shrink-0">
-                        <span className={`text-[10px] font-semibold ${isSelected ? 'text-white/90' : 'text-slate-500'}`}>
-                          {queueCount} pasta{queueCount !== 1 ? 's' : ''} na fila
-                        </span>
-                        {a.is_online && <span className={`text-[10px] font-semibold ${isSelected ? 'text-emerald-100' : 'text-emerald-600'}`}>Fila ativa</span>}
-                      </div>
-                    </button>
-                  );
-                }) : (
-                  <div className="px-2 py-4 text-center text-[11px] font-semibold tracking-[0.02em] text-slate-400">
-                    Nenhum analista encontrado para esse filtro
-                  </div>
-                )}
-              </div>
-
-              <div>
-                <label className="text-[11px] font-semibold tracking-[0.06em] text-slate-600">Motivo da transferência *</label>
-                <input
-                  type="text"
-                  value={bulkTransferReason}
-                  onChange={(e) => setBulkTransferReason(e.target.value)}
-                  placeholder="Ex.: redistribuição para acelerar atendimento"
-                  className="mt-2 w-full bg-white border border-slate-200 rounded-2xl py-3 px-4 text-[12px] text-slate-700 font-medium outline-none focus:ring-4 focus:ring-blue-100/80 focus:border-blue-300"
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mt-5">
-              <button onClick={() => setShowBulkTransferModal(false)} className="py-2.5 bg-slate-50 text-slate-600 rounded-2xl text-[11px] font-semibold border border-slate-200 transition-all hover:bg-slate-100">Cancelar</button>
-              <button
-                disabled={!bulkTransferToId || !bulkTransferReason.trim()}
-                onClick={handleBulkTransfer}
-                className="py-2.5 rounded-2xl text-[11px] font-semibold text-white bg-[linear-gradient(135deg,#0071e3_0%,#005bb7_100%)] disabled:bg-blue-300 disabled:cursor-not-allowed transition-all hover:-translate-y-0.5 active:translate-y-0"
-              >
-                Transferir {selectedTaskIds.size} pasta{selectedTaskIds.size !== 1 ? 's' : ''}
-              </button>
-            </div>
-          </div>
-        </div>
+        <BulkTransferModal
+          selectedTaskIds={selectedTaskIds}
+          bulkTransferToId={bulkTransferToId}
+          setBulkTransferToId={setBulkTransferToId}
+          bulkTransferTargetSearch={bulkTransferTargetSearch}
+          setBulkTransferTargetSearch={setBulkTransferTargetSearch}
+          bulkTransferReason={bulkTransferReason}
+          setBulkTransferReason={setBulkTransferReason}
+          filteredBulkTransferTargetOptions={filteredBulkTransferTargetOptions}
+          selectedBulkTransferTarget={selectedBulkTransferTarget}
+          handleBulkTransfer={handleBulkTransfer}
+          onClose={() => setShowBulkTransferModal(false)}
+        />
       )}
-
       {isGlobalLoading && <LoadingOverlay />}
       <nav className="sticky top-0 z-100 border-b border-slate-200/80 bg-white/92 backdrop-blur-xl">
         <div className="min-h-14 px-3 md:px-5 lg:px-6 py-1.5 flex flex-wrap items-center justify-between gap-2 md:gap-3">
@@ -2679,7 +1961,7 @@ const App = () => {
           </div>
 
           <div className="flex flex-wrap items-center justify-end gap-1.5 md:gap-2.5 shrink min-w-0">
-            {analystIdleSecondsLeft !== null && analystIdleSecondsLeft > 0 && analystIdleSecondsLeft <= (ANALYST_IDLE_WARNING_MS / 1000) && (
+            {analystIdleSecondsLeft !== null && analystIdleSecondsLeft > 0 && (
               <div className="hidden lg:flex items-center gap-2.5 px-3 py-1.5 rounded-2xl border border-amber-200 bg-[linear-gradient(135deg,#fff7ed_0%,#fffbeb_55%,#ffffff_100%)] text-slate-700 shadow-[0_14px_24px_-22px_rgba(251,146,60,0.75)]">
                <div className="w-7 h-7 rounded-xl bg-amber-100 text-amber-700 inline-flex items-center justify-center shrink-0">
                  <AlertTriangle size={12} className="shrink-0" />
@@ -2905,8 +2187,3 @@ const App = () => {
 };
 
 export default App;
-
-
-
-
-
