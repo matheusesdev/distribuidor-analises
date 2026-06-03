@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Header, HTTPException, Query
+from fastapi import FastAPI, Header, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 import requests
 import datetime
@@ -8,6 +8,7 @@ import base64
 import binascii
 import hashlib
 import hmac
+import logging
 import re
 import smtplib
 from email.mime.text import MIMEText
@@ -18,7 +19,17 @@ from supabase import create_client, Client
 from pydantic import BaseModel
 from postgrest.exceptions import APIError
 from fastapi.responses import JSONResponse, Response
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 import json
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    datefmt="%Y-%m-%dT%H:%M:%S",
+)
+logger = logging.getLogger("distribuidor")
 
 try:
     from ftfy import fix_text
@@ -244,7 +255,7 @@ def verify_admin_credentials(identifier: str, password: str) -> Optional[Dict[st
         
         return None
     except Exception as e:
-        print(f"Erro ao verificar credenciais do admin: {e}")
+        logger.error("Erro ao verificar credenciais do admin: %s", e)
         return None
 
 
@@ -645,7 +656,7 @@ def generate_reset_token() -> tuple:
 def send_reset_email(to_email: str, reset_link: str, analyst_name: str) -> bool:
     """Envia e-mail de redefinição de senha via SMTP configurado nas env vars."""
     if not SMTP_HOST or not SMTP_FROM:
-        print(f"[AVISO] SMTP não configurado. Link de reset para {to_email}: {reset_link}")
+        logger.warning("[SMTP] SMTP não configurado. Link de reset gerado para %s (não enviado por e-mail)", to_email)
         return False
     try:
         msg = MIMEMultipart("alternative")
@@ -702,7 +713,7 @@ def send_reset_email(to_email: str, reset_link: str, analyst_name: str) -> bool:
             server.sendmail(SMTP_FROM, [to_email], msg.as_string())
         return True
     except Exception as e:
-        print(f"[ERRO] Falha ao enviar e-mail de reset: {e}")
+        logger.error("[SMTP] Falha ao enviar e-mail de reset: %s", e)
         return False
 
 
@@ -865,7 +876,7 @@ def record_session_revoke_audit(*, actor: Dict[str, Any], role: str, user_id: in
     try:
         supabase.table("logs_sessoes_revogadas").insert(payload).execute()
     except Exception as exc:
-        print(f"[AUDIT] Falha ao registrar logs_sessoes_revogadas: {exc} | payload={payload}")
+        logger.error("[AUDIT] Falha ao registrar logs_sessoes_revogadas: %s | payload=%s", exc, payload)
 
 
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
@@ -907,7 +918,13 @@ SMTP_TIMEOUT_SECONDS = int(os.getenv("SMTP_TIMEOUT_SECONDS", "20"))
 FRONTEND_URL = os.getenv("FRONTEND_URL", "https://distribuidor-analises.vercel.app")
 RESET_TOKEN_TTL_MINUTES = int(os.getenv("RESET_TOKEN_TTL_MINUTES", "60"))
 
+limiter = Limiter(key_func=get_remote_address)
 app = FastAPI(title="VCA Distribuidor - Backend Oficial")
+app.state.limiter = limiter
+
+@app.exception_handler(RateLimitExceeded)
+async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
+    return JSONResponse(status_code=429, content={"detail": "Muitas tentativas. Aguarde antes de tentar novamente."})
 
 
 @app.middleware("http")
@@ -939,6 +956,32 @@ async def normalize_json_responses(request, call_next):
     normalized = normalize_text_value(decoded)
     return JSONResponse(content=normalized, status_code=response.status_code, headers=headers)
 
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    if request.url.scheme == "https":
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    return response
+
+
+@app.middleware("http")
+async def inject_auth_from_cookie(request: Request, call_next):
+    if not request.headers.get("authorization"):
+        analyst_token = request.cookies.get("analystToken")
+        manager_token = request.cookies.get("managerToken")
+        token = analyst_token or manager_token
+        if token:
+            headers = dict(request.scope["headers"])
+            headers[b"authorization"] = f"Bearer {token}".encode()
+            request.scope["headers"] = list(headers.items())
+    return await call_next(request)
+
+
 # Configuração de CORS para o Frontend
 if isinstance(ALLOWED_ORIGINS, list):
     cors_origins = [origin.rstrip("/") for origin in ALLOWED_ORIGINS if origin]
@@ -949,16 +992,16 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization"],
 )
 
 # --- CONFIGURAÇÃO SUPABASE ---
 try:
     supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-    print("[OK] Conex\u00e3o com Supabase estabelecida.")
+    logger.info("[OK] Conex\u00e3o com Supabase estabelecida.")
 except Exception as e:
-    print(f"[ERRO] Erro ao ligar ao Supabase: {e}")
+    logger.error("[ERRO] Erro ao ligar ao Supabase: %s", e)
 
 
 def table_supports_column(table_name: str, column_name: str) -> bool:
@@ -1140,13 +1183,13 @@ async def fetch_all_reservas_for_situacao(sit_id: int) -> List[Dict[str, Any]]:
         try:
             response = await fetch_cvcrm_reservas(sit_id, timeout_seconds=15, pagina=page)
         except Exception as exc:
-            print(f"[SYNC] Timeout/erro na situacao {sit_id} pagina {page}: {exc}")
+            logger.warning("[SYNC] Timeout/erro na situacao %s pagina %s: %s", sit_id, page, exc)
             raise RuntimeError(f"Falha ao consultar CVCRM na situacao {sit_id}, pagina {page}: {exc}") from exc
 
         if response.status_code == 204:
             break
         if response.status_code != 200:
-            print(f"[SYNC] Fonte {source_key} situacao {external_id} pagina {page}: HTTP {response.status_code}")
+            logger.warning("[SYNC] Fonte %s situacao %s pagina %s: HTTP %s", source_key, external_id, page, response.status_code)
             raise RuntimeError(
                 f"CVCRM ({source_key}) retornou HTTP {response.status_code} para situacao {external_id}, pagina {page}"
             )
@@ -1154,11 +1197,11 @@ async def fetch_all_reservas_for_situacao(sit_id: int) -> List[Dict[str, Any]]:
         try:
             data = normalize_text_value(decode_json_response(response))
         except Exception as exc:
-            print(f"[SYNC] Situação {sit_id} página {page}: resposta não é JSON válido")
+            logger.warning("[SYNC] Situacao %s pagina %s: resposta nao e JSON valido", sit_id, page)
             raise RuntimeError(f"Resposta invalida do CVCRM na situacao {sit_id}, pagina {page}") from exc
 
         pairs, total_pages = extract_reservas_from_response(data)
-        print(f"[SYNC] Fonte {source_key} situacao {external_id} pagina {page}/{total_pages}: {len(pairs)} reservas")
+        logger.info("[SYNC] Fonte %s situacao %s pagina %s/%s: %s reservas", source_key, external_id, page, total_pages, len(pairs))
         all_pairs.extend(pairs)
 
         if page >= total_pages or not pairs:
@@ -1544,7 +1587,7 @@ async def get_next_analyst(sit_id: int, exclude_ids: Optional[List[int]] = None)
             if int(sit_id) in [int(p) for p in permissoes]:
                 return analista
     except Exception as e:
-        print(f"Erro na fila de analistas: {e}")
+        logger.error("Erro na fila de analistas: %s", e)
     return None
 
 
@@ -1644,7 +1687,7 @@ async def perform_sync():
                 reservas = await fetch_all_reservas_for_situacao(sit_id)
                 por_situacao[sit_nome] = len(reservas)
                 situacoes_ok.add(int(sit_id))
-                print(f"[SYNC] Situacao '{sit_nome}' ({sit_id}): {len(reservas)} reservas encontradas")
+                logger.info("[SYNC] Situacao '%s' (%s): %s reservas encontradas", sit_nome, sit_id, len(reservas))
 
                 for info in reservas:
                     res_id = str(info.get("_reserva_id_normalizado") or "").strip()
@@ -1732,12 +1775,12 @@ async def perform_sync():
 
                     except Exception as item_err:
                         msg = f"Reserva {res_id} (sit {sit_id}): {item_err}"
-                        print(f"[SYNC][ERRO] {msg}")
+                        logger.error("[SYNC][ERRO] %s", msg)
                         erros_sync.append(msg)
 
             except Exception as sit_err:
                 msg = f"Situacao {sit_nome} ({sit_id}): {sit_err}"
-                print(f"[SYNC][ERRO] {msg}")
+                logger.error("[SYNC][ERRO] %s", msg)
                 erros_sync.append(msg)
                 por_situacao[sit_nome] = -1  # -1 indica falha de fetch
                 situacoes_falharam.append({"situacao_id": sit_id, "situacao_nome": sit_nome, "fonte": source_key})
@@ -1791,15 +1834,29 @@ async def perform_sync():
         _LAST_SYNC_STATE["removidas_na_limpeza"] = removidas_na_limpeza
 
         if erros_sync:
-            print(
-                f"[SYNC] Concluído com {len(erros_sync)} erros. "
-                f"Total CRM: {len(ids_no_crm)}. Limpeza: {limpeza_escopo}, removidas: {removidas_na_limpeza}"
+            logger.warning(
+                "[SYNC] Concluido com %s erros. Total CRM: %s. Limpeza: %s, removidas: %s",
+                len(erros_sync), len(ids_no_crm), limpeza_escopo, removidas_na_limpeza
             )
         else:
-            print(
-                f"[SYNC] OK — {len(ids_no_crm)} reservas, {_LAST_SYNC_STATE['duracao_segundos']}s. "
-                f"Limpeza: {limpeza_escopo}, removidas: {removidas_na_limpeza}"
+            logger.info(
+                "[SYNC] OK — %s reservas, %ss. Limpeza: %s, removidas: %s",
+                len(ids_no_crm), _LAST_SYNC_STATE['duracao_segundos'], limpeza_escopo, removidas_na_limpeza
             )
+
+@app.post("/api/logout")
+async def analyst_logout():
+    resp = JSONResponse(content={"status": "ok"})
+    resp.delete_cookie("analystToken", httponly=True, samesite="lax")
+    return resp
+
+
+@app.post("/api/gestor/logout")
+async def manager_logout():
+    resp = JSONResponse(content={"status": "ok"})
+    resp.delete_cookie("managerToken", httponly=True, samesite="lax")
+    return resp
+
 
 async def background_task():
     while True:
@@ -1898,13 +1955,19 @@ async def reset_all_data(authorization: Optional[str] = Header(default=None)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/gestor/login")
-async def manager_login(req: ManagerLoginRequest):
+@limiter.limit("5/minute")
+async def manager_login(request: Request, req: ManagerLoginRequest):
     admin = verify_admin_credentials(req.usuario, req.senha)
-    
+
     if not admin:
         raise HTTPException(status_code=401, detail="Usuário ou senha do admin inválidos")
 
-    return serialize_admin_session(admin)
+    session_data = serialize_admin_session(admin)
+    token = session_data.pop("token", None)
+    resp = JSONResponse(content=session_data)
+    if token:
+        resp.set_cookie("managerToken", token, httponly=True, secure=False, samesite="lax", max_age=MANAGER_TOKEN_TTL_SECONDS)
+    return resp
 
 
 @app.get("/api/gestor/admins")
@@ -2036,7 +2099,8 @@ async def revoke_user_sessions(req: SessionRevokeRequest, authorization: Optiona
 
 
 @app.post("/api/login")
-async def login(req: LoginRequest):
+@limiter.limit("10/minute")
+async def login(request: Request, req: LoginRequest):
     try:
         res = (
             supabase.table("analistas")
@@ -2056,7 +2120,12 @@ async def login(req: LoginRequest):
         if not validate_analyst_password(req.analista_id, senha_recebida, senha_cadastrada):
             raise HTTPException(status_code=401, detail="Senha incorreta")
         analista = ensure_analyst_online_on_login(analista)
-        return serialize_analyst_session(analista)
+        session_data = serialize_analyst_session(analista)
+        token = session_data.pop("token", None)
+        resp = JSONResponse(content=session_data)
+        if token:
+            resp.set_cookie("analystToken", token, httponly=True, secure=False, samesite="lax", max_age=ANALYST_TOKEN_TTL_SECONDS)
+        return resp
     except HTTPException:
         raise
     except Exception as e:
@@ -2064,7 +2133,8 @@ async def login(req: LoginRequest):
 
 
 @app.post("/api/login/email")
-async def login_email(req: LoginEmailRequest):
+@limiter.limit("10/minute")
+async def login_email(request: Request, req: LoginEmailRequest):
     """Login do analista com e-mail e senha."""
     email_normalizado = (req.email or "").strip().lower()
     senha_recebida = (req.senha or "").strip()
@@ -2092,7 +2162,12 @@ async def login_email(req: LoginEmailRequest):
             raise HTTPException(status_code=401, detail="E-mail ou senha incorretos")
 
         analista = ensure_analyst_online_on_login(analista)
-        return serialize_analyst_session(analista)
+        session_data = serialize_analyst_session(analista)
+        token = session_data.pop("token", None)
+        resp = JSONResponse(content=session_data)
+        if token:
+            resp.set_cookie("analystToken", token, httponly=True, secure=False, samesite="lax", max_age=ANALYST_TOKEN_TTL_SECONDS)
+        return resp
     except HTTPException:
         raise
     except Exception as e:
@@ -2142,10 +2217,7 @@ async def forgot_password(req: ForgotPasswordRequest):
                 "reset_token_hash": None,
                 "reset_token_expires": None,
             }).eq("id", analista["id"]).execute()
-            print(
-                f"[ERRO] Reset de senha não entregue para {email_normalizado}. "
-                "Token invalidado após falha de SMTP."
-            )
+            logger.error("[SMTP] Reset de senha nao entregue para %s. Token invalidado apos falha de SMTP.", email_normalizado)
 
         return RESPOSTA_PADRAO
     except HTTPException:
